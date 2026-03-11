@@ -29,27 +29,51 @@ git checkout -b $TASK_TYPE/$TASK_NAME
 
 Do the implementation work here — create files, write code, run tests locally.
 
-### 3. Commit changes
+### 3. AI Self-Review & Audit 🤖
 
-Make small, atomic commits as you go:
+Before pushing, perform a systematic review:
+1. **Logic**: Check for edge cases (empty data, network timeouts).
+2. **Performance**: Verify Big O complexity (especially in data loops).
+3. **Type Safety**: Ensure all new functions have strict type hints.
+4. **Consistency**: Follow the project's architectural patterns.
+
+If issues are found, fix them before moving to step 4.
+
+### 4. Commit changes
+
+Make small, atomic commits:
 ```bash
 git add -A
 git commit -m "$TASK_TYPE: $DESCRIPTION"
 ```
 
-If the work has multiple logical parts, make multiple commits.
+### 5. Push and create Standardized PR
 
-### 4. Push and create PR
+Use the professional template for the PR body:
 
 ```bash
+PR_TEMPLATE="## Summary
+$DESCRIPTION
+
+## Type of Change
+- [x] $([[ $TASK_TYPE == "feat" ]] && echo "✨ Feature" || echo "$TASK_TYPE")
+- [ ] 🐛 Bug Fix
+- [ ] ⚡ Performance
+- [ ] 🧪 Test
+
+## AI Review Notes
+- [Check 1]: Logic verified for $TASK_NAME
+- [Check 2]: Type safety confirmed with Mypy
+- [Check 3]: Performance audit complete
+
+## Testing Results
+- [x] Local Tests Passed
+"
+
 git push -u origin $TASK_TYPE/$TASK_NAME
 gh pr create \
   --title "$TASK_TYPE: $DESCRIPTION" \
-  --body "## Changes
-- <list changes>
-
-## Testing
-- <describe what was tested>" \
+  --body "$PR_TEMPLATE" \
   --base main
 ```
 
