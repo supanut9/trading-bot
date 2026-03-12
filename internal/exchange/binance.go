@@ -17,11 +17,11 @@ const (
 )
 
 type Binance struct {
-	mu          sync.RWMutex
-	conns       []*websocket.Conn
-	stopCh      chan struct{}
-	candleChs   map[string]chan Candle
-	tickerChs   map[string]chan Ticker
+	mu        sync.RWMutex
+	conns     []*websocket.Conn
+	stopCh    chan struct{}
+	candleChs map[string]chan Candle
+	tickerChs map[string]chan Ticker
 }
 
 func NewBinance() *Binance {
@@ -98,7 +98,7 @@ func (b *Binance) connectAndListen(url string, streamType string, key string) {
 			b.mu.Unlock()
 
 			log.Printf("Connected to Binance WS: %s", url)
-			
+
 			for {
 				_, message, err := conn.ReadMessage()
 				if err != nil {
@@ -112,7 +112,7 @@ func (b *Binance) connectAndListen(url string, streamType string, key string) {
 					b.handleTicker(message, key)
 				}
 			}
-			
+
 			conn.Close()
 			time.Sleep(1 * time.Second)
 		}

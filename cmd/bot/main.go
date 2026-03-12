@@ -50,7 +50,7 @@ func main() {
 	defer ex.Close()
 
 	rm := risk.NewAdvancedRiskManager(0.1, 0.01, 0.02) // Max 0.1 BTC, Risk 1%, 2% daily loss limit
-	exe := executor.NewPaperExecutor(0.0001) // 0.01% commission
+	exe := executor.NewPaperExecutor(0.0001)           // 0.01% commission
 
 	// 5. State Management & Recovery
 	equity, err := store.GetLastEquity()
@@ -72,7 +72,7 @@ func main() {
 			entryPrice = pos.Entry
 			highWaterMark = pos.HWM
 			log.Printf("Recovered Position: %f %s at %f (HWM: %f)", currentPositionSize, displaySymbol, entryPrice, highWaterMark)
-			
+
 			// Sync with dashboard
 			apiServer.SetPositions([]api.Position{
 				{Symbol: displaySymbol, Side: "BUY", Size: currentPositionSize, Entry: entryPrice},
@@ -95,7 +95,7 @@ func main() {
 	go func() {
 		for t := range tickerCh {
 			currentPrice = t.Price
-			
+
 			// 1. Trailing Stop Loss Logic
 			if currentPositionSize > 0 {
 				// Update High Water Mark
@@ -108,7 +108,7 @@ func main() {
 				stopPrice := highWaterMark * (1 - trailingStopPct)
 				if currentPrice <= stopPrice {
 					log.Printf("TRAILING STOP TRIGGERED: %f <= %f", currentPrice, stopPrice)
-					
+
 					fill, _ := exe.Execute(executor.Order{
 						Symbol: symbol,
 						Side:   "SELL",
@@ -120,11 +120,11 @@ func main() {
 					equity += (fill.Price * fill.Size) - fill.Fee
 					currentPositionSize = 0
 					highWaterMark = 0
-					
+
 					store.SaveEquity(equity)
 					store.SaveTrade(displaySymbol, "SELL", fill.Price, fill.Size)
 					store.SavePosition(displaySymbol, "BUY", 0, 0, 0)
-					
+
 					apiServer.SetPositions([]api.Position{})
 				}
 			}
@@ -148,7 +148,7 @@ func main() {
 		log.Printf("Listening for 1m candles for %s...", symbol)
 		for c := range candleCh {
 			log.Printf("Received Closed Candle: O:%f H:%f L:%f C:%f", c.Open, c.High, c.Low, c.Close)
-			
+
 			// Call Strategy Service
 			resp, err := stratClient.GetSignal(
 				displaySymbol,
@@ -167,7 +167,7 @@ func main() {
 
 			if resp.Side != "NONE" {
 				log.Printf("Received Signal: %s %f", resp.Side, resp.Size)
-				
+
 				finalSize, ok := rm.ValidateOrder(symbol, resp.Side, c.Close, resp.Size, equity)
 				if !ok {
 					continue
@@ -235,7 +235,7 @@ func main() {
 		log.Println("Panic initiated via API...")
 		if currentPositionSize > 0 {
 			log.Printf("EMERGENCY: Closing position %f for %s at %f", currentPositionSize, displaySymbol, currentPrice)
-			
+
 			fill, _ := exe.Execute(executor.Order{
 				Symbol: symbol,
 				Side:   "SELL",
@@ -247,11 +247,11 @@ func main() {
 			equity += (fill.Price * fill.Size) - fill.Fee
 			currentPositionSize = 0
 			highWaterMark = 0
-			
+
 			store.SaveEquity(equity)
 			store.SaveTrade(displaySymbol, "SELL", fill.Price, fill.Size)
 			store.SavePosition(displaySymbol, "BUY", 0, 0, 0)
-			
+
 			apiServer.SetPositions([]api.Position{})
 		}
 	}

@@ -17,9 +17,9 @@ func NewPaperExecutor(commission float64) *PaperExecutor {
 
 func (p *PaperExecutor) Execute(order Order) (*Fill, error) {
 	log.Printf("[PaperExecutor] Executing %s %f %s at %f", order.Side, order.Size, order.Symbol, order.Price)
-	
+
 	fee := order.Price * order.Size * p.CommissionRate
-	
+
 	return &Fill{
 		Symbol:    order.Symbol,
 		Side:      order.Side,

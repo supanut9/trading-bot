@@ -13,24 +13,24 @@ type RiskManager interface {
 }
 
 type AdvancedRiskManager struct {
-	MaxPositionSize    float64   // Absolute max size in base currency
-	MaxRiskPerTrade    float64   // % of equity to risk per trade (0.01 = 1%)
-	DailyLossLimit     float64   // % of equity (0.02 = 2%)
-	MaxDrawdown        float64   // % from ATH (0.10 = 10%)
-	
-	athEquity          float64
-	startOfDayEquity   float64
-	lastReset          time.Time
-	isHalted           bool
+	MaxPositionSize float64 // Absolute max size in base currency
+	MaxRiskPerTrade float64 // % of equity to risk per trade (0.01 = 1%)
+	DailyLossLimit  float64 // % of equity (0.02 = 2%)
+	MaxDrawdown     float64 // % from ATH (0.10 = 10%)
+
+	athEquity        float64
+	startOfDayEquity float64
+	lastReset        time.Time
+	isHalted         bool
 }
 
 func NewAdvancedRiskManager(maxSize float64, riskPerTrade float64, dailyLoss float64) *AdvancedRiskManager {
 	return &AdvancedRiskManager{
-		MaxPositionSize:  maxSize,
-		MaxRiskPerTrade:  riskPerTrade,
-		DailyLossLimit:   dailyLoss,
-		MaxDrawdown:      0.10, // 10% default
-		lastReset:        time.Now(),
+		MaxPositionSize: maxSize,
+		MaxRiskPerTrade: riskPerTrade,
+		DailyLossLimit:  dailyLoss,
+		MaxDrawdown:     0.10, // 10% default
+		lastReset:       time.Now(),
 	}
 }
 
