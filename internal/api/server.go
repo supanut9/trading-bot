@@ -23,16 +23,20 @@ type Position struct {
 }
 
 type APIServer struct {
-	router  *gin.Engine
-	clients map[*websocket.Conn]bool
-	mu      sync.Mutex
+	router    *gin.Engine
+	clients   map[*websocket.Conn]bool
+	mu        sync.Mutex
+	positions []Position
+	PanicCh   chan bool
 }
 
 func NewAPIServer() *APIServer {
 	gin.SetMode(gin.ReleaseMode)
 	s := &APIServer{
-		router:  gin.Default(),
-		clients: make(map[*websocket.Conn]bool),
+		router:    gin.Default(),
+		clients:   make(map[*websocket.Conn]bool),
+		positions: []Position{},
+		PanicCh:   make(chan bool, 1),
 	}
 
 	s.setupRoutes()
@@ -43,16 +47,27 @@ func (s *APIServer) setupRoutes() {
 	v1 := s.router.Group("/api/v1")
 	{
 		v1.GET("/positions", s.handlePositions)
+		v1.POST("/panic", s.handlePanic)
 		v1.GET("/ws/metrics", s.handleWebSocket)
 	}
 }
 
 func (s *APIServer) handlePositions(c *gin.Context) {
-	// Mock positions
-	positions := []Position{
-		{Symbol: "BTC/USDT", Side: "BUY", Size: 0.1, Entry: 68500.0},
-	}
-	c.JSON(http.StatusOK, positions)
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	c.JSON(http.StatusOK, s.positions)
+}
+
+func (s *APIServer) SetPositions(positions []Position) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.positions = positions
+}
+
+func (s *APIServer) handlePanic(c *gin.Context) {
+	log.Println("PANIC BUTTON PRESSED!")
+	s.PanicCh <- true
+	c.JSON(http.StatusOK, gin.H{"status": "panic_initiated"})
 }
 
 func (s *APIServer) handleWebSocket(c *gin.Context) {
