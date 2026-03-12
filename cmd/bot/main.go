@@ -38,9 +38,13 @@ func main() {
 	}()
 
 	// 3. Initialize Strategy Client
-	stratClient, err := strategy.NewClient("localhost:50051")
+	stratAddr := os.Getenv("STRATEGY_SERVICE_URL")
+	if stratAddr == "" {
+		stratAddr = "localhost:50051"
+	}
+	stratClient, err := strategy.NewClient(stratAddr)
 	if err != nil {
-		log.Fatalf("Failed to connect to Strategy Service: %v", err)
+		log.Fatalf("Failed to connect to Strategy Service at %s: %v", stratAddr, err)
 	}
 	defer stratClient.Close()
 	log.Println("Connected to Strategy Service")
