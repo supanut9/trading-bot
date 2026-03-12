@@ -7,6 +7,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
+	"github.com/supanut9/trading-bot/internal/db"
 )
 
 var upgrader = websocket.Upgrader{
@@ -28,6 +29,7 @@ type APIServer struct {
 	mu        sync.Mutex
 	positions []Position
 	PanicCh   chan bool
+	store     *db.Store
 }
 
 func CORSMiddleware() gin.HandlerFunc {
@@ -46,7 +48,7 @@ func CORSMiddleware() gin.HandlerFunc {
 	}
 }
 
-func NewAPIServer() *APIServer {
+func NewAPIServer(store *db.Store) *APIServer {
 	gin.SetMode(gin.ReleaseMode)
 	router := gin.Default()
 	router.Use(CORSMiddleware())
@@ -56,6 +58,7 @@ func NewAPIServer() *APIServer {
 		clients:   make(map[*websocket.Conn]bool),
 		positions: []Position{},
 		PanicCh:   make(chan bool, 1),
+		store:     store,
 	}
 
 	s.setupRoutes()
@@ -66,6 +69,7 @@ func (s *APIServer) setupRoutes() {
 	v1 := s.router.Group("/api/v1")
 	{
 		v1.GET("/positions", s.handlePositions)
+		v1.GET("/trades", s.handleTrades)
 		v1.POST("/panic", s.handlePanic)
 		v1.GET("/ws/metrics", s.handleWebSocket)
 	}
@@ -75,6 +79,19 @@ func (s *APIServer) handlePositions(c *gin.Context) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	c.JSON(http.StatusOK, s.positions)
+}
+
+func (s *APIServer) handleTrades(c *gin.Context) {
+	if s.store == nil {
+		c.JSON(http.StatusOK, []interface{}{})
+		return
+	}
+	trades, err := s.store.GetLastTrades(50)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, trades)
 }
 
 func (s *APIServer) SetPositions(positions []Position) {

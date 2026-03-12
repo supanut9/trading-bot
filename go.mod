@@ -5,6 +5,7 @@ go 1.24.3
 require (
 	github.com/gin-gonic/gin v1.10.0
 	github.com/gorilla/websocket v1.5.3
+	github.com/mattn/go-sqlite3 v1.14.34
 	google.golang.org/grpc v1.79.2
 	google.golang.org/protobuf v1.36.10
 )
