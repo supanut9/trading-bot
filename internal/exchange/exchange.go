@@ -30,6 +30,9 @@ type Exchange interface {
 	// WatchTicker returns a channel that receives real-time price updates
 	WatchTicker(symbol string) (<-chan Ticker, error)
 
+	// PlaceOrder executes an order on the exchange
+	PlaceOrder(symbol string, side string, orderType string, size float64, price float64) (float64, float64, error)
+
 	// Close closes all WebSocket connections
 	Close() error
 }

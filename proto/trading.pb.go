@@ -126,6 +126,7 @@ type SignalResponse struct {
 	Symbol        string                 `protobuf:"bytes,1,opt,name=symbol,proto3" json:"symbol,omitempty"`
 	Side          string                 `protobuf:"bytes,2,opt,name=side,proto3" json:"side,omitempty"` // "BUY", "SELL", "NONE"
 	Size          float64                `protobuf:"fixed64,3,opt,name=size,proto3" json:"size,omitempty"`
+	Timestamp     string                 `protobuf:"bytes,4,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -181,6 +182,13 @@ func (x *SignalResponse) GetSize() float64 {
 	return 0
 }
 
+func (x *SignalResponse) GetTimestamp() string {
+	if x != nil {
+		return x.Timestamp
+	}
+	return ""
+}
+
 var File_proto_trading_proto protoreflect.FileDescriptor
 
 const file_proto_trading_proto_rawDesc = "" +
@@ -194,11 +202,12 @@ const file_proto_trading_proto_rawDesc = "" +
 	"\x03low\x18\x05 \x01(\x01R\x03low\x12\x14\n" +
 	"\x05close\x18\x06 \x01(\x01R\x05close\x12\x16\n" +
 	"\x06volume\x18\a \x01(\x01R\x06volume\x12\x1c\n" +
-	"\ttimestamp\x18\b \x01(\tR\ttimestamp\"P\n" +
+	"\ttimestamp\x18\b \x01(\tR\ttimestamp\"n\n" +
 	"\x0eSignalResponse\x12\x16\n" +
 	"\x06symbol\x18\x01 \x01(\tR\x06symbol\x12\x12\n" +
 	"\x04side\x18\x02 \x01(\tR\x04side\x12\x12\n" +
-	"\x04size\x18\x03 \x01(\x01R\x04size2O\n" +
+	"\x04size\x18\x03 \x01(\x01R\x04size\x12\x1c\n" +
+	"\ttimestamp\x18\x04 \x01(\tR\ttimestamp2O\n" +
 	"\x0fStrategyService\x12<\n" +
 	"\tGetSignal\x12\x16.trading.CandleRequest\x1a\x17.trading.SignalResponseB/Z-github.com/supanut9/trading-bot/proto/tradingb\x06proto3"
 

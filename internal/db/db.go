@@ -8,12 +8,12 @@ import (
 )
 
 type TradeRecord struct {
-	ID        int
-	Symbol    string
-	Side      string
-	Price     float64
-	Size      float64
-	Timestamp time.Time
+	ID        int       `json:"id"`
+	Symbol    string    `json:"symbol"`
+	Side      string    `json:"side"`
+	Price     float64   `json:"price"`
+	Size      float64   `json:"size"`
+	Timestamp time.Time `json:"timestamp"`
 }
 
 type Store struct {
@@ -86,9 +86,13 @@ func (s *Store) GetLastEquity() (float64, error) {
 	return equity, err
 }
 
-func (s *Store) SaveTrade(symbol, side string, price, size float64) error {
+func (s *Store) SaveTrade(symbol, side string, price, size float64, timestamp ...time.Time) error {
+	t := time.Now()
+	if len(timestamp) > 0 {
+		t = timestamp[0]
+	}
 	_, err := s.db.Exec("INSERT INTO trades (symbol, side, price, size, timestamp) VALUES (?, ?, ?, ?, ?)",
-		symbol, side, price, size, time.Now())
+		symbol, side, price, size, t)
 	return err
 }
 

@@ -202,6 +202,15 @@ func (b *Binance) handleTicker(message []byte, key string) {
 	}
 }
 
+func (b *Binance) PlaceOrder(symbol string, side string, orderType string, size float64, price float64) (float64, float64, error) {
+	log.Printf("[Binance] Placeholder PlaceOrder: %s %s %f", side, symbol, size)
+	// In a real implementation, this would call the Binance REST API
+	// Returning the price passed in (or 0 if market) and a 0.1% fee
+	fillPrice := price
+	fee := fillPrice * size * 0.001
+	return fillPrice, fee, nil
+}
+
 func (b *Binance) Close() error {
 	close(b.stopCh)
 	b.mu.Lock()

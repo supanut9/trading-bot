@@ -8,6 +8,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 	"github.com/supanut9/trading-bot/internal/db"
+	"github.com/supanut9/trading-bot/internal/risk"
 )
 
 var upgrader = websocket.Upgrader{
@@ -30,6 +31,7 @@ type APIServer struct {
 	positions []Position
 	PanicCh   chan bool
 	store     *db.Store
+	rm        risk.RiskManager
 }
 
 func CORSMiddleware() gin.HandlerFunc {
@@ -48,7 +50,7 @@ func CORSMiddleware() gin.HandlerFunc {
 	}
 }
 
-func NewAPIServer(store *db.Store) *APIServer {
+func NewAPIServer(store *db.Store, rm risk.RiskManager) *APIServer {
 	gin.SetMode(gin.ReleaseMode)
 	router := gin.Default()
 	router.Use(CORSMiddleware())
@@ -59,6 +61,7 @@ func NewAPIServer(store *db.Store) *APIServer {
 		positions: []Position{},
 		PanicCh:   make(chan bool, 1),
 		store:     store,
+		rm:        rm,
 	}
 
 	s.setupRoutes()
@@ -72,7 +75,33 @@ func (s *APIServer) setupRoutes() {
 		v1.GET("/trades", s.handleTrades)
 		v1.POST("/panic", s.handlePanic)
 		v1.GET("/ws/metrics", s.handleWebSocket)
+		v1.GET("/risk", s.handleRisk)
+		v1.PUT("/risk", s.handleUpdateRisk)
 	}
+}
+
+func (s *APIServer) handleRisk(c *gin.Context) {
+	if s.rm == nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Risk Manager not initialized"})
+		return
+	}
+	c.JSON(http.StatusOK, s.rm.GetSettings())
+}
+
+func (s *APIServer) handleUpdateRisk(c *gin.Context) {
+	if s.rm == nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Risk Manager not initialized"})
+		return
+	}
+
+	var settings risk.RiskSettings
+	if err := c.ShouldBindJSON(&settings); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	s.rm.UpdateSettings(settings)
+	c.JSON(http.StatusOK, gin.H{"status": "updated", "settings": s.rm.GetSettings()})
 }
 
 func (s *APIServer) handlePositions(c *gin.Context) {

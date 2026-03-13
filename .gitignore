@@ -18,3 +18,4 @@ config/live.yaml
 
 # Docker
 .docker/
+*.db

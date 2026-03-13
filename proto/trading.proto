@@ -23,4 +23,5 @@ message SignalResponse {
     string symbol = 1;
     string side = 2; // "BUY", "SELL", "NONE"
     double size = 3;
+    string timestamp = 4;
 }

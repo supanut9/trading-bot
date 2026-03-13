@@ -29,15 +29,18 @@ func main() {
 	}
 	defer store.Close()
 
-	// 2. Initialize API Server
-	apiServer := api.NewAPIServer(store)
+	// 2. Initialize Risk Manager
+	rm := risk.NewAdvancedRiskManager(0.1, 0.01, 0.02) // Max 0.1 BTC, Risk 1%, 2% daily loss limit
+
+	// 3. Initialize API Server
+	apiServer := api.NewAPIServer(store, rm)
 	go func() {
 		if err := apiServer.Run(":8081"); err != nil {
 			log.Fatalf("API Server failed: %v", err)
 		}
 	}()
 
-	// 3. Initialize Strategy Client
+	// 4. Initialize Strategy Client
 	stratAddr := os.Getenv("STRATEGY_SERVICE_URL")
 	if stratAddr == "" {
 		stratAddr = "localhost:50051"
@@ -49,12 +52,20 @@ func main() {
 	defer stratClient.Close()
 	log.Println("Connected to Strategy Service")
 
-	// 4. Initialize Exchange, Risk & Executor
+	// 5. Initialize Exchange & Executor
 	ex := exchange.NewBinance()
 	defer ex.Close()
 
-	rm := risk.NewAdvancedRiskManager(0.1, 0.01, 0.02) // Max 0.1 BTC, Risk 1%, 2% daily loss limit
-	exe := executor.NewPaperExecutor(0.0001)           // 0.01% commission
+	var exe executor.Executor
+	botMode := os.Getenv("BOT_MODE")
+	if botMode == "live" {
+		log.Println("WARNING: BOT IS RUNNING IN LIVE MODE")
+		exe = executor.NewLiveExecutor(ex)
+	} else {
+		botMode = "paper"
+		log.Println("Bot is running in PAPER mode")
+		exe = executor.NewPaperExecutor(0.001) // 0.1% commission
+	}
 
 	// 5. State Management & Recovery
 	equity, err := store.GetLastEquity()
@@ -126,7 +137,7 @@ func main() {
 					highWaterMark = 0
 
 					store.SaveEquity(equity)
-					store.SaveTrade(displaySymbol, "SELL", fill.Price, fill.Size)
+					store.SaveTrade(displaySymbol, "SELL", fill.Price, fill.Size, t.Time)
 					store.SavePosition(displaySymbol, "BUY", 0, 0, 0)
 
 					apiServer.SetPositions([]api.Position{})
@@ -142,6 +153,7 @@ func main() {
 				"equity":    equity,
 				"symbol":    displaySymbol,
 				"price":     currentPrice,
+				"bot_mode":  botMode,
 			}
 			apiServer.BroadcastMetric(metric)
 		}
@@ -172,7 +184,7 @@ func main() {
 			if resp.Side != "NONE" {
 				log.Printf("Received Signal: %s %f", resp.Side, resp.Size)
 
-				finalSize, ok := rm.ValidateOrder(symbol, resp.Side, c.Close, resp.Size, equity)
+				finalSize, ok := rm.ValidateOrder(symbol, resp.Side, c.Close, resp.Size, equity, trailingStopPct)
 				if !ok {
 					continue
 				}
@@ -210,8 +222,15 @@ func main() {
 				}
 
 				// Persist State
+				tradeTime := time.Now()
+				if resp.Timestamp != "" {
+					if parsedTime, err := time.Parse(time.RFC3339, resp.Timestamp); err == nil {
+						tradeTime = parsedTime
+					}
+				}
+
 				store.SaveEquity(equity)
-				store.SaveTrade(displaySymbol, fill.Side, fill.Price, fill.Size)
+				store.SaveTrade(displaySymbol, fill.Side, fill.Price, fill.Size, tradeTime)
 				store.SavePosition(displaySymbol, "BUY", currentPositionSize, entryPrice, highWaterMark)
 
 				// Update dashboard

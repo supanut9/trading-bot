@@ -64,6 +64,11 @@ func (m *MockExchange) WatchTicker(symbol string) (<-chan Ticker, error) {
 	return ch, nil
 }
 
+func (m *MockExchange) PlaceOrder(symbol string, side string, orderType string, size float64, price float64) (float64, float64, error) {
+	fee := price * size * 0.001
+	return price, fee, nil
+}
+
 func (m *MockExchange) Close() error {
 	close(m.stopCh)
 	return nil

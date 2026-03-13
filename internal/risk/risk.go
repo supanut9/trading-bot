@@ -5,11 +5,23 @@ import (
 	"time"
 )
 
+type RiskSettings struct {
+	MaxPositionSize float64 `json:"max_position_size"`
+	MaxRiskPerTrade float64 `json:"max_risk_per_trade"`
+	DailyLossLimit  float64 `json:"daily_loss_limit"`
+	MaxDrawdown     float64 `json:"max_drawdown"`
+	IsHalted        bool    `json:"is_halted"`
+}
+
 type RiskManager interface {
 	// ValidateOrder checks if an order is allowed and returns the adjusted size
-	ValidateOrder(symbol string, side string, currentPrice float64, requestedSize float64, currentEquity float64) (float64, bool)
+	ValidateOrder(symbol string, side string, currentPrice float64, requestedSize float64, currentEquity float64, stopLossPct float64) (float64, bool)
 	// CheckCircuitBreaker returns true if trading should be halted
 	CheckCircuitBreaker(currentEquity float64, initialEquity float64) bool
+	// GetSettings returns current risk configuration
+	GetSettings() RiskSettings
+	// UpdateSettings updates the risk configuration
+	UpdateSettings(settings RiskSettings)
 }
 
 type AdvancedRiskManager struct {
@@ -34,30 +46,73 @@ func NewAdvancedRiskManager(maxSize float64, riskPerTrade float64, dailyLoss flo
 	}
 }
 
-func (r *AdvancedRiskManager) ValidateOrder(symbol string, side string, price float64, size float64, equity float64) (float64, bool) {
+func (r *AdvancedRiskManager) GetSettings() RiskSettings {
+	return RiskSettings{
+		MaxPositionSize: r.MaxPositionSize,
+		MaxRiskPerTrade: r.MaxRiskPerTrade,
+		DailyLossLimit:  r.DailyLossLimit,
+		MaxDrawdown:     r.MaxDrawdown,
+		IsHalted:        r.isHalted,
+	}
+}
+
+func (r *AdvancedRiskManager) UpdateSettings(settings RiskSettings) {
+	r.MaxPositionSize = settings.MaxPositionSize
+	r.MaxRiskPerTrade = settings.MaxRiskPerTrade
+	r.DailyLossLimit = settings.DailyLossLimit
+	r.MaxDrawdown = settings.MaxDrawdown
+	r.isHalted = settings.IsHalted
+	log.Printf("Risk Manager: Settings updated from API")
+}
+
+func (r *AdvancedRiskManager) ValidateOrder(symbol string, side string, price float64, requestedSize float64, equity float64, stopLossPct float64) (float64, bool) {
 	if r.isHalted {
 		log.Printf("Risk Manager: Trading is HALTED due to risk limits")
 		return 0, false
 	}
 
-	// 1. Calculate size based on % of equity if size is 0 or too large
-	// If requested size is > MaxPositionSize, cap it
-	finalSize := size
-	if size > r.MaxPositionSize {
+	// 1. Calculate Max Position Value allowed based on Risk
+	// Risk = PositionValue * StopLossPct
+	// MaxRisk = Equity * MaxRiskPerTrade
+	// PositionValue * StopLossPct <= Equity * MaxRiskPerTrade
+	// PositionValue <= (Equity * MaxRiskPerTrade) / StopLossPct
+
+	maxRiskValue := equity * r.MaxRiskPerTrade
+	maxPositionValue := maxRiskValue / stopLossPct
+
+	// 2. Cap by Absolute Max Position Size (in Asset units)
+	maxSizeByRisk := maxPositionValue / price
+
+	finalSize := requestedSize
+	if finalSize > maxSizeByRisk {
+		log.Printf("Risk Manager: Reduced size %.4f -> %.4f (Risk Limit: Risking $%.2f)", finalSize, maxSizeByRisk, maxRiskValue)
+		finalSize = maxSizeByRisk
+	}
+
+	if finalSize > r.MaxPositionSize {
+		log.Printf("Risk Manager: Reduced size %.4f -> %.4f (Max Position Cap)", finalSize, r.MaxPositionSize)
 		finalSize = r.MaxPositionSize
 	}
 
-	// 2. Ensure we don't buy more than we can afford (simple check)
-	if side == "BUY" && (finalSize*price) > equity {
-		finalSize = (equity * 0.95) / price // Use 95% of equity max
+	// 3. Ensure we have enough Equity (with a buffer)
+	// We can't buy more than we have cash for.
+	if side == "BUY" {
+		cost := finalSize * price
+		if cost > (equity * 0.98) { // Keep 2% buffer for fees/slippage
+			newSize := (equity * 0.98) / price
+			log.Printf("Risk Manager: Reduced size %.4f -> %.4f (Insufficient Equity)", finalSize, newSize)
+			finalSize = newSize
+		}
 	}
 
-	if finalSize <= 0 {
+	if finalSize <= 0.0001 { // Minimum viable size
+		log.Printf("Risk Manager: Size %.4f too small, rejecting order", finalSize)
 		return 0, false
 	}
 
 	return finalSize, true
 }
+
 
 func (r *AdvancedRiskManager) CheckCircuitBreaker(currentEquity float64, initialEquity float64) bool {
 	// Initialize ATH and Daily Start if first run
