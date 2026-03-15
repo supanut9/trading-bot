@@ -29,6 +29,13 @@ Build a maintainable trading bot that supports research, backtesting, paper trad
 - persist bot state and logs
 - expose minimal operational API
 
+## Current Risk Policy Baseline
+
+- paper trading only
+- fixed risk per trade
+- max open positions limit
+- daily loss limit before execution approval
+
 ## Development Infrastructure
 
 - local database: PostgreSQL via Docker Compose

@@ -120,7 +120,7 @@ Main outputs:
 
 Status:
 
-- planned
+- implemented on branch
 
 Scope:
 
@@ -188,10 +188,9 @@ Main outputs:
 
 ## Next Recommended Feature
 
-`feature/strategy-engine`
+`feature/paper-execution`
 
 Reason:
 
-- the data layer now exists
-- strategy logic is the next stable business boundary
-- risk and execution should build on a concrete signal model instead of placeholders
+- strategy and risk policies now exist as pure domain logic
+- the next missing step is turning approved intent into paper orders, trades, and positions
