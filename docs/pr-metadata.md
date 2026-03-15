@@ -16,6 +16,37 @@ Optional labels:
 
 - one `status:*` label when workflow state needs to be visible
 
+### Type Labels
+
+- `type:feature`
+- `type:fix`
+- `type:chore`
+- `type:docs`
+- `type:test`
+- `type:refactor`
+
+### Area Labels
+
+- `area:strategy`
+- `area:risk`
+- `area:execution`
+- `area:market-data`
+- `area:api`
+- `area:database`
+- `area:infra`
+- `area:docs`
+
+### Status Labels
+
+- `status:ready`
+- `status:blocked`
+
+### Risk Labels
+
+- `risk:low`
+- `risk:medium`
+- `risk:high`
+
 ## Assignees
 
 - default assignee: `@supanut9`
@@ -29,6 +60,12 @@ Recommended initial milestones:
 - `Phase 1 - Foundation`
 - `Phase 2 - Core Trading Flow`
 - `Phase 3 - Operations API`
+
+Suggested mapping:
+
+- foundation, persistence, and market-data work -> `Phase 1 - Foundation`
+- strategy, risk, paper execution, and worker orchestration -> `Phase 2 - Core Trading Flow`
+- API operations and operational visibility work -> `Phase 3 - Operations API`
 
 ## Projects
 
@@ -50,5 +87,4 @@ When PR feedback arrives:
 - `main` should only be updated through pull requests
 - PRs should resolve review threads before merge
 - PRs should have passing CI checks before merge
-- PRs should have at least one approval before merge
 - prefer squash merge for feature branches
