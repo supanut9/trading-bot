@@ -2,6 +2,7 @@ from decimal import Decimal
 from pathlib import Path
 
 import pytest
+from sqlalchemy import func, select
 
 from app.application.services.paper_execution_service import (
     PaperExecutionRequest,
@@ -9,19 +10,21 @@ from app.application.services.paper_execution_service import (
 )
 from app.config import Settings
 from app.infrastructure.database.base import Base
+from app.infrastructure.database.models.order import OrderRecord
+from app.infrastructure.database.models.trade import TradeRecord
 from app.infrastructure.database.session import create_engine_from_settings, create_session_factory
 
 
-def build_service(tmp_path: Path) -> PaperExecutionService:
+def build_service(tmp_path: Path) -> tuple[PaperExecutionService, object]:
     settings = Settings(DATABASE_URL=f"sqlite:///{tmp_path / 'paper_execution.db'}")
     engine = create_engine_from_settings(settings)
     Base.metadata.create_all(bind=engine)
     session = create_session_factory(settings)()
-    return PaperExecutionService(session)
+    return PaperExecutionService(session), session
 
 
 def test_executes_buy_and_creates_filled_order_trade_and_position(tmp_path: Path) -> None:
-    service = build_service(tmp_path)
+    service, _session = build_service(tmp_path)
 
     result = service.execute(
         PaperExecutionRequest(
@@ -42,7 +45,7 @@ def test_executes_buy_and_creates_filled_order_trade_and_position(tmp_path: Path
 
 
 def test_executes_sell_and_realizes_pnl(tmp_path: Path) -> None:
-    service = build_service(tmp_path)
+    service, _session = build_service(tmp_path)
     service.execute(
         PaperExecutionRequest(
             exchange="binance",
@@ -71,7 +74,7 @@ def test_executes_sell_and_realizes_pnl(tmp_path: Path) -> None:
 
 
 def test_rejects_sell_without_existing_position(tmp_path: Path) -> None:
-    service = build_service(tmp_path)
+    service, session = build_service(tmp_path)
 
     with pytest.raises(ValueError, match="cannot execute sell without an existing position"):
         service.execute(
@@ -83,3 +86,39 @@ def test_rejects_sell_without_existing_position(tmp_path: Path) -> None:
                 price=Decimal("52000"),
             )
         )
+
+    orders_count = session.scalar(select(func.count()).select_from(OrderRecord))
+    trades_count = session.scalar(select(func.count()).select_from(TradeRecord))
+
+    assert orders_count == 0
+    assert trades_count == 0
+
+
+def test_rejects_oversell_without_persisting_order_or_trade(tmp_path: Path) -> None:
+    service, session = build_service(tmp_path)
+    service.execute(
+        PaperExecutionRequest(
+            exchange="binance",
+            symbol="BTC/USDT",
+            side="buy",
+            quantity=Decimal("0.002"),
+            price=Decimal("50000"),
+        )
+    )
+
+    with pytest.raises(ValueError, match="cannot execute sell larger than existing position"):
+        service.execute(
+            PaperExecutionRequest(
+                exchange="binance",
+                symbol="BTC/USDT",
+                side="sell",
+                quantity=Decimal("0.003"),
+                price=Decimal("52000"),
+            )
+        )
+
+    orders_count = session.scalar(select(func.count()).select_from(OrderRecord))
+    trades_count = session.scalar(select(func.count()).select_from(TradeRecord))
+
+    assert orders_count == 1
+    assert trades_count == 1

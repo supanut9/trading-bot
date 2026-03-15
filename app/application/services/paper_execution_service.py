@@ -65,6 +65,10 @@ class PaperExecutionService:
             symbol=request.symbol,
             mode=request.mode,
         )
+        self._validate_request_against_position(
+            current_position=current_position,
+            request=request,
+        )
 
         order = self._orders.create(
             exchange=request.exchange,
@@ -141,10 +145,7 @@ class PaperExecutionService:
             )
             return position, Decimal("0")
 
-        if existing_quantity <= Decimal("0") or existing_average is None:
-            raise ValueError("cannot execute sell without an existing position")
-
-        closed_quantity = min(request.quantity, existing_quantity)
+        closed_quantity = request.quantity
         realized_pnl = (request.price - existing_average) * closed_quantity
         new_quantity = existing_quantity - closed_quantity
         new_average = existing_average if new_quantity > Decimal("0") else None
@@ -160,3 +161,21 @@ class PaperExecutionService:
             unrealized_pnl=Decimal("0"),
         )
         return position, realized_pnl
+
+    def _validate_request_against_position(
+        self,
+        *,
+        current_position: PositionRecord | None,
+        request: PaperExecutionRequest,
+    ) -> None:
+        if request.side != "sell":
+            return
+
+        if current_position is None or current_position.quantity <= Decimal("0"):
+            raise ValueError("cannot execute sell without an existing position")
+
+        if current_position.average_entry_price is None:
+            raise ValueError("existing position must have an average entry price")
+
+        if request.quantity > current_position.quantity:
+            raise ValueError("cannot execute sell larger than existing position")
