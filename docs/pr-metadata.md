@@ -89,12 +89,13 @@ Default mapping:
 When PR feedback arrives:
 
 1. inspect all open review threads
-2. trigger AI review for the PR when it has not run yet or after meaningful updates
-3. decide whether each comment should be fixed, answered, or declined
-4. implement the fix when appropriate
-5. rerun validation for the affected scope
-6. reply on the PR thread
-7. resolve the thread after the response or fix is in place
+2. rely on the automated AI-review trigger for normal PR lifecycle events
+3. manually retrigger AI review after meaningful updates when needed
+4. decide whether each comment should be fixed, answered, or declined
+5. implement the fix when appropriate
+6. rerun validation for the affected scope
+7. reply on the PR thread
+8. resolve the thread after the response or fix is in place
 
 ## Merge Gate
 
