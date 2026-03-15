@@ -33,7 +33,8 @@ class EmaCrossoverStrategy:
         self.slow_period = slow_period
 
     def evaluate(self, candles: Sequence[Candle]) -> Signal | None:
-        closes = [candle.close_price for candle in candles]
+        ordered_candles = sorted(candles, key=lambda candle: candle.open_time)
+        closes = [candle.close_price for candle in ordered_candles]
         minimum_candles = self.slow_period + 1
         if len(closes) < minimum_candles:
             return None

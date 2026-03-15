@@ -61,8 +61,25 @@ Build a paper-trading-first trading bot with backtesting, safe execution, and cl
 - `main` receives changes through pull requests only.
 - Do not merge a PR into `main` while required checks are failing or missing.
 - Do not merge a PR into `main` while unresolved review threads remain.
-- Require at least one approving review before merge unless the rule is intentionally relaxed later.
 - Prefer squash merge for feature branches unless preserving multiple commits is materially useful.
+
+## PR Metadata Policy
+
+- Every PR should have exactly one `type:*` label.
+- Every PR should have at least one `area:*` label and at most two.
+- Every PR should have one `risk:*` label.
+- Use `status:*` labels only for active workflow state such as ready or blocked.
+- Assign PRs to `@supanut9` by default unless told otherwise.
+- Use milestones for roadmap phases or feature groups, not for tiny tasks.
+- Use the `Trading Bot Delivery` GitHub Project for active PR tracking.
+
+## Review Workflow
+
+- When a PR has review comments or review threads, inspect them before making more feature changes.
+- Address review feedback in this order: understand the comment, decide whether to apply a fix, implement the change if valid, validate the affected area, then reply on the PR thread.
+- It is acceptable to decline a suggestion when it is incorrect or out of scope, but respond with a clear technical reason.
+- Resolve review threads only after the code or rationale has been posted back to the PR.
+- Do not merge while unresolved review threads remain unless the unresolved thread is explicitly acknowledged and intentionally deferred.
 
 ## Safety Rules
 

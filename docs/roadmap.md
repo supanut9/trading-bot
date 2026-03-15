@@ -31,8 +31,28 @@ Expected merge gate:
 2. CI checks pass
 3. review feedback is addressed
 4. review threads are resolved
-5. at least one approval exists
-6. PR is merged, preferably with squash merge
+5. PR is merged, preferably with squash merge
+
+## PR Metadata
+
+Default PR metadata should stay lightweight:
+
+- labels answer type, area, and risk
+- assignee defaults to the repo owner
+- milestones map to roadmap phases or grouped feature outcomes
+- GitHub Project tracking is used for active PR delivery
+
+## Review And Merge Rule
+
+Before merge:
+
+1. review comments are inspected
+2. valid comments are fixed
+3. validation is rerun for affected areas
+4. replies are posted on the PR
+5. review threads are resolved
+
+`main` should receive changes through PRs only, and PRs should clear review feedback before merge.
 
 ## Phase 1
 

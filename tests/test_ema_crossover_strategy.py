@@ -61,3 +61,13 @@ def test_returns_none_when_no_crossover_occurs() -> None:
     signal = strategy.evaluate(candles)
 
     assert signal is None
+
+
+def test_normalizes_newest_first_input_before_evaluating_ema() -> None:
+    strategy = EmaCrossoverStrategy(fast_period=3, slow_period=5)
+    candles = list(reversed(build_candles([10, 10, 10, 10, 10, 9, 9, 9, 20])))
+
+    signal = strategy.evaluate(candles)
+
+    assert signal is not None
+    assert signal.action == "buy"
