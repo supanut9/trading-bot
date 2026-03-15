@@ -24,6 +24,15 @@ def build_signal() -> Signal:
     )
 
 
+def build_exit_signal() -> Signal:
+    return Signal(
+        action="sell",
+        reason="test exit signal",
+        fast_value=Decimal("99"),
+        slow_value=Decimal("100"),
+    )
+
+
 def test_approves_trade_and_calculates_position_size() -> None:
     service = build_service()
 
@@ -91,6 +100,40 @@ def test_rejects_trade_when_daily_loss_limit_is_reached() -> None:
 
     assert decision.approved is False
     assert decision.reason == "daily loss limit reached"
+
+
+def test_allows_exit_signal_when_max_open_positions_is_reached() -> None:
+    service = build_service()
+
+    decision = service.evaluate(
+        portfolio=PortfolioState(
+            account_equity=Decimal("10000"),
+            open_positions=1,
+            daily_realized_loss_pct=Decimal("0.00"),
+            trading_mode="paper",
+        ),
+        trade=TradeContext(signal=build_exit_signal(), entry_price=Decimal("50000")),
+    )
+
+    assert decision.approved is True
+    assert decision.reason == "risk checks passed"
+
+
+def test_allows_exit_signal_when_daily_loss_limit_is_reached() -> None:
+    service = build_service()
+
+    decision = service.evaluate(
+        portfolio=PortfolioState(
+            account_equity=Decimal("10000"),
+            open_positions=1,
+            daily_realized_loss_pct=Decimal("0.03"),
+            trading_mode="paper",
+        ),
+        trade=TradeContext(signal=build_exit_signal(), entry_price=Decimal("50000")),
+    )
+
+    assert decision.approved is True
+    assert decision.reason == "risk checks passed"
 
 
 def test_rejects_trade_when_entry_price_is_invalid() -> None:

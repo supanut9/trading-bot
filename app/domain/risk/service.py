@@ -8,6 +8,8 @@ class RiskService:
         self._limits = limits
 
     def evaluate(self, portfolio: PortfolioState, trade: TradeContext) -> RiskDecision:
+        is_entry = trade.signal.action == "buy"
+
         if self._limits.paper_trading_only and portfolio.trading_mode != "paper":
             return RiskDecision(approved=False, reason="live trading is not allowed by risk policy")
 
@@ -17,13 +19,13 @@ class RiskService:
         if trade.entry_price <= Decimal("0"):
             return RiskDecision(approved=False, reason="entry price must be positive")
 
-        if portfolio.open_positions >= self._limits.max_open_positions:
+        if is_entry and portfolio.open_positions >= self._limits.max_open_positions:
             return RiskDecision(
                 approved=False,
                 reason="max open positions reached",
             )
 
-        if portfolio.daily_realized_loss_pct >= self._limits.max_daily_loss_pct:
+        if is_entry and portfolio.daily_realized_loss_pct >= self._limits.max_daily_loss_pct:
             return RiskDecision(
                 approved=False,
                 reason="daily loss limit reached",
