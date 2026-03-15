@@ -98,7 +98,25 @@ Main outputs:
 - signal generation tests
 - strategy behavior aligned with `docs/strategies/ema-crossover.md`
 
-### 5. `feature/risk-engine`
+### 5. `feature/repo-governance-ci`
+
+Status:
+
+- implemented on branch
+
+Scope:
+
+- main-branch merge policy
+- GitHub Actions CI workflow
+- branch protection alignment with CI checks
+
+Main outputs:
+
+- documented merge rules for `main`
+- automated lint and test checks on pull requests and pushes
+- branch protection ready to require CI checks
+
+### 6. `feature/risk-engine`
 
 Status:
 
@@ -116,7 +134,7 @@ Main outputs:
 - risk unit tests
 - documented approval rules
 
-### 6. `feature/paper-execution`
+### 7. `feature/paper-execution`
 
 Status:
 
@@ -134,7 +152,7 @@ Main outputs:
 - order and trade persistence flow
 - execution tests
 
-### 7. `feature/worker-orchestration`
+### 8. `feature/worker-orchestration`
 
 Status:
 
@@ -152,7 +170,7 @@ Main outputs:
 - startup and runtime orchestration
 - updated runbook for local operation
 
-### 8. `feature/api-operations`
+### 9. `feature/api-operations`
 
 Status:
 

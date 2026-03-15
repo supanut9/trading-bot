@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
 
@@ -16,7 +16,7 @@ def test_market_data_service_stores_and_lists_recent_candles(tmp_path: Path) -> 
     session = session_factory()
 
     service = MarketDataService(session)
-    first_open = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    first_open = datetime(2026, 1, 1, tzinfo=UTC)
 
     stored = service.store_candles(
         exchange="binance",
@@ -49,6 +49,6 @@ def test_market_data_service_stores_and_lists_recent_candles(tmp_path: Path) -> 
     assert len(stored) == 2
     assert len(recent) == 2
     assert recent[0].open_time > recent[1].open_time
-    assert str(recent[0].close_price) == "100250.00000000"
+    assert recent[0].close_price == Decimal("100250.0")
 
     session.close()
