@@ -55,6 +55,8 @@ Build a paper-trading-first trading bot with backtesting, safe execution, and cl
 - Keep commits small and logically grouped inside the current feature.
 - After implementation, follow the cycle: branch, implement, validate, push, PR, review, resolve, merge.
 - Do not continue stacking unrelated work into the current feature once its boundary is exceeded.
+- Small harmless docs or workflow-note updates may stay with the current feature branch.
+- Do not let runtime behavior, architecture, schema, or other material code changes hitchhike on an unrelated feature branch.
 
 ## Main Branch Policy
 

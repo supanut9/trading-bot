@@ -19,6 +19,11 @@ Preferred cycle:
 
 Feature boundaries may evolve as the project becomes clearer, but implementation should still start from a named feature scope rather than an open-ended task list.
 
+Practical scoping rule:
+
+- small harmless docs or workflow-note updates can stay with the active feature branch
+- behavior-changing or materially unrelated code changes should not ride along with another feature
+
 The current feature map lives in `docs/features.md`.
 
 ## Main Branch Rule
