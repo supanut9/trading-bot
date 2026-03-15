@@ -78,6 +78,7 @@ Build a paper-trading-first trading bot with backtesting, safe execution, and cl
 ## Review Workflow
 
 - When a PR has review comments or review threads, inspect them before making more feature changes.
+- Trigger AI review on each new PR and again after meaningful updates when needed, for example by commenting `@codex review`.
 - Address review feedback in this order: understand the comment, decide whether to apply a fix, implement the change if valid, validate the affected area, then reply on the PR thread.
 - It is acceptable to decline a suggestion when it is incorrect or out of scope, but respond with a clear technical reason.
 - Resolve review threads only after the code or rationale has been posted back to the PR.
