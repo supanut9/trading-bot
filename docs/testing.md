@@ -50,6 +50,12 @@ Rules:
 - execution changes: tests covering success and failure paths
 - schema or database scaffolding changes: tests for table creation or model registration where practical
 
+For risk policy changes, cover:
+
+- approval path
+- each rejection rule
+- deterministic quantity calculation
+
 ## Test Boundaries
 
 - `domain` should be tested primarily with unit tests
