@@ -56,6 +56,14 @@ For risk policy changes, cover:
 - each rejection rule
 - deterministic quantity calculation
 
+For paper execution changes, cover:
+
+- order creation
+- trade creation
+- position updates
+- realized PnL behavior
+- rejection or invalid-state paths
+
 ## Test Boundaries
 
 - `domain` should be tested primarily with unit tests

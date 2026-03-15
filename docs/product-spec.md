@@ -36,6 +36,12 @@ Build a maintainable trading bot that supports research, backtesting, paper trad
 - max open positions limit
 - daily loss limit before execution approval
 
+## Current Paper Execution Baseline
+
+- paper orders are treated as immediately filled
+- each paper execution writes an order, trade, and updated position state
+- sell executions realize PnL against the stored average entry price
+
 ## Development Infrastructure
 
 - local database: PostgreSQL via Docker Compose
