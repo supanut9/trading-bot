@@ -21,6 +21,19 @@ Feature boundaries may evolve as the project becomes clearer, but implementation
 
 The current feature map lives in `docs/features.md`.
 
+## Main Branch Rule
+
+`main` is protected delivery history.
+
+Expected merge gate:
+
+1. pull request opened from a feature branch
+2. CI checks pass
+3. review feedback is addressed
+4. review threads are resolved
+5. at least one approval exists
+6. PR is merged, preferably with squash merge
+
 ## Phase 1
 
 - bootstrap AI-operable repository

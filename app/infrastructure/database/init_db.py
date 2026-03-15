@@ -1,9 +1,9 @@
 from sqlalchemy import inspect
 
 from app.config import Settings, get_settings
+from app.infrastructure.database import models  # noqa: F401
 from app.infrastructure.database.base import Base
 from app.infrastructure.database.session import create_engine_from_settings
-from app.infrastructure.database import models  # noqa: F401
 
 
 def init_database(settings: Settings | None = None) -> list[str]:

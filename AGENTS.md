@@ -56,6 +56,14 @@ Build a paper-trading-first trading bot with backtesting, safe execution, and cl
 - After implementation, follow the cycle: branch, implement, validate, push, PR, review, resolve, merge.
 - Do not continue stacking unrelated work into the current feature once its boundary is exceeded.
 
+## Main Branch Policy
+
+- `main` receives changes through pull requests only.
+- Do not merge a PR into `main` while required checks are failing or missing.
+- Do not merge a PR into `main` while unresolved review threads remain.
+- Require at least one approving review before merge unless the rule is intentionally relaxed later.
+- Prefer squash merge for feature branches unless preserving multiple commits is materially useful.
+
 ## Safety Rules
 
 - Live trading must remain disabled unless explicitly enabled by configuration.
