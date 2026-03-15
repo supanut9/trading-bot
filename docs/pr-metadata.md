@@ -71,16 +71,31 @@ Suggested mapping:
 
 Use the `Trading Bot Delivery` project to track active PRs and feature delivery state.
 
+### Project Status Meaning
+
+- `Todo`: planned work that has not started
+- `In Progress`: implementation is active on a feature branch
+- `Done`: the PR is merged or the work is complete
+
+Default mapping:
+
+- planned but not started -> `Todo`
+- create or start a feature branch -> `In Progress`
+- open PRs also remain in `In Progress` on the current project because the board does not yet have a dedicated `In Review` status
+- merge the PR -> `Done`
+
 ## Review Resolution
 
 When PR feedback arrives:
 
 1. inspect all open review threads
-2. decide whether each comment should be fixed, answered, or declined
-3. implement the fix when appropriate
-4. rerun validation for the affected scope
-5. reply on the PR thread
-6. resolve the thread after the response or fix is in place
+2. rely on the automated AI-review trigger for normal PR lifecycle events
+3. manually retrigger AI review after meaningful updates when needed
+4. decide whether each comment should be fixed, answered, or declined
+5. implement the fix when appropriate
+6. rerun validation for the affected scope
+7. reply on the PR thread
+8. resolve the thread after the response or fix is in place
 
 ## Merge Gate
 

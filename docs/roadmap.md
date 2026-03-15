@@ -19,6 +19,11 @@ Preferred cycle:
 
 Feature boundaries may evolve as the project becomes clearer, but implementation should still start from a named feature scope rather than an open-ended task list.
 
+Practical scoping rule:
+
+- small harmless docs or workflow-note updates can stay with the active feature branch
+- behavior-changing or materially unrelated code changes should not ride along with another feature
+
 The current feature map lives in `docs/features.md`.
 
 ## Main Branch Rule
@@ -47,10 +52,11 @@ Default PR metadata should stay lightweight:
 Before merge:
 
 1. review comments are inspected
-2. valid comments are fixed
-3. validation is rerun for affected areas
-4. replies are posted on the PR
-5. review threads are resolved
+2. AI review is triggered for the PR when needed
+3. valid comments are fixed
+4. validation is rerun for affected areas
+5. replies are posted on the PR
+6. review threads are resolved
 
 `main` should receive changes through PRs only, and PRs should clear review feedback before merge.
 

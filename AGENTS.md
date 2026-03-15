@@ -55,6 +55,8 @@ Build a paper-trading-first trading bot with backtesting, safe execution, and cl
 - Keep commits small and logically grouped inside the current feature.
 - After implementation, follow the cycle: branch, implement, validate, push, PR, review, resolve, merge.
 - Do not continue stacking unrelated work into the current feature once its boundary is exceeded.
+- Small harmless docs or workflow-note updates may stay with the current feature branch.
+- Do not let runtime behavior, architecture, schema, or other material code changes hitchhike on an unrelated feature branch.
 
 ## Main Branch Policy
 
@@ -76,6 +78,8 @@ Build a paper-trading-first trading bot with backtesting, safe execution, and cl
 ## Review Workflow
 
 - When a PR has review comments or review threads, inspect them before making more feature changes.
+- AI review is auto-triggered for PR open, reopen, synchronize, and ready-for-review events.
+- Manually retrigger AI review after meaningful updates when needed, for example by commenting `@codex review`.
 - Address review feedback in this order: understand the comment, decide whether to apply a fix, implement the change if valid, validate the affected area, then reply on the PR thread.
 - It is acceptable to decline a suggestion when it is incorrect or out of scope, but respond with a clear technical reason.
 - Resolve review threads only after the code or rationale has been posted back to the PR.

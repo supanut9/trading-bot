@@ -138,7 +138,7 @@ Main outputs:
 
 Status:
 
-- planned
+- implemented on branch
 
 Scope:
 
@@ -188,9 +188,9 @@ Main outputs:
 
 ## Next Recommended Feature
 
-`feature/paper-execution`
+`feature/worker-orchestration`
 
 Reason:
 
-- strategy and risk policies now exist as pure domain logic
-- the next missing step is turning approved intent into paper orders, trades, and positions
+- strategy, risk, and paper execution layers now exist
+- the next missing step is wiring them together into the scheduled worker flow
