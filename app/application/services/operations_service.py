@@ -52,7 +52,7 @@ class OperationsService:
             for position in self._positions.list_all()
         ]
 
-    def list_trades(self) -> list[TradeView]:
+    def list_trades(self, *, limit: int = 100) -> list[TradeView]:
         return [
             TradeView(
                 id=trade.id,
@@ -65,5 +65,5 @@ class OperationsService:
                 fee_amount=trade.fee_amount,
                 fee_asset=trade.fee_asset,
             )
-            for trade in self._trades.list_all()
+            for trade in self._trades.list_all(limit=limit)
         ]

@@ -10,10 +10,14 @@ class TradeRepository:
     def __init__(self, session: Session) -> None:
         self._session = session
 
-    def list_all(self) -> list[TradeRecord]:
-        statement: Select[tuple[TradeRecord]] = select(TradeRecord).order_by(
-            TradeRecord.created_at.desc(),
-            TradeRecord.id.desc(),
+    def list_all(self, *, limit: int = 100) -> list[TradeRecord]:
+        statement: Select[tuple[TradeRecord]] = (
+            select(TradeRecord)
+            .order_by(
+                TradeRecord.created_at.desc(),
+                TradeRecord.id.desc(),
+            )
+            .limit(limit)
         )
         return self._session.execute(statement).scalars().all()
 

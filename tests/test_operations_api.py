@@ -63,6 +63,23 @@ def seed_execution_data(session: object) -> None:
     )
 
 
+def seed_multiple_trades(session: object, *, count: int) -> None:
+    service = PaperExecutionService(session)
+    for index in range(count):
+        price = Decimal("20000") + Decimal(index)
+        quantity = Decimal("0.01000000")
+        service.execute(
+            PaperExecutionRequest(
+                exchange="binance",
+                symbol=f"BTC/USDT-{index}",
+                side="buy",
+                quantity=quantity,
+                price=price,
+                submitted_reason=f"entry signal {index}",
+            )
+        )
+
+
 def test_positions_endpoint_returns_persisted_positions(tmp_path: Path) -> None:
     client, session = build_client(tmp_path)
     try:
@@ -99,5 +116,21 @@ def test_trades_endpoint_returns_most_recent_trade_first(tmp_path: Path) -> None
         assert payload[0]["price"] == "21000.00000000"
         assert payload[1]["side"] == "buy"
         assert payload[1]["quantity"] == "0.50000000"
+    finally:
+        teardown_client(session)
+
+
+def test_trades_endpoint_applies_limit_query_parameter(tmp_path: Path) -> None:
+    client, session = build_client(tmp_path)
+    try:
+        seed_multiple_trades(session, count=3)
+
+        response = client.get("/trades?limit=2")
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert len(payload) == 2
+        assert payload[0]["symbol"] == "BTC/USDT-2"
+        assert payload[1]["symbol"] == "BTC/USDT-1"
     finally:
         teardown_client(session)

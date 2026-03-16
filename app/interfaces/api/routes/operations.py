@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Depends
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.application.services.operations_service import OperationsService
@@ -16,6 +18,9 @@ def list_positions(session: Session = session_dependency) -> list[PositionRespon
 
 
 @router.get("/trades", response_model=list[TradeResponse])
-def list_trades(session: Session = session_dependency) -> list[TradeResponse]:
+def list_trades(
+    session: Session = session_dependency,
+    limit: Annotated[int, Query(ge=1, le=500)] = 100,
+) -> list[TradeResponse]:
     service = OperationsService(session)
-    return [TradeResponse.model_validate(trade) for trade in service.list_trades()]
+    return [TradeResponse.model_validate(trade) for trade in service.list_trades(limit=limit)]
