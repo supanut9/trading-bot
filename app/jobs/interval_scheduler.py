@@ -35,13 +35,13 @@ class IntervalScheduler:
         )
 
     def run_pending(self) -> list[tuple[str, object]]:
-        now = self._now()
         results: list[tuple[str, object]] = []
         for job in self._jobs:
+            now = self._now()
             if now < job.next_run_at:
                 continue
             results.append((job.name, job.runner()))
-            job.next_run_at = now + job.interval_seconds
+            job.next_run_at = self._now() + job.interval_seconds
         return results
 
     def seconds_until_next_run(self) -> float | None:

@@ -17,6 +17,7 @@ from app.infrastructure.database.session import (
     create_engine_from_settings,
     create_session_factory,
     get_session,
+    get_session_factory_dependency,
 )
 from app.main import app
 
@@ -30,7 +31,8 @@ def build_client(tmp_path: Path) -> tuple[TestClient, object, Settings]:
     )
     engine = create_engine_from_settings(settings)
     Base.metadata.create_all(bind=engine)
-    session = create_session_factory(settings)()
+    shared_factory = create_session_factory(settings)
+    session = shared_factory()
 
     def override_get_session() -> object:
         try:
@@ -40,6 +42,7 @@ def build_client(tmp_path: Path) -> tuple[TestClient, object, Settings]:
 
     app.dependency_overrides[get_session] = override_get_session
     app.dependency_overrides[get_settings] = lambda: settings
+    app.dependency_overrides[get_session_factory_dependency] = lambda: shared_factory
     return TestClient(app), session, settings
 
 
@@ -159,5 +162,22 @@ def test_backtest_summary_report_exports_completed_csv(tmp_path: Path) -> None:
         assert rows[0]["candle_count"] == "9"
         assert rows[0]["total_trades"] == "2"
         assert rows[0]["ending_equity"] == "10000.00000000"
+    finally:
+        teardown_client(session)
+
+
+def test_positions_report_does_not_require_backtest_notification_config(tmp_path: Path) -> None:
+    client, session, settings = build_client(tmp_path)
+    try:
+        settings.notification_channel = "webhook"
+        settings.notification_webhook_url = None
+        seed_execution_data(session)
+
+        response = client.get("/reports/positions.csv")
+
+        assert response.status_code == 200
+        rows = read_csv_rows(response.text)
+        assert len(rows) == 1
+        assert rows[0]["symbol"] == "BTC/USDT"
     finally:
         teardown_client(session)
