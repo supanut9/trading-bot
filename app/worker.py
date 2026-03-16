@@ -29,6 +29,7 @@ def main() -> None:
 
     try:
         while True:
+            result = None
             with session_factory() as session:
                 result = WorkerOrchestrationService(session, settings).run_cycle()
                 logger.info(
@@ -39,6 +40,7 @@ def main() -> None:
                     result.order_id,
                     result.trade_id,
                 )
+            if result is not None:
                 notifications.notify_worker_cycle(settings, result)
 
             if settings.worker_run_once:
