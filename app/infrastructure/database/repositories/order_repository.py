@@ -49,3 +49,9 @@ class OrderRepository:
             OrderRecord.id == order_id
         )
         return self._session.execute(statement).scalar_one_or_none()
+
+    def get_by_client_order_id(self, client_order_id: str) -> OrderRecord | None:
+        statement: Select[tuple[OrderRecord]] = select(OrderRecord).where(
+            OrderRecord.client_order_id == client_order_id
+        )
+        return self._session.execute(statement).scalar_one_or_none()

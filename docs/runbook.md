@@ -16,6 +16,29 @@ make run-api
 make run-worker
 ```
 
+Default worker behavior:
+
+- runs one orchestration cycle and exits
+- reads the latest stored candles for the configured symbol and timeframe
+- applies strategy, risk checks, and paper execution in order
+- skips duplicate execution for the same signal candle
+
+To run it as a polling worker instead of a single cycle:
+
+```bash
+WORKER_RUN_ONCE=false make run-worker
+```
+
+Optional worker tuning variables:
+
+- `STRATEGY_FAST_PERIOD`
+- `STRATEGY_SLOW_PERIOD`
+- `PAPER_ACCOUNT_EQUITY`
+- `RISK_PER_TRADE_PCT`
+- `MAX_OPEN_POSITIONS`
+- `MAX_DAILY_LOSS_PCT`
+- `WORKER_POLL_INTERVAL_SECONDS`
+
 ## Start Database
 
 ```bash
@@ -67,6 +90,8 @@ Stop the running process with `Ctrl+C`.
 
 - if the worker crashes, inspect the latest logs first
 - if configuration is missing, verify `.env` values against `.env.example`
+- if the worker reports `no_candles`, load or persist recent candles before retrying
+- if the worker reports `duplicate_signal`, confirm whether the latest signal candle was already executed as intended
 
 ## Logging Expectations
 

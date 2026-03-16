@@ -40,3 +40,17 @@ PostgreSQL provides a closer match to production-style persistence behavior and 
 ### Consequence
 
 The repository should prefer PostgreSQL-oriented persistence design, while still allowing local overrides of `DATABASE_URL` for lightweight workflows.
+
+## 2026-03-16
+
+### Decision
+
+Run worker orchestration against persisted closed candles and make execution idempotent per signal candle with `client_order_id`.
+
+### Reason
+
+The project already has strategy, risk, and paper execution layers, so the next safe step is to wire them together without introducing repeated execution when the worker polls unchanged candle data.
+
+### Consequence
+
+The worker can run as a repeatable polling process over stored candles, but the same signal candle will not create duplicate paper orders once it has been executed.

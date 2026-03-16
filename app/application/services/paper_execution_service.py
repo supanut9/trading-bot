@@ -23,6 +23,7 @@ class PaperExecutionRequest:
     price: Decimal
     order_type: str = "market"
     mode: str = "paper"
+    client_order_id: str | None = None
     submitted_reason: str | None = None
 
 
@@ -80,6 +81,7 @@ class PaperExecutionService:
             quantity=request.quantity,
             price=request.price,
             average_fill_price=request.price,
+            client_order_id=request.client_order_id,
             submitted_reason=request.submitted_reason,
         )
 
