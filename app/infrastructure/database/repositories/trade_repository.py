@@ -1,5 +1,6 @@
 from decimal import Decimal
 
+from sqlalchemy import Select, select
 from sqlalchemy.orm import Session
 
 from app.infrastructure.database.models.trade import TradeRecord
@@ -8,6 +9,17 @@ from app.infrastructure.database.models.trade import TradeRecord
 class TradeRepository:
     def __init__(self, session: Session) -> None:
         self._session = session
+
+    def list_all(self, *, limit: int = 100) -> list[TradeRecord]:
+        statement: Select[tuple[TradeRecord]] = (
+            select(TradeRecord)
+            .order_by(
+                TradeRecord.created_at.desc(),
+                TradeRecord.id.desc(),
+            )
+            .limit(limit)
+        )
+        return self._session.execute(statement).scalars().all()
 
     def create(
         self,

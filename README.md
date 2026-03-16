@@ -60,6 +60,15 @@ Use the `Makefile` once dependencies are installed:
 - `make run-api`
 - `make run-worker`
 
+## Operational API
+
+The API now exposes basic operational visibility endpoints:
+
+- `GET /health`
+- `GET /status`
+- `GET /positions`
+- `GET /trades`
+
 ## Git Hooks
 
 Install repository hooks after dependencies are installed:

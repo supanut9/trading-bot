@@ -10,6 +10,13 @@ This runbook describes how to start, stop, and inspect the trading bot during lo
 make run-api
 ```
 
+Operational endpoints:
+
+- `GET /health`
+- `GET /status`
+- `GET /positions`
+- `GET /trades`
+
 ## Start Worker
 
 ```bash
