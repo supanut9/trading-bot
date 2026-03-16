@@ -17,6 +17,8 @@ Operational endpoints:
 - `GET /positions`
 - `GET /trades`
 - `POST /market-data/candles`
+- `POST /controls/worker-cycle`
+- `POST /controls/backtest`
 
 Load candles for local worker testing:
 
@@ -43,6 +45,12 @@ Request behavior:
 - uses configured defaults for `exchange`, `symbol`, and `timeframe` when omitted
 - stores closed candle batches through the existing market data service
 - upserts by `exchange + symbol + timeframe + open_time`
+
+Manual controls:
+
+- `POST /controls/worker-cycle` runs one worker cycle with the current configured strategy, risk, and paper/live mode
+- `POST /controls/backtest` runs one backtest over stored candles with the current configured strategy and risk settings
+- control endpoints do not accept arbitrary trading parameters; they only use current application configuration
 
 ## Start Worker
 

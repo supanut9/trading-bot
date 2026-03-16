@@ -61,3 +61,34 @@ class CandleBatchIngestionResponse(BaseModel):
     timeframe: str
     stored_count: int
     latest_open_time: datetime
+
+
+class WorkerControlResponse(BaseModel):
+    status: str
+    detail: str
+    signal_action: str | None = None
+    client_order_id: str | None = None
+    order_id: int | None = None
+    trade_id: int | None = None
+    position_quantity: Decimal | None = None
+    notified: bool
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class BacktestControlResponse(BaseModel):
+    status: str
+    detail: str
+    notified: bool
+    candle_count: int
+    required_candles: int
+    starting_equity: Decimal | None = None
+    ending_equity: Decimal | None = None
+    realized_pnl: Decimal | None = None
+    total_return_pct: Decimal | None = None
+    max_drawdown_pct: Decimal | None = None
+    total_trades: int | None = None
+    winning_trades: int | None = None
+    losing_trades: int | None = None
+
+    model_config = ConfigDict(from_attributes=True)

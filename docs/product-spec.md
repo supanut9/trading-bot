@@ -10,7 +10,7 @@ Build a maintainable trading bot that supports research, backtesting, paper trad
 - one strategy
 - candle-based execution
 - paper trading only
-- API endpoints for health, status, positions, trades, and candle ingestion
+- API endpoints for health, status, positions, trades, candle ingestion, and bounded manual controls
 
 ## Initial Market And Strategy
 
@@ -31,7 +31,7 @@ Build a maintainable trading bot that supports research, backtesting, paper trad
 - orchestrate a worker cycle from persisted candles through execution
 - emit optional notifications for worker execution, risk rejection, and backtest outcomes
 - persist bot state and logs
-- expose minimal operational API for health, status, positions, trades, and candle ingestion
+- expose minimal operational API for health, status, positions, trades, candle ingestion, and bounded manual controls
 
 ## Current Risk Policy Baseline
 

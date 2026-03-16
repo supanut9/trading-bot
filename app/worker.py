@@ -1,11 +1,9 @@
 from time import sleep
 
-from app.application.services.notification_service import build_notification_service
-from app.application.services.worker_orchestration_service import WorkerOrchestrationService
+from app.application.services.operational_control_service import OperationalControlService
 from app.config import get_settings
 from app.core.logger import configure_logging, get_logger
 from app.infrastructure.database.init_db import init_database
-from app.infrastructure.database.session import create_session_factory
 
 logger = get_logger(__name__)
 
@@ -24,24 +22,21 @@ def main() -> None:
     )
     tables = init_database(settings)
     logger.info("worker_database_initialized tables=%s", ",".join(tables))
-    session_factory = create_session_factory(settings)
-    notifications = build_notification_service(settings)
+    controls = OperationalControlService(settings)
 
     try:
         while True:
-            result = None
-            with session_factory() as session:
-                result = WorkerOrchestrationService(session, settings).run_cycle()
-                logger.info(
-                    "worker_cycle_completed status=%s detail=%s signal=%s order_id=%s trade_id=%s",
-                    result.status,
-                    result.detail,
-                    result.signal_action,
-                    result.order_id,
-                    result.trade_id,
-                )
-            if result is not None:
-                notifications.notify_worker_cycle(settings, result)
+            result = controls.run_worker_cycle()
+            logger.info(
+                "worker_cycle_completed status=%s detail=%s signal=%s "
+                "order_id=%s trade_id=%s notified=%s",
+                result.status,
+                result.detail,
+                result.signal_action,
+                result.order_id,
+                result.trade_id,
+                result.notified,
+            )
 
             if settings.worker_run_once:
                 break

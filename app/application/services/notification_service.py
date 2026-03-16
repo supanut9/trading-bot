@@ -18,6 +18,7 @@ class NotificationService:
     def __init__(self, *, sender: NotificationSender, channel: str) -> None:
         self._sender = sender
         self._channel = channel
+        self._enabled = channel != "none"
 
     def notify_worker_cycle(self, settings: Settings, result: WorkerCycleResult) -> bool:
         event = self._build_worker_event(settings, result)
@@ -84,6 +85,8 @@ class NotificationService:
         return self.publish(event)
 
     def publish(self, event: NotificationEvent) -> bool:
+        if not self._enabled:
+            return False
         try:
             self._sender.send(event)
         except Exception:

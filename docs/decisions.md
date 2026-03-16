@@ -82,3 +82,17 @@ The bot now has meaningful runtime outcomes worth surfacing outside the normal e
 ### Consequence
 
 Worker executions, worker risk rejections, and backtest completion or skip events can be emitted through a configurable sender, while notification failures are logged with event context instead of silently disappearing.
+
+## 2026-03-16
+
+### Decision
+
+Expose operational controls as bounded API triggers for one worker cycle and one backtest, both executed strictly with the current application configuration.
+
+### Reason
+
+Operators need a safe way to trigger runtime workflows without shell access, but allowing arbitrary request-supplied trade parameters would bypass the normal strategy and risk boundaries and create a broader control surface than v1 needs.
+
+### Consequence
+
+The API can trigger worker and backtest workflows on demand, while strategy periods, market selection, paper/live mode, and risk limits remain controlled by environment configuration rather than request bodies.

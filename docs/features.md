@@ -242,11 +242,29 @@ Main outputs:
 - optional webhook delivery path
 - runtime notifications for worker and backtest workflows
 
+### 13. `feature/operational-controls`
+
+Status:
+
+- implemented on branch
+
+Scope:
+
+- bounded operator-triggered control endpoints
+- manual worker cycle execution with current runtime settings
+- manual backtest execution with current runtime settings
+- tests and docs for safe manual control usage
+
+Main outputs:
+
+- API endpoints for manual worker and backtest triggers
+- application service that closes DB sessions before notification delivery
+- response models for control outcomes
+
 ## Next Recommended Feature
 
-`feature/operational-controls`
+`feature/reporting-exports`
 
 Reason:
 
-- the bot can now notify on key runtime outcomes, but it still lacks any controlled operator-triggered actions
-- the next useful gap is adding bounded operational controls without weakening the safety model
+- once manual control endpoints exist, the next likely gap is exporting operational and backtest data in reviewer-friendly formats
