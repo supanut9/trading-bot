@@ -124,3 +124,17 @@ The previous setup only proved that `@codex review` was posted on the PR. It did
 ### Consequence
 
 The repository now distinguishes between requesting review and receiving a connector response for the latest request, allowing branch protection to block merges until Codex review has actually completed.
+
+## 2026-03-17
+
+### Decision
+
+Represent recurring runtime work as explicit interval-driven job modules, and keep recurring backtest summaries disabled by default.
+
+### Reason
+
+The worker already had recurring behavior, but it was embedded directly in the entrypoint loop. Pulling that timing into `app/jobs` makes scheduled behavior easier to reason about and test, while leaving the optional backtest schedule off by default avoids adding surprising extra runtime cost to the normal worker path.
+
+### Consequence
+
+The worker cycle now runs through an explicit scheduled job path, the worker can optionally run recurring backtest summaries on a separate interval, and the default runtime remains a single worker cycle unless polling mode is enabled.

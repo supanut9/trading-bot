@@ -24,6 +24,14 @@ class Settings(BaseSettings):
     max_daily_loss_pct: float = Field(default=0.03, alias="MAX_DAILY_LOSS_PCT")
     worker_poll_interval_seconds: int = Field(default=60, alias="WORKER_POLL_INTERVAL_SECONDS")
     worker_run_once: bool = Field(default=True, alias="WORKER_RUN_ONCE")
+    backtest_schedule_enabled: bool = Field(
+        default=False,
+        alias="BACKTEST_SCHEDULE_ENABLED",
+    )
+    backtest_schedule_interval_seconds: int = Field(
+        default=3600,
+        alias="BACKTEST_SCHEDULE_INTERVAL_SECONDS",
+    )
     notification_channel: Literal["none", "log", "webhook"] = Field(
         default="none",
         alias="NOTIFICATION_CHANNEL",

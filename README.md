@@ -13,7 +13,7 @@ Build a reliable trading bot platform with:
 
 ## Current Phase
 
-Core trading flow with backtesting, paper execution, market-data ingestion, and runtime notifications.
+Core trading flow with backtesting, paper execution, operational controls, reporting exports, and review gating.
 
 ## V1 Scope
 

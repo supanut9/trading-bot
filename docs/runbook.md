@@ -81,6 +81,9 @@ To run it as a polling worker instead of a single cycle:
 WORKER_RUN_ONCE=false make run-worker
 ```
 
+In polling mode, the worker cycle is registered as a scheduled job. Optional recurring
+backtest summaries can also be enabled as a second scheduled job.
+
 Optional worker tuning variables:
 
 - `STRATEGY_FAST_PERIOD`
@@ -90,6 +93,8 @@ Optional worker tuning variables:
 - `MAX_OPEN_POSITIONS`
 - `MAX_DAILY_LOSS_PCT`
 - `WORKER_POLL_INTERVAL_SECONDS`
+- `BACKTEST_SCHEDULE_ENABLED`
+- `BACKTEST_SCHEDULE_INTERVAL_SECONDS`
 - `NOTIFICATION_CHANNEL`
 - `NOTIFICATION_WEBHOOK_URL`
 - `NOTIFICATION_TIMEOUT_SECONDS`

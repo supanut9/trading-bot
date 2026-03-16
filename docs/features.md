@@ -299,10 +299,29 @@ Main outputs:
 - script to validate connector response after the latest review request
 - workflow and review docs aligned with the new gate
 
+### 16. `feature/scheduled-jobs`
+
+Status:
+
+- implemented on branch
+
+Scope:
+
+- move recurring runtime behavior into explicit job modules
+- keep worker cycle as a scheduled job
+- add optional recurring backtest summary execution behind config
+- tests and docs for scheduling behavior
+
+Main outputs:
+
+- interval scheduler and job modules under `app/jobs`
+- worker entrypoint wired through scheduled jobs instead of inline looping
+- optional scheduled backtest summary with safe default disabled
+
 ## Next Recommended Feature
 
-`feature/scheduled-jobs`
+`feature/market-sync-adapter`
 
 Reason:
 
-- once exports exist, the next gap is scheduling and recurring runtime execution rather than only manual triggers
+- once scheduling exists, the next gap is loading market data from a real adapter instead of only manual ingestion
