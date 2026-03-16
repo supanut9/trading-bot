@@ -56,6 +56,7 @@ Use the `Makefile` once dependencies are installed:
 - `make format`
 - `make lint`
 - `make test`
+- `make pr-check`
 - `make run-api`
 - `make run-worker`
 

@@ -103,3 +103,17 @@ When PR feedback arrives:
 - PRs should resolve review threads before merge
 - PRs should have passing CI checks before merge
 - prefer squash merge for feature branches
+
+## Validation Command
+
+Use the repo check before calling a PR ready:
+
+```bash
+make pr-check
+```
+
+Behavior:
+
+- inspects the PR for the current branch by default
+- fails if required labels, assignee, milestone, or project are missing
+- can also target a specific PR with `python3 -m scripts.check_pr_metadata <number-or-url>`
