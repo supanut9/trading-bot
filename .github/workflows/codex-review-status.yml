@@ -1,0 +1,45 @@
+name: Codex Review Status
+
+on:
+  pull_request_target:
+    types:
+      - opened
+      - reopened
+      - synchronize
+      - ready_for_review
+
+jobs:
+  codex-review-status:
+    if: ${{ !github.event.pull_request.draft }}
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      pull-requests: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Wait for Codex review response
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          for attempt in $(seq 1 40); do
+            if python3 -m scripts.codex_review_status "$PR_NUMBER"; then
+              exit 0
+            fi
+
+            if [ "$attempt" -lt 40 ]; then
+              sleep 15
+            fi
+          done
+
+          echo "Timed out waiting for Codex review completion on PR #$PR_NUMBER" >&2
+          exit 1
