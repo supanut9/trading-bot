@@ -123,7 +123,7 @@ The previous setup only proved that `@codex review` was posted on the PR. It did
 
 ### Consequence
 
-The repository now distinguishes between requesting review and receiving a connector response for the latest request, allowing branch protection to block merges until Codex review has actually completed.
+The repository now distinguishes between requesting review and receiving real review evidence for the latest request, allowing branch protection to block merges until Codex review has actually completed instead of passing on generic connector comments alone.
 
 ## 2026-03-17
 

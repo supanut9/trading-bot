@@ -90,7 +90,7 @@ When PR feedback arrives:
 
 1. inspect all open review threads
 2. rely on the automated AI-review trigger for normal PR lifecycle events
-3. wait for the `Codex Review Status` workflow to confirm the latest `@codex review` request received a connector response
+3. wait for the `Codex Review Status` workflow to confirm the latest `@codex review` request received real review evidence
 4. manually retrigger AI review after meaningful updates when needed
 5. decide whether each comment should be fixed, answered, or declined
 6. implement the fix when appropriate
