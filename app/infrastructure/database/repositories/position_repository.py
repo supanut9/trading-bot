@@ -24,6 +24,13 @@ class PositionRepository:
         )
         return self._session.execute(statement).scalar_one_or_none()
 
+    def list_all(self) -> list[PositionRecord]:
+        statement: Select[tuple[PositionRecord]] = select(PositionRecord).order_by(
+            PositionRecord.updated_at.desc(),
+            PositionRecord.id.desc(),
+        )
+        return self._session.execute(statement).scalars().all()
+
     def upsert(
         self,
         *,

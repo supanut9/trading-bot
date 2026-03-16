@@ -175,7 +175,7 @@ Main outputs:
 
 Status:
 
-- planned
+- implemented on branch
 
 Scope:
 
@@ -189,9 +189,9 @@ Main outputs:
 
 ## Next Recommended Feature
 
-`feature/api-operations`
+`feature/market-data-ingestion`
 
 Reason:
 
-- the worker can now process stored candles into paper executions
-- the next missing step is surfacing trades and positions through operational endpoints
+- operational visibility now exists for positions and trades
+- the next missing execution prerequisite is loading candle data into the system without manual seeding
