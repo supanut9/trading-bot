@@ -1,15 +1,7 @@
-from decimal import Decimal
-
-from app.application.services.backtest_service import BacktestService
-from app.application.services.market_data_service import MarketDataService
-from app.application.services.notification_service import build_notification_service
+from app.application.services.operational_control_service import OperationalControlService
 from app.config import get_settings
 from app.core.logger import configure_logging, get_logger
-from app.domain.risk import RiskLimits, RiskService
-from app.domain.strategies.base import Candle
-from app.domain.strategies.ema_crossover import EmaCrossoverStrategy
 from app.infrastructure.database.init_db import init_database
-from app.infrastructure.database.session import create_session_factory
 
 logger = get_logger(__name__)
 
@@ -18,78 +10,27 @@ def main() -> None:
     settings = get_settings()
     configure_logging(settings)
     init_database(settings)
-    session_factory = create_session_factory(settings)
-    notifications = build_notification_service(settings)
+    result = OperationalControlService(settings).run_backtest()
 
-    with session_factory() as session:
-        market_data = MarketDataService(session)
-        records = market_data.list_historical_candles(
-            exchange=settings.exchange_name,
-            symbol=settings.default_symbol,
-            timeframe=settings.default_timeframe,
+    if result.status == "skipped":
+        logger.info(
+            "backtest_skipped reason=%s exchange=%s symbol=%s "
+            "timeframe=%s count=%s required=%s notified=%s",
+            result.detail,
+            settings.exchange_name,
+            settings.default_symbol,
+            settings.default_timeframe,
+            result.candle_count,
+            result.required_candles,
+            result.notified,
         )
-        if not records:
-            logger.info(
-                "backtest_skipped reason=no_candles exchange=%s symbol=%s timeframe=%s",
-                settings.exchange_name,
-                settings.default_symbol,
-                settings.default_timeframe,
-            )
-            notifications.notify_backtest_skipped(settings, reason="no_candles")
-            return
-        minimum_candles = settings.strategy_slow_period + 1
-        if len(records) < minimum_candles:
-            logger.info(
-                "backtest_skipped reason=not_enough_candles exchange=%s symbol=%s "
-                "timeframe=%s count=%s required=%s",
-                settings.exchange_name,
-                settings.default_symbol,
-                settings.default_timeframe,
-                len(records),
-                minimum_candles,
-            )
-            notifications.notify_backtest_skipped(
-                settings,
-                reason="not_enough_candles",
-                count=len(records),
-                required=minimum_candles,
-            )
-            return
-
-        result = BacktestService(
-            strategy=EmaCrossoverStrategy(
-                fast_period=settings.strategy_fast_period,
-                slow_period=settings.strategy_slow_period,
-            ),
-            risk_service=RiskService(
-                RiskLimits(
-                    risk_per_trade_pct=Decimal(str(settings.risk_per_trade_pct)),
-                    max_open_positions=settings.max_open_positions,
-                    max_daily_loss_pct=Decimal(str(settings.max_daily_loss_pct)),
-                    paper_trading_only=not settings.live_trading_enabled,
-                )
-            ),
-            starting_equity=Decimal(str(settings.paper_account_equity)),
-        ).run(
-            [
-                Candle(
-                    open_time=record.open_time,
-                    close_time=record.close_time,
-                    open_price=record.open_price,
-                    high_price=record.high_price,
-                    low_price=record.low_price,
-                    close_price=record.close_price,
-                    volume=record.volume,
-                )
-                for record in records
-            ]
-        )
+        return
 
     logger.info(
         "backtest_completed exchange=%s symbol=%s timeframe=%s "
         "starting_equity=%s ending_equity=%s realized_pnl=%s "
         "total_return_pct=%s executions=%s max_drawdown_pct=%s "
-        "risk_per_trade_pct=%s max_open_positions=%s max_daily_loss_pct=%s",
+        "risk_per_trade_pct=%s max_open_positions=%s max_daily_loss_pct=%s notified=%s",
         settings.exchange_name,
         settings.default_symbol,
         settings.default_timeframe,
@@ -102,8 +43,8 @@ def main() -> None:
         settings.risk_per_trade_pct,
         settings.max_open_positions,
         settings.max_daily_loss_pct,
+        result.notified,
     )
-    notifications.notify_backtest_completed(settings, result)
 
 
 if __name__ == "__main__":

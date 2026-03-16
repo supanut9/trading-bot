@@ -70,6 +70,8 @@ The API now exposes basic operational visibility endpoints:
 - `GET /positions`
 - `GET /trades`
 - `POST /market-data/candles`
+- `POST /controls/worker-cycle`
+- `POST /controls/backtest`
 
 ## Notifications
 

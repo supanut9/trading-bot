@@ -1,8 +1,11 @@
 from dataclasses import dataclass
 
+from app.application.services.operational_control_service import (
+    OperationalControlService,
+    WorkerControlResult,
+)
 from app.application.services.worker_orchestration_service import WorkerCycleResult
-from app.config import Settings, get_settings
-from app.worker import main
+from app.config import Settings
 
 
 @dataclass
@@ -31,11 +34,8 @@ class RecordingNotifications:
         return True
 
 
-def test_worker_notifies_after_session_scope_exits(monkeypatch) -> None:
-    settings = Settings(
-        DATABASE_URL="sqlite:///./worker_cli.db",
-        WORKER_RUN_ONCE=True,
-    )
+def test_worker_control_notifies_after_session_scope_exits(monkeypatch) -> None:
+    settings = Settings(DATABASE_URL="sqlite:///./operational_controls.db")
     session_state = SessionState()
     notifications = RecordingNotifications(session_state)
 
@@ -47,20 +47,19 @@ def test_worker_notifies_after_session_scope_exits(monkeypatch) -> None:
         def run_cycle(self) -> WorkerCycleResult:
             return WorkerCycleResult(status="executed", detail="signal executed in paper mode")
 
-    monkeypatch.setattr("app.worker.get_settings", lambda: settings)
-    monkeypatch.setattr("app.worker.configure_logging", lambda _settings: None)
-    monkeypatch.setattr("app.worker.init_database", lambda _settings: ["candles"])
     monkeypatch.setattr(
-        "app.worker.create_session_factory",
-        lambda _settings: lambda: FakeSession(session_state),
+        "app.application.services.operational_control_service.WorkerOrchestrationService",
+        FakeOrchestrationService,
     )
-    monkeypatch.setattr("app.worker.build_notification_service", lambda _settings: notifications)
-    monkeypatch.setattr("app.worker.WorkerOrchestrationService", FakeOrchestrationService)
-    get_settings.cache_clear()
 
-    try:
-        main()
-    finally:
-        get_settings.cache_clear()
+    service = OperationalControlService(
+        settings,
+        session_factory=lambda: FakeSession(session_state),
+        notifications=notifications,
+    )
 
+    result = service.run_worker_cycle()
+
+    assert isinstance(result, WorkerControlResult)
+    assert result.notified is True
     assert notifications.closed_state_during_notify == [True]
