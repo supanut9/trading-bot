@@ -15,7 +15,10 @@ from app.domain.risk import PortfolioState, RiskLimits, RiskService, TradeContex
 from app.domain.strategies.base import Candle, Signal
 from app.domain.strategies.ema_crossover import EmaCrossoverStrategy
 from app.infrastructure.database.models.position import PositionRecord
-from app.infrastructure.database.repositories.order_repository import OrderRepository
+from app.infrastructure.database.repositories.order_repository import (
+    DuplicateClientOrderIdError,
+    OrderRepository,
+)
 from app.infrastructure.database.repositories.position_repository import PositionRepository
 
 logger = get_logger(__name__)
@@ -177,18 +180,34 @@ class WorkerOrchestrationService:
             if signal.action == "sell" and current_position is not None
             else risk_decision.quantity
         )
-        execution = self._execution.execute(
-            PaperExecutionRequest(
-                exchange=self._settings.exchange_name,
-                symbol=self._settings.default_symbol,
-                side=signal.action,
-                quantity=quantity,
-                price=latest_price,
-                mode=self._trading_mode,
-                client_order_id=client_order_id,
-                submitted_reason=signal.reason,
+        try:
+            execution = self._execution.execute(
+                PaperExecutionRequest(
+                    exchange=self._settings.exchange_name,
+                    symbol=self._settings.default_symbol,
+                    side=signal.action,
+                    quantity=quantity,
+                    price=latest_price,
+                    mode=self._trading_mode,
+                    client_order_id=client_order_id,
+                    submitted_reason=signal.reason,
+                )
             )
-        )
+        except DuplicateClientOrderIdError:
+            logger.info(
+                "worker_cycle_skipped reason=duplicate_signal_race "
+                "exchange=%s symbol=%s signal=%s client_order_id=%s",
+                self._settings.exchange_name,
+                self._settings.default_symbol,
+                signal.action,
+                client_order_id,
+            )
+            return WorkerCycleResult(
+                status="duplicate_signal",
+                detail="signal for latest candle was already executed",
+                signal_action=signal.action,
+                client_order_id=client_order_id,
+            )
         logger.info(
             "worker_cycle_executed exchange=%s symbol=%s signal=%s "
             "client_order_id=%s order_id=%s trade_id=%s quantity=%s",

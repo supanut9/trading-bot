@@ -25,7 +25,7 @@ def main() -> int:
     args = parse_args()
     try:
         metadata = load_pr_metadata(args.pr)
-    except RuntimeError as exc:
+    except (FileNotFoundError, RuntimeError) as exc:
         print(f"PR metadata check failed: {exc}", file=sys.stderr)
         return 1
 

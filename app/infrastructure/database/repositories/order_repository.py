@@ -1,9 +1,14 @@
 from decimal import Decimal
 
 from sqlalchemy import Select, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.infrastructure.database.models.order import OrderRecord
+
+
+class DuplicateClientOrderIdError(ValueError):
+    """Raised when an order attempts to reuse an existing client_order_id."""
 
 
 class OrderRepository:
@@ -41,7 +46,15 @@ class OrderRepository:
             submitted_reason=submitted_reason,
         )
         self._session.add(record)
-        self._session.flush()
+        try:
+            self._session.flush()
+        except IntegrityError as exc:
+            self._session.rollback()
+            if client_order_id and "client_order_id" in str(exc).lower():
+                raise DuplicateClientOrderIdError(
+                    f"duplicate client_order_id: {client_order_id}"
+                ) from exc
+            raise
         return record
 
     def get_by_id(self, order_id: int) -> OrderRecord | None:

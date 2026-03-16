@@ -32,3 +32,20 @@ def test_validate_pr_metadata_reports_missing_required_metadata() -> None:
     assert "expected assignee @supanut9" in errors
     assert "expected a milestone" in errors
     assert "expected project 'Trading Bot Delivery'" in errors
+
+
+def test_main_returns_failure_when_gh_cli_is_missing(monkeypatch, capsys) -> None:
+    from scripts import check_pr_metadata
+
+    monkeypatch.setattr(check_pr_metadata, "parse_args", lambda: type("Args", (), {"pr": None})())
+    monkeypatch.setattr(
+        check_pr_metadata,
+        "load_pr_metadata",
+        lambda _pr: (_ for _ in ()).throw(FileNotFoundError("gh not found")),
+    )
+
+    exit_code = check_pr_metadata.main()
+    captured = capsys.readouterr()
+
+    assert exit_code == 1
+    assert "PR metadata check failed: gh not found" in captured.err

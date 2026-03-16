@@ -14,6 +14,7 @@ from app.config import Settings
 from app.infrastructure.database.base import Base
 from app.infrastructure.database.models.order import OrderRecord
 from app.infrastructure.database.models.trade import TradeRecord
+from app.infrastructure.database.repositories.order_repository import DuplicateClientOrderIdError
 from app.infrastructure.database.repositories.position_repository import PositionRepository
 from app.infrastructure.database.session import create_engine_from_settings, create_session_factory
 
@@ -172,4 +173,25 @@ def test_returns_no_signal_without_persisting_orders(tmp_path: Path) -> None:
     order_count = session.scalar(select(func.count()).select_from(OrderRecord))
 
     assert result.status == "no_signal"
+    assert order_count == 0
+
+
+def test_returns_duplicate_signal_when_execution_hits_client_order_id_race(
+    tmp_path: Path,
+) -> None:
+    service, session, settings = build_service(tmp_path)
+    store_closes(session, settings, [10, 10, 10, 10, 10, 9, 9, 9, 20])
+
+    class DuplicateExecutionService:
+        def execute(self, _request: PaperExecutionRequest) -> None:
+            raise DuplicateClientOrderIdError("duplicate client_order_id")
+
+    service._execution = DuplicateExecutionService()
+
+    result = service.run_cycle()
+
+    order_count = session.scalar(select(func.count()).select_from(OrderRecord))
+
+    assert result.status == "duplicate_signal"
+    assert result.signal_action == "buy"
     assert order_count == 0
