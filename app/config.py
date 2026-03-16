@@ -1,4 +1,5 @@
 from functools import lru_cache
+from typing import Literal
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -23,6 +24,18 @@ class Settings(BaseSettings):
     max_daily_loss_pct: float = Field(default=0.03, alias="MAX_DAILY_LOSS_PCT")
     worker_poll_interval_seconds: int = Field(default=60, alias="WORKER_POLL_INTERVAL_SECONDS")
     worker_run_once: bool = Field(default=True, alias="WORKER_RUN_ONCE")
+    notification_channel: Literal["none", "log", "webhook"] = Field(
+        default="none",
+        alias="NOTIFICATION_CHANNEL",
+    )
+    notification_webhook_url: str | None = Field(
+        default=None,
+        alias="NOTIFICATION_WEBHOOK_URL",
+    )
+    notification_timeout_seconds: int = Field(
+        default=5,
+        alias="NOTIFICATION_TIMEOUT_SECONDS",
+    )
     log_level: str = Field(default="INFO", alias="LOG_LEVEL")
     database_echo: bool = Field(default=False, alias="DATABASE_ECHO")
 

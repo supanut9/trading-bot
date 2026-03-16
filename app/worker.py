@@ -1,5 +1,6 @@
 from time import sleep
 
+from app.application.services.notification_service import build_notification_service
 from app.application.services.worker_orchestration_service import WorkerOrchestrationService
 from app.config import get_settings
 from app.core.logger import configure_logging, get_logger
@@ -24,9 +25,11 @@ def main() -> None:
     tables = init_database(settings)
     logger.info("worker_database_initialized tables=%s", ",".join(tables))
     session_factory = create_session_factory(settings)
+    notifications = build_notification_service(settings)
 
     try:
         while True:
+            result = None
             with session_factory() as session:
                 result = WorkerOrchestrationService(session, settings).run_cycle()
                 logger.info(
@@ -37,6 +40,8 @@ def main() -> None:
                     result.order_id,
                     result.trade_id,
                 )
+            if result is not None:
+                notifications.notify_worker_cycle(settings, result)
 
             if settings.worker_run_once:
                 break

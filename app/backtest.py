@@ -2,6 +2,7 @@ from decimal import Decimal
 
 from app.application.services.backtest_service import BacktestService
 from app.application.services.market_data_service import MarketDataService
+from app.application.services.notification_service import build_notification_service
 from app.config import get_settings
 from app.core.logger import configure_logging, get_logger
 from app.domain.risk import RiskLimits, RiskService
@@ -18,6 +19,7 @@ def main() -> None:
     configure_logging(settings)
     init_database(settings)
     session_factory = create_session_factory(settings)
+    notifications = build_notification_service(settings)
 
     with session_factory() as session:
         market_data = MarketDataService(session)
@@ -33,6 +35,7 @@ def main() -> None:
                 settings.default_symbol,
                 settings.default_timeframe,
             )
+            notifications.notify_backtest_skipped(settings, reason="no_candles")
             return
         minimum_candles = settings.strategy_slow_period + 1
         if len(records) < minimum_candles:
@@ -44,6 +47,12 @@ def main() -> None:
                 settings.default_timeframe,
                 len(records),
                 minimum_candles,
+            )
+            notifications.notify_backtest_skipped(
+                settings,
+                reason="not_enough_candles",
+                count=len(records),
+                required=minimum_candles,
             )
             return
 
@@ -94,6 +103,7 @@ def main() -> None:
         settings.max_open_positions,
         settings.max_daily_loss_pct,
     )
+    notifications.notify_backtest_completed(settings, result)
 
 
 if __name__ == "__main__":
