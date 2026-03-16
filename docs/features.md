@@ -223,11 +223,30 @@ Main outputs:
 - `make run-backtest`
 - tests for backtest outcomes and forced final close
 
+### 12. `feature/notifications`
+
+Status:
+
+- implemented on branch
+
+Scope:
+
+- configurable outbound notifications for key runtime outcomes
+- worker notifications for executions and risk rejections
+- backtest notifications for completion and skipped runs
+- notification sender tests and operational documentation
+
+Main outputs:
+
+- notification event formatter and sender abstraction
+- optional webhook delivery path
+- runtime notifications for worker and backtest workflows
+
 ## Next Recommended Feature
 
-`feature/notifications`
+`feature/operational-controls`
 
 Reason:
 
-- the bot can now ingest candles, run workers, expose operations, and backtest strategy behavior
-- the next useful operational gap is reporting significant outcomes such as backtest completion, risk rejection, and execution events
+- the bot can now notify on key runtime outcomes, but it still lacks any controlled operator-triggered actions
+- the next useful gap is adding bounded operational controls without weakening the safety model

@@ -68,3 +68,17 @@ Backtests need to evaluate historical candles deterministically without mutating
 ### Consequence
 
 The backtest runner reads persisted candles as input, but trade simulation and summary reporting happen entirely in memory.
+
+## 2026-03-16
+
+### Decision
+
+Add notifications as an optional outbound integration with bounded channels (`none`, `log`, `webhook`) and keep delivery failures non-blocking but explicit in logs.
+
+### Reason
+
+The bot now has meaningful runtime outcomes worth surfacing outside the normal execution logs, but notification delivery should not rewrite trading state or mask the underlying execution result if an outbound channel fails.
+
+### Consequence
+
+Worker executions, worker risk rejections, and backtest completion or skip events can be emitted through a configurable sender, while notification failures are logged with event context instead of silently disappearing.

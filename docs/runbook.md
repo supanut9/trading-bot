@@ -56,6 +56,7 @@ Default worker behavior:
 - reads the latest stored candles for the configured symbol and timeframe
 - applies strategy, risk checks, and paper execution in order
 - skips duplicate execution for the same signal candle
+- emits notifications for executions and risk rejections when configured
 
 To run it as a polling worker instead of a single cycle:
 
@@ -72,6 +73,9 @@ Optional worker tuning variables:
 - `MAX_OPEN_POSITIONS`
 - `MAX_DAILY_LOSS_PCT`
 - `WORKER_POLL_INTERVAL_SECONDS`
+- `NOTIFICATION_CHANNEL`
+- `NOTIFICATION_WEBHOOK_URL`
+- `NOTIFICATION_TIMEOUT_SECONDS`
 
 ## Run Backtest
 
@@ -85,6 +89,19 @@ Backtest behavior:
 - reuses the EMA strategy and risk sizing logic
 - simulates entries and exits in memory without writing orders, trades, or positions
 - force-closes any remaining open position on the final candle for summary reporting
+- emits notifications for completed and skipped runs when configured
+
+Notification channels:
+
+- `NOTIFICATION_CHANNEL=none`: disable notifications
+- `NOTIFICATION_CHANNEL=log`: write notification payloads into stdout logs
+- `NOTIFICATION_CHANNEL=webhook`: send JSON payloads to `NOTIFICATION_WEBHOOK_URL`
+
+Example local notification test:
+
+```bash
+NOTIFICATION_CHANNEL=log make run-backtest
+```
 
 ## Start Database
 
@@ -139,6 +156,8 @@ Stop the running process with `Ctrl+C`.
 - if configuration is missing, verify `.env` values against `.env.example`
 - if the worker reports `no_candles`, load recent candles through `POST /market-data/candles` before retrying
 - if the worker reports `duplicate_signal`, confirm whether the latest signal candle was already executed as intended
+- if notifications are expected but absent, verify `NOTIFICATION_CHANNEL` and `NOTIFICATION_WEBHOOK_URL`
+- if webhook delivery fails, inspect the `notification_delivery_failed` log entry for the event type and channel
 
 ## Logging Expectations
 

@@ -1,0 +1,195 @@
+import json
+import logging
+from decimal import Decimal
+
+import pytest
+
+from app.application.services.backtest_service import BacktestResult
+from app.application.services.notification_service import (
+    NotificationService,
+    build_notification_service,
+)
+from app.application.services.worker_orchestration_service import WorkerCycleResult
+from app.config import Settings
+from app.infrastructure.notifications.senders import WebhookNotificationSender
+
+
+class RecordingSender:
+    def __init__(self) -> None:
+        self.events = []
+
+    def send(self, event) -> None:
+        self.events.append(event)
+
+
+class FailingSender:
+    def send(self, _event) -> None:
+        raise RuntimeError("sender failed")
+
+
+def build_settings(**overrides: object) -> Settings:
+    return Settings(
+        APP_NAME="trading-bot",
+        APP_ENV="test",
+        EXCHANGE_NAME="binance",
+        DEFAULT_SYMBOL="BTC/USDT",
+        DEFAULT_TIMEFRAME="1h",
+        **overrides,
+    )
+
+
+def test_notifies_worker_execution_event() -> None:
+    sender = RecordingSender()
+    service = NotificationService(sender=sender, channel="log")
+    settings = build_settings()
+
+    sent = service.notify_worker_cycle(
+        settings,
+        WorkerCycleResult(
+            status="executed",
+            detail="signal executed in paper mode",
+            signal_action="buy",
+            client_order_id="worker-btc-usdt-buy-20260101010000",
+            order_id=10,
+            trade_id=20,
+            position_quantity=Decimal("0.50000000"),
+        ),
+    )
+
+    assert sent is True
+    assert len(sender.events) == 1
+    event = sender.events[0]
+    assert event.event_type == "worker.executed"
+    assert event.metadata["order_id"] == 10
+    assert event.metadata["position_quantity"] == Decimal("0.50000000")
+
+
+def test_notifies_worker_risk_rejection_event() -> None:
+    sender = RecordingSender()
+    service = NotificationService(sender=sender, channel="log")
+    settings = build_settings()
+
+    sent = service.notify_worker_cycle(
+        settings,
+        WorkerCycleResult(
+            status="risk_rejected",
+            detail="daily loss limit reached",
+            signal_action="buy",
+            client_order_id="worker-btc-usdt-buy-20260101010000",
+        ),
+    )
+
+    assert sent is True
+    assert len(sender.events) == 1
+    event = sender.events[0]
+    assert event.event_type == "worker.risk_rejected"
+    assert event.severity == "warning"
+    assert event.metadata["detail"] == "daily loss limit reached"
+
+
+def test_notifies_backtest_completion_event() -> None:
+    sender = RecordingSender()
+    service = NotificationService(sender=sender, channel="log")
+    settings = build_settings()
+
+    sent = service.notify_backtest_completed(
+        settings,
+        BacktestResult(
+            starting_equity=Decimal("10000"),
+            ending_equity=Decimal("10150"),
+            total_return_pct=Decimal("1.5"),
+            realized_pnl=Decimal("150"),
+            max_drawdown_pct=Decimal("2.3"),
+            total_trades=2,
+            winning_trades=1,
+            losing_trades=0,
+            executions=tuple(),
+        ),
+    )
+
+    assert sent is True
+    assert len(sender.events) == 1
+    event = sender.events[0]
+    assert event.event_type == "backtest.completed"
+    assert event.metadata["ending_equity"] == Decimal("10150")
+    assert event.metadata["executions"] == 2
+
+
+def test_notifies_backtest_skip_event() -> None:
+    sender = RecordingSender()
+    service = NotificationService(sender=sender, channel="log")
+    settings = build_settings()
+
+    sent = service.notify_backtest_skipped(
+        settings,
+        reason="not_enough_candles",
+        count=1,
+        required=6,
+    )
+
+    assert sent is True
+    assert len(sender.events) == 1
+    event = sender.events[0]
+    assert event.event_type == "backtest.skipped"
+    assert event.metadata["count"] == 1
+    assert event.metadata["required"] == 6
+
+
+def test_notification_failures_are_logged_and_do_not_raise(caplog) -> None:
+    service = NotificationService(sender=FailingSender(), channel="webhook")
+    settings = build_settings()
+
+    with caplog.at_level(logging.ERROR):
+        sent = service.notify_backtest_skipped(settings, reason="no_candles")
+
+    assert sent is False
+    assert "notification_delivery_failed channel=webhook event_type=backtest.skipped" in caplog.text
+
+
+def test_build_notification_service_requires_webhook_url() -> None:
+    settings = build_settings(NOTIFICATION_CHANNEL="webhook")
+
+    with pytest.raises(
+        ValueError,
+        match="NOTIFICATION_WEBHOOK_URL is required when NOTIFICATION_CHANNEL=webhook",
+    ):
+        build_notification_service(settings)
+
+
+def test_webhook_sender_posts_json_payload(monkeypatch) -> None:
+    captured: dict[str, object] = {}
+
+    class FakeResponse:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb) -> None:
+            return None
+
+        def read(self) -> bytes:
+            return b"ok"
+
+    def fake_urlopen(request, timeout: int):
+        captured["url"] = request.full_url
+        captured["timeout"] = timeout
+        captured["body"] = json.loads(request.data.decode("utf-8"))
+        return FakeResponse()
+
+    monkeypatch.setattr("app.infrastructure.notifications.senders.urlopen", fake_urlopen)
+
+    sender = WebhookNotificationSender(url="https://example.com/hook", timeout_seconds=7)
+    service = NotificationService(sender=sender, channel="webhook")
+    settings = build_settings()
+
+    sent = service.notify_backtest_skipped(
+        settings,
+        reason="not_enough_candles",
+        count=1,
+        required=6,
+    )
+
+    assert sent is True
+    assert captured["url"] == "https://example.com/hook"
+    assert captured["timeout"] == 7
+    assert captured["body"]["event_type"] == "backtest.skipped"
+    assert captured["body"]["metadata"]["required"] == 6

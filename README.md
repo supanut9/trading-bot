@@ -13,7 +13,7 @@ Build a reliable trading bot platform with:
 
 ## Current Phase
 
-Repository bootstrap and architecture scaffolding.
+Core trading flow with backtesting, paper execution, market-data ingestion, and runtime notifications.
 
 ## V1 Scope
 
@@ -70,6 +70,22 @@ The API now exposes basic operational visibility endpoints:
 - `GET /positions`
 - `GET /trades`
 - `POST /market-data/candles`
+
+## Notifications
+
+Notifications are optional and default to disabled.
+
+Available channels:
+
+- `none`
+- `log`
+- `webhook`
+
+Useful local test:
+
+```bash
+NOTIFICATION_CHANNEL=log make run-worker
+```
 
 ## Git Hooks
 
