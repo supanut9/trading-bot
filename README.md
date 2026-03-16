@@ -68,6 +68,7 @@ The API now exposes basic operational visibility endpoints:
 - `GET /status`
 - `GET /positions`
 - `GET /trades`
+- `POST /market-data/candles`
 
 ## Git Hooks
 

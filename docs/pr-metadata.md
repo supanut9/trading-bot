@@ -63,8 +63,8 @@ Recommended initial milestones:
 
 Suggested mapping:
 
-- foundation, persistence, and market-data work -> `Phase 1 - Foundation`
-- strategy, risk, paper execution, and worker orchestration -> `Phase 2 - Core Trading Flow`
+- foundation and persistence scaffolding work -> `Phase 1 - Foundation`
+- market-data ingestion, strategy, risk, paper execution, and worker orchestration -> `Phase 2 - Core Trading Flow`
 - API operations and operational visibility work -> `Phase 3 - Operations API`
 
 ## Projects

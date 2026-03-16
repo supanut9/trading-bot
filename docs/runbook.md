@@ -16,6 +16,33 @@ Operational endpoints:
 - `GET /status`
 - `GET /positions`
 - `GET /trades`
+- `POST /market-data/candles`
+
+Load candles for local worker testing:
+
+```bash
+curl -X POST http://127.0.0.1:8000/market-data/candles \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "candles": [
+      {
+        "open_time": "2026-01-01T00:00:00Z",
+        "close_time": "2026-01-01T01:00:00Z",
+        "open_price": "100000",
+        "high_price": "100100",
+        "low_price": "99900",
+        "close_price": "100050",
+        "volume": "12.5"
+      }
+    ]
+  }'
+```
+
+Request behavior:
+
+- uses configured defaults for `exchange`, `symbol`, and `timeframe` when omitted
+- stores closed candle batches through the existing market data service
+- upserts by `exchange + symbol + timeframe + open_time`
 
 ## Start Worker
 
@@ -97,7 +124,7 @@ Stop the running process with `Ctrl+C`.
 
 - if the worker crashes, inspect the latest logs first
 - if configuration is missing, verify `.env` values against `.env.example`
-- if the worker reports `no_candles`, load or persist recent candles before retrying
+- if the worker reports `no_candles`, load recent candles through `POST /market-data/candles` before retrying
 - if the worker reports `duplicate_signal`, confirm whether the latest signal candle was already executed as intended
 
 ## Logging Expectations

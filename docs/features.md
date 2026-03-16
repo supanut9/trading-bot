@@ -187,11 +187,29 @@ Main outputs:
 
 - operational API surface for inspection and control
 
+### 10. `feature/market-data-ingestion`
+
+Status:
+
+- implemented on branch
+
+Scope:
+
+- local candle ingestion path
+- API-facing batch persistence
+- endpoint tests and runbook updates for worker preparation
+
+Main outputs:
+
+- `POST /market-data/candles`
+- documented local workflow for loading candles before worker runs
+- API tests for candle ingestion
+
 ## Next Recommended Feature
 
-`feature/market-data-ingestion`
+`feature/backtest-runner`
 
 Reason:
 
-- operational visibility now exists for positions and trades
-- the next missing execution prerequisite is loading candle data into the system without manual seeding
+- strategy, risk, execution, worker orchestration, operations API, and candle ingestion now exist
+- the next useful bounded step is evaluating deterministic strategy behavior over historical candle sets without running the worker manually
