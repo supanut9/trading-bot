@@ -54,3 +54,17 @@ The project already has strategy, risk, and paper execution layers, so the next 
 ### Consequence
 
 The worker can run as a repeatable polling process over stored candles, but the same signal candle will not create duplicate paper orders once it has been executed.
+
+## 2026-03-16
+
+### Decision
+
+Implement backtesting as an in-memory application service that reuses strategy and risk logic while avoiding persistence side effects.
+
+### Reason
+
+Backtests need to evaluate historical candles deterministically without mutating orders, trades, or positions, and they should stay close to the same decision rules used by the runtime worker.
+
+### Consequence
+
+The backtest runner reads persisted candles as input, but trade simulation and summary reporting happen entirely in memory.

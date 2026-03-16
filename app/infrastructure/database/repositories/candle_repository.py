@@ -76,3 +76,21 @@ class CandleRepository:
             .limit(limit)
         )
         return self._session.execute(statement).scalars().all()
+
+    def list_all(
+        self,
+        *,
+        exchange: str,
+        symbol: str,
+        timeframe: str,
+    ) -> Sequence[CandleRecord]:
+        statement: Select[tuple[CandleRecord]] = (
+            select(CandleRecord)
+            .where(
+                CandleRecord.exchange == exchange,
+                CandleRecord.symbol == symbol,
+                CandleRecord.timeframe == timeframe,
+            )
+            .order_by(CandleRecord.open_time.asc())
+        )
+        return self._session.execute(statement).scalars().all()

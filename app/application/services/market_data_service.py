@@ -91,3 +91,24 @@ class MarketDataService:
             len(candles),
         )
         return candles
+
+    def list_historical_candles(
+        self,
+        *,
+        exchange: str,
+        symbol: str,
+        timeframe: str,
+    ) -> Sequence[CandleRecord]:
+        candles = self._repository.list_all(
+            exchange=exchange,
+            symbol=symbol,
+            timeframe=timeframe,
+        )
+        logger.info(
+            "market_data_list_historical exchange=%s symbol=%s timeframe=%s count=%s",
+            exchange,
+            symbol,
+            timeframe,
+            len(candles),
+        )
+        return candles

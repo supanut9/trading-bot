@@ -205,11 +205,29 @@ Main outputs:
 - documented local workflow for loading candles before worker runs
 - API tests for candle ingestion
 
+### 11. `feature/backtest-runner`
+
+Status:
+
+- implemented on branch
+
+Scope:
+
+- deterministic backtest application service
+- local backtest entrypoint
+- tests and runbook updates for historical replay
+
+Main outputs:
+
+- in-memory backtest runner over stored candles
+- `make run-backtest`
+- tests for backtest outcomes and forced final close
+
 ## Next Recommended Feature
 
-`feature/backtest-runner`
+`feature/notifications`
 
 Reason:
 
-- strategy, risk, execution, worker orchestration, operations API, and candle ingestion now exist
-- the next useful bounded step is evaluating deterministic strategy behavior over historical candle sets without running the worker manually
+- the bot can now ingest candles, run workers, expose operations, and backtest strategy behavior
+- the next useful operational gap is reporting significant outcomes such as backtest completion, risk rejection, and execution events

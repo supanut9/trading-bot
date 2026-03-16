@@ -59,6 +59,7 @@ Use the `Makefile` once dependencies are installed:
 - `make pr-check`
 - `make run-api`
 - `make run-worker`
+- `make run-backtest`
 
 ## Operational API
 

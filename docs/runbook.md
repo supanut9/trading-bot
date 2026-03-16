@@ -73,6 +73,19 @@ Optional worker tuning variables:
 - `MAX_DAILY_LOSS_PCT`
 - `WORKER_POLL_INTERVAL_SECONDS`
 
+## Run Backtest
+
+```bash
+make run-backtest
+```
+
+Backtest behavior:
+
+- loads stored candles for the configured exchange, symbol, and timeframe
+- reuses the EMA strategy and risk sizing logic
+- simulates entries and exits in memory without writing orders, trades, or positions
+- force-closes any remaining open position on the final candle for summary reporting
+
 ## Start Database
 
 ```bash
