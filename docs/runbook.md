@@ -19,6 +19,9 @@ Operational endpoints:
 - `POST /market-data/candles`
 - `POST /controls/worker-cycle`
 - `POST /controls/backtest`
+- `GET /reports/positions.csv`
+- `GET /reports/trades.csv`
+- `GET /reports/backtest-summary.csv`
 
 Load candles for local worker testing:
 
@@ -51,6 +54,12 @@ Manual controls:
 - `POST /controls/worker-cycle` runs one worker cycle with the current configured strategy, risk, and paper/live mode
 - `POST /controls/backtest` runs one backtest over stored candles with the current configured strategy and risk settings
 - control endpoints do not accept arbitrary trading parameters; they only use current application configuration
+
+Report exports:
+
+- `GET /reports/positions.csv` exports the current positions view as CSV
+- `GET /reports/trades.csv` exports recent trades as CSV and supports the same `limit` query parameter as `GET /trades`
+- `GET /reports/backtest-summary.csv` runs one backtest summary export against stored candles using current settings
 
 ## Start Worker
 

@@ -96,3 +96,17 @@ Operators need a safe way to trigger runtime workflows without shell access, but
 ### Consequence
 
 The API can trigger worker and backtest workflows on demand, while strategy periods, market selection, paper/live mode, and risk limits remain controlled by environment configuration rather than request bodies.
+
+## 2026-03-16
+
+### Decision
+
+Provide reporting exports as CSV endpoints generated from the existing operational views and backtest summary path, rather than introducing new persisted reporting tables.
+
+### Reason
+
+Operators and reviewers need download-friendly artifacts, but the current system already has the necessary positions, trades, and on-demand backtest summary data, so adding separate reporting persistence would widen the schema and workflow without a clear v1 need.
+
+### Consequence
+
+The API can export positions, recent trades, and backtest summary data in CSV form, while the source of truth remains the existing operational repositories and deterministic backtest service.

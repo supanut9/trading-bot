@@ -261,10 +261,29 @@ Main outputs:
 - application service that closes DB sessions before notification delivery
 - response models for control outcomes
 
+### 14. `feature/reporting-exports`
+
+Status:
+
+- implemented on branch
+
+Scope:
+
+- export operational data in reviewer-friendly formats
+- CSV exports for positions and trades
+- CSV export for on-demand backtest summary
+- tests and docs for report download behavior
+
+Main outputs:
+
+- `/reports` API endpoints for CSV exports
+- export service for operational and backtest report formatting
+- API tests for CSV payload shape and headers
+
 ## Next Recommended Feature
 
-`feature/reporting-exports`
+`feature/scheduled-jobs`
 
 Reason:
 
-- once manual control endpoints exist, the next likely gap is exporting operational and backtest data in reviewer-friendly formats
+- once exports exist, the next gap is scheduling and recurring runtime execution rather than only manual triggers
