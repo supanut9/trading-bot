@@ -110,3 +110,17 @@ Operators and reviewers need download-friendly artifacts, but the current system
 ### Consequence
 
 The API can export positions, recent trades, and backtest summary data in CSV form, while the source of truth remains the existing operational repositories and deterministic backtest service.
+
+## 2026-03-17
+
+### Decision
+
+Make Codex review completion a separate required status check instead of treating the review-trigger workflow as merge readiness.
+
+### Reason
+
+The previous setup only proved that `@codex review` was posted on the PR. It did not prove that the connector had actually responded yet, so PRs could appear fully green while review was still pending.
+
+### Consequence
+
+The repository now distinguishes between requesting review and receiving a connector response for the latest request, allowing branch protection to block merges until Codex review has actually completed.

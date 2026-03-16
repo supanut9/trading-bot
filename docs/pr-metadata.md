@@ -90,18 +90,20 @@ When PR feedback arrives:
 
 1. inspect all open review threads
 2. rely on the automated AI-review trigger for normal PR lifecycle events
-3. manually retrigger AI review after meaningful updates when needed
-4. decide whether each comment should be fixed, answered, or declined
-5. implement the fix when appropriate
-6. rerun validation for the affected scope
-7. reply on the PR thread
-8. resolve the thread after the response or fix is in place
+3. wait for the `Codex Review Status` workflow to confirm the latest `@codex review` request received a connector response
+4. manually retrigger AI review after meaningful updates when needed
+5. decide whether each comment should be fixed, answered, or declined
+6. implement the fix when appropriate
+7. rerun validation for the affected scope
+8. reply on the PR thread
+9. resolve the thread after the response or fix is in place
 
 ## Merge Gate
 
 - `main` should only be updated through pull requests
 - PRs should resolve review threads before merge
 - PRs should have passing CI checks before merge
+- PRs should have a passing `Codex Review Status` check before merge
 - prefer squash merge for feature branches
 
 ## Validation Command

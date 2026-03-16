@@ -280,6 +280,25 @@ Main outputs:
 - export service for operational and backtest report formatting
 - API tests for CSV payload shape and headers
 
+### 15. `feature/review-gating`
+
+Status:
+
+- implemented on branch
+
+Scope:
+
+- make Codex review completion a real merge gate
+- separate review trigger from review completion status
+- add tested status-check logic for latest `@codex review` request
+- document the updated merge rule
+
+Main outputs:
+
+- `codex-review-status` workflow
+- script to validate connector response after the latest review request
+- workflow and review docs aligned with the new gate
+
 ## Next Recommended Feature
 
 `feature/scheduled-jobs`
