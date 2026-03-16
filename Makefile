@@ -1,4 +1,4 @@
-.PHONY: install install-hooks init-db db-up db-down db-logs format lint test pr-check run-api run-worker
+.PHONY: install install-hooks init-db db-up db-down db-logs format lint test pr-check run-api run-worker run-backtest
 
 install:
 	python3 -m pip install -e ".[dev]"
@@ -35,3 +35,6 @@ run-api:
 
 run-worker:
 	python3 -m app.worker
+
+run-backtest:
+	python3 -m app.backtest
