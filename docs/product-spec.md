@@ -32,6 +32,7 @@ Build a maintainable trading bot that supports research, backtesting, paper trad
 - emit optional notifications for worker execution, risk rejection, and backtest outcomes
 - persist bot state and logs
 - expose minimal operational API for health, status, positions, trades, candle ingestion, and bounded manual controls
+- export operational and backtest summary data as CSV for review and offline inspection
 
 ## Current Risk Policy Baseline
 

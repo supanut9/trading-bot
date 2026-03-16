@@ -72,6 +72,9 @@ The API now exposes basic operational visibility endpoints:
 - `POST /market-data/candles`
 - `POST /controls/worker-cycle`
 - `POST /controls/backtest`
+- `GET /reports/positions.csv`
+- `GET /reports/trades.csv`
+- `GET /reports/backtest-summary.csv`
 
 ## Notifications
 

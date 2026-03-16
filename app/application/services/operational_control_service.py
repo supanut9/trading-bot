@@ -78,7 +78,7 @@ class OperationalControlService:
             notified=notified,
         )
 
-    def run_backtest(self) -> BacktestControlResult:
+    def run_backtest(self, *, notify: bool = True) -> BacktestControlResult:
         with self._session_factory() as session:
             records = MarketDataService(session).list_historical_candles(
                 exchange=self._settings.exchange_name,
@@ -102,12 +102,14 @@ class OperationalControlService:
                 detail = "backtest completed"
 
         if backtest_result is None:
-            notified = self._notifications.notify_backtest_skipped(
-                self._settings,
-                reason=detail,
-                count=candle_count,
-                required=required_candles,
-            )
+            notified = False
+            if notify:
+                notified = self._notifications.notify_backtest_skipped(
+                    self._settings,
+                    reason=detail,
+                    count=candle_count,
+                    required=required_candles,
+                )
             return BacktestControlResult(
                 status=status,
                 detail=detail,
@@ -116,7 +118,12 @@ class OperationalControlService:
                 required_candles=required_candles,
             )
 
-        notified = self._notifications.notify_backtest_completed(self._settings, backtest_result)
+        notified = False
+        if notify:
+            notified = self._notifications.notify_backtest_completed(
+                self._settings,
+                backtest_result,
+            )
         return BacktestControlResult(
             status=status,
             detail=detail,
