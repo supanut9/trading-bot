@@ -85,3 +85,40 @@ def test_ingest_candles_requires_at_least_one_candle(tmp_path: Path) -> None:
         assert response.status_code == 422
     finally:
         teardown_client(session)
+
+
+def test_ingest_candles_normalizes_naive_and_aware_timestamps(tmp_path: Path) -> None:
+    client, session = build_client(tmp_path)
+    try:
+        response = client.post(
+            "/market-data/candles",
+            json={
+                "candles": [
+                    {
+                        "open_time": "2026-01-01T00:00:00",
+                        "close_time": "2026-01-01T01:00:00",
+                        "open_price": "100000",
+                        "high_price": "100100",
+                        "low_price": "99900",
+                        "close_price": "100050",
+                        "volume": "12.5",
+                    },
+                    {
+                        "open_time": "2026-01-01T01:00:00Z",
+                        "close_time": "2026-01-01T02:00:00Z",
+                        "open_price": "100050",
+                        "high_price": "100300",
+                        "low_price": "100000",
+                        "close_price": "100250",
+                        "volume": "9.3",
+                    },
+                ]
+            },
+        )
+
+        assert response.status_code == 201
+        payload = response.json()
+        assert payload["stored_count"] == 2
+        assert payload["latest_open_time"] == "2026-01-01T01:00:00Z"
+    finally:
+        teardown_client(session)

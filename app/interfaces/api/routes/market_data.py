@@ -27,24 +27,25 @@ def ingest_candles(
     symbol = payload.symbol or settings.default_symbol
     timeframe = payload.timeframe or settings.default_timeframe
     service = MarketDataService(session)
+    candle_inputs = [
+        CandleInput(
+            open_time=candle.open_time,
+            close_time=candle.close_time,
+            open_price=candle.open_price,
+            high_price=candle.high_price,
+            low_price=candle.low_price,
+            close_price=candle.close_price,
+            volume=candle.volume,
+        )
+        for candle in payload.candles
+    ]
+    latest_open_time = max(candle.open_time for candle in candle_inputs)
     stored = service.store_candles(
         exchange=exchange,
         symbol=symbol,
         timeframe=timeframe,
-        candles=[
-            CandleInput(
-                open_time=candle.open_time,
-                close_time=candle.close_time,
-                open_price=candle.open_price,
-                high_price=candle.high_price,
-                low_price=candle.low_price,
-                close_price=candle.close_price,
-                volume=candle.volume,
-            )
-            for candle in payload.candles
-        ],
+        candles=candle_inputs,
     )
-    latest_open_time = max(candle.open_time for candle in stored)
     return CandleBatchIngestionResponse(
         exchange=exchange,
         symbol=symbol,

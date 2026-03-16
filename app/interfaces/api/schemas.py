@@ -1,7 +1,7 @@
-from datetime import datetime
+from datetime import UTC, datetime
 from decimal import Decimal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class PositionResponse(BaseModel):
@@ -39,6 +39,13 @@ class CandleWriteRequest(BaseModel):
     low_price: Decimal
     close_price: Decimal
     volume: Decimal
+
+    @field_validator("open_time", "close_time")
+    @classmethod
+    def normalize_datetime(cls, value: datetime) -> datetime:
+        if value.tzinfo is None:
+            return value.replace(tzinfo=UTC)
+        return value.astimezone(UTC)
 
 
 class CandleBatchIngestionRequest(BaseModel):
