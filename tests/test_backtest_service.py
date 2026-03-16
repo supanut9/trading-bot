@@ -83,3 +83,14 @@ def test_backtest_forces_close_open_position_on_final_candle() -> None:
     assert result.total_trades == 2
     assert result.executions[-1].reason == "forced close on final candle"
     assert result.ending_equity == result.starting_equity
+
+
+def test_backtest_marks_equity_to_market_for_drawdown() -> None:
+    service = BacktestService(
+        strategy=StubStrategy(),
+        starting_equity=Decimal("10000"),
+    )
+
+    result = service.run(build_candles([10, 20, 10, 30]))
+
+    assert result.max_drawdown_pct > Decimal("0")

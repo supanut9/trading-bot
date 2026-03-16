@@ -50,7 +50,6 @@ class BacktestService:
 
     def run(self, candles: Sequence[Candle]) -> BacktestResult:
         ordered_candles = sorted(candles, key=lambda candle: candle.open_time)
-        current_equity = self._starting_equity
         peak_equity = self._starting_equity
         max_drawdown_pct = Decimal("0")
         realized_pnl = Decimal("0")
@@ -62,19 +61,26 @@ class BacktestService:
         average_entry_price: Decimal | None = None
 
         for index in range(len(ordered_candles)):
+            candle = ordered_candles[index]
+            marked_equity = self._mark_to_market_equity(
+                realized_pnl=realized_pnl,
+                position_quantity=position_quantity,
+                average_entry_price=average_entry_price,
+                mark_price=candle.close_price,
+            )
+            peak_equity = max(peak_equity, marked_equity)
+            max_drawdown_pct = self._update_drawdown(
+                current_equity=marked_equity,
+                peak_equity=peak_equity,
+                current_max_drawdown_pct=max_drawdown_pct,
+            )
+
             signal = self._strategy.evaluate(ordered_candles[: index + 1])
             if signal is None:
-                max_drawdown_pct = self._update_drawdown(
-                    current_equity=current_equity,
-                    peak_equity=peak_equity,
-                    current_max_drawdown_pct=max_drawdown_pct,
-                )
-                peak_equity = max(peak_equity, current_equity)
                 continue
 
-            candle = ordered_candles[index]
             portfolio = self._build_portfolio_state(
-                current_equity=current_equity,
+                current_equity=marked_equity,
                 realized_pnl=realized_pnl,
                 position_quantity=position_quantity,
             )
@@ -83,22 +89,10 @@ class BacktestService:
                 trade=TradeContext(signal=signal, entry_price=candle.close_price),
             )
             if not decision.approved:
-                max_drawdown_pct = self._update_drawdown(
-                    current_equity=current_equity,
-                    peak_equity=peak_equity,
-                    current_max_drawdown_pct=max_drawdown_pct,
-                )
-                peak_equity = max(peak_equity, current_equity)
                 continue
 
             if signal.action == "buy":
                 if position_quantity > Decimal("0"):
-                    max_drawdown_pct = self._update_drawdown(
-                        current_equity=current_equity,
-                        peak_equity=peak_equity,
-                        current_max_drawdown_pct=max_drawdown_pct,
-                    )
-                    peak_equity = max(peak_equity, current_equity)
                     continue
 
                 position_quantity = decision.quantity
@@ -115,7 +109,6 @@ class BacktestService:
             elif position_quantity > Decimal("0") and average_entry_price is not None:
                 trade_pnl = (candle.close_price - average_entry_price) * position_quantity
                 realized_pnl += trade_pnl
-                current_equity = self._starting_equity + realized_pnl
                 if trade_pnl > Decimal("0"):
                     winning_trades += 1
                 elif trade_pnl < Decimal("0"):
@@ -132,18 +125,10 @@ class BacktestService:
                 position_quantity = Decimal("0")
                 average_entry_price = None
 
-            peak_equity = max(peak_equity, current_equity)
-            max_drawdown_pct = self._update_drawdown(
-                current_equity=current_equity,
-                peak_equity=peak_equity,
-                current_max_drawdown_pct=max_drawdown_pct,
-            )
-
         if position_quantity > Decimal("0") and average_entry_price is not None:
             final_price = ordered_candles[-1].close_price
             trade_pnl = (final_price - average_entry_price) * position_quantity
             realized_pnl += trade_pnl
-            current_equity = self._starting_equity + realized_pnl
             if trade_pnl > Decimal("0"):
                 winning_trades += 1
             elif trade_pnl < Decimal("0"):
@@ -157,22 +142,17 @@ class BacktestService:
                     reason="forced close on final candle",
                 )
             )
-            peak_equity = max(peak_equity, current_equity)
-            max_drawdown_pct = self._update_drawdown(
-                current_equity=current_equity,
-                peak_equity=peak_equity,
-                current_max_drawdown_pct=max_drawdown_pct,
-            )
+        ending_equity = self._starting_equity + realized_pnl
 
         total_return_pct = Decimal("0")
         if self._starting_equity > Decimal("0"):
             total_return_pct = (
-                (current_equity - self._starting_equity) / self._starting_equity
+                (ending_equity - self._starting_equity) / self._starting_equity
             ) * Decimal("100")
 
         return BacktestResult(
             starting_equity=self._starting_equity,
-            ending_equity=current_equity,
+            ending_equity=ending_equity,
             total_return_pct=total_return_pct,
             realized_pnl=realized_pnl,
             max_drawdown_pct=max_drawdown_pct,
@@ -199,6 +179,20 @@ class BacktestService:
             daily_realized_loss_pct=daily_realized_loss_pct,
             trading_mode="paper",
         )
+
+    def _mark_to_market_equity(
+        self,
+        *,
+        realized_pnl: Decimal,
+        position_quantity: Decimal,
+        average_entry_price: Decimal | None,
+        mark_price: Decimal,
+    ) -> Decimal:
+        if position_quantity <= Decimal("0") or average_entry_price is None:
+            return self._starting_equity + realized_pnl
+
+        unrealized_pnl = (mark_price - average_entry_price) * position_quantity
+        return self._starting_equity + realized_pnl + unrealized_pnl
 
     @staticmethod
     def _update_drawdown(

@@ -4,6 +4,7 @@ from app.application.services.backtest_service import BacktestService
 from app.application.services.market_data_service import MarketDataService
 from app.config import get_settings
 from app.core.logger import configure_logging, get_logger
+from app.domain.risk import RiskLimits, RiskService
 from app.domain.strategies.base import Candle
 from app.domain.strategies.ema_crossover import EmaCrossoverStrategy
 from app.infrastructure.database.init_db import init_database
@@ -51,6 +52,14 @@ def main() -> None:
                 fast_period=settings.strategy_fast_period,
                 slow_period=settings.strategy_slow_period,
             ),
+            risk_service=RiskService(
+                RiskLimits(
+                    risk_per_trade_pct=Decimal(str(settings.risk_per_trade_pct)),
+                    max_open_positions=settings.max_open_positions,
+                    max_daily_loss_pct=Decimal(str(settings.max_daily_loss_pct)),
+                    paper_trading_only=not settings.live_trading_enabled,
+                )
+            ),
             starting_equity=Decimal(str(settings.paper_account_equity)),
         ).run(
             [
@@ -70,7 +79,8 @@ def main() -> None:
     logger.info(
         "backtest_completed exchange=%s symbol=%s timeframe=%s "
         "starting_equity=%s ending_equity=%s realized_pnl=%s "
-        "total_return_pct=%s executions=%s max_drawdown_pct=%s",
+        "total_return_pct=%s executions=%s max_drawdown_pct=%s "
+        "risk_per_trade_pct=%s max_open_positions=%s max_daily_loss_pct=%s",
         settings.exchange_name,
         settings.default_symbol,
         settings.default_timeframe,
@@ -80,6 +90,9 @@ def main() -> None:
         result.total_return_pct,
         result.total_trades,
         result.max_drawdown_pct,
+        settings.risk_per_trade_pct,
+        settings.max_open_positions,
+        settings.max_daily_loss_pct,
     )
 
 
