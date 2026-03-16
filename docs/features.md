@@ -156,7 +156,7 @@ Main outputs:
 
 Status:
 
-- planned
+- implemented on branch
 
 Scope:
 
@@ -168,6 +168,7 @@ Main outputs:
 
 - worker pipeline from candles to execution
 - startup and runtime orchestration
+- idempotent signal execution by candle via `client_order_id`
 - updated runbook for local operation
 
 ### 9. `feature/api-operations`
@@ -188,9 +189,9 @@ Main outputs:
 
 ## Next Recommended Feature
 
-`feature/worker-orchestration`
+`feature/api-operations`
 
 Reason:
 
-- strategy, risk, and paper execution layers now exist
-- the next missing step is wiring them together into the scheduled worker flow
+- the worker can now process stored candles into paper executions
+- the next missing step is surfacing trades and positions through operational endpoints

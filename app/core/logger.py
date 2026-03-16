@@ -2,10 +2,7 @@ import logging
 
 from app.config import Settings, get_settings
 
-LOG_FORMAT = (
-    "%(asctime)s %(levelname)s %(name)s "
-    "event=%(message)s"
-)
+LOG_FORMAT = "%(asctime)s %(levelname)s %(name)s event=%(message)s"
 
 
 def configure_logging(settings: Settings | None = None) -> None:

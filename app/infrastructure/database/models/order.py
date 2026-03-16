@@ -1,6 +1,6 @@
 from decimal import Decimal
 
-from sqlalchemy import Index, Numeric, String, Text
+from sqlalchemy import Index, Numeric, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.infrastructure.database.base import Base, TimestampMixin
@@ -11,6 +11,7 @@ class OrderRecord(TimestampMixin, Base):
     __table_args__ = (
         Index("ix_orders_lookup", "exchange", "symbol", "status"),
         Index("ix_orders_client_order_id", "client_order_id"),
+        UniqueConstraint("client_order_id"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)

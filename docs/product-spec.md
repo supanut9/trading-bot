@@ -26,6 +26,7 @@ Build a maintainable trading bot that supports research, backtesting, paper trad
 - generate signals from deterministic strategy rules
 - apply risk checks
 - simulate order execution in paper mode
+- orchestrate a worker cycle from persisted candles through execution
 - persist bot state and logs
 - expose minimal operational API
 
@@ -41,6 +42,7 @@ Build a maintainable trading bot that supports research, backtesting, paper trad
 - paper orders are treated as immediately filled
 - each paper execution writes an order, trade, and updated position state
 - sell executions realize PnL against the stored average entry price
+- worker-triggered paper orders use a candle-derived `client_order_id` to avoid duplicate execution on the same signal candle
 
 ## Development Infrastructure
 

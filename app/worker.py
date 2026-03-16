@@ -1,5 +1,10 @@
+from time import sleep
+
+from app.application.services.worker_orchestration_service import WorkerOrchestrationService
 from app.config import get_settings
 from app.core.logger import configure_logging, get_logger
+from app.infrastructure.database.init_db import init_database
+from app.infrastructure.database.session import create_session_factory
 
 logger = get_logger(__name__)
 
@@ -16,6 +21,29 @@ def main() -> None:
         settings.default_symbol,
         settings.default_timeframe,
     )
+    tables = init_database(settings)
+    logger.info("worker_database_initialized tables=%s", ",".join(tables))
+    session_factory = create_session_factory(settings)
+
+    try:
+        while True:
+            with session_factory() as session:
+                result = WorkerOrchestrationService(session, settings).run_cycle()
+                logger.info(
+                    "worker_cycle_completed status=%s detail=%s signal=%s order_id=%s trade_id=%s",
+                    result.status,
+                    result.detail,
+                    result.signal_action,
+                    result.order_id,
+                    result.trade_id,
+                )
+
+            if settings.worker_run_once:
+                break
+
+            sleep(settings.worker_poll_interval_seconds)
+    except KeyboardInterrupt:
+        logger.info("worker_stopped reason=keyboard_interrupt")
 
 
 if __name__ == "__main__":

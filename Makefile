@@ -1,4 +1,4 @@
-.PHONY: install install-hooks init-db db-up db-down db-logs format lint test run-api run-worker
+.PHONY: install install-hooks init-db db-up db-down db-logs format lint test pr-check run-api run-worker
 
 install:
 	python3 -m pip install -e ".[dev]"
@@ -26,6 +26,9 @@ lint:
 
 test:
 	python3 -m pytest
+
+pr-check:
+	python3 -m scripts.check_pr_metadata
 
 run-api:
 	python3 -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
