@@ -29,6 +29,7 @@ Build a maintainable trading bot that supports research, backtesting, paper trad
 - generate signals from deterministic strategy rules
 - apply risk checks
 - simulate order execution in paper mode
+- route execution through a replaceable adapter boundary, with paper execution as the current concrete implementation
 - orchestrate a worker cycle from persisted candles through execution
 - emit optional notifications for worker execution, risk rejection, backtest outcomes, and market sync outcomes
 - persist bot state and logs
