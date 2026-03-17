@@ -103,3 +103,13 @@ class MarketSyncControlResponse(BaseModel):
     notified: bool
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class LiveReconcileControlResponse(BaseModel):
+    status: str
+    detail: str
+    reconciled_count: int
+    filled_count: int
+    notified: bool
+
+    model_config = ConfigDict(from_attributes=True)

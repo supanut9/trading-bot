@@ -250,3 +250,17 @@ Submitting a live order and observing a confirmed fill are different runtime eve
 ### Consequence
 
 Live execution now writes local `orders` rows with live mode and exchange order ids after successful submission, while local `trades` and `positions` remain unchanged until a later fill-reconciliation workflow is introduced.
+
+## 2026-03-17
+
+### Decision
+
+Reconcile live exchange fills into local trades and positions only through an explicit order-status reconciliation step.
+
+### Reason
+
+Live order submission and confirmed exchange fills are separate events, and the system needs a bounded way to pull authoritative fill state back into local runtime records without inventing trades from submission alone. A dedicated reconciliation step also keeps retry and idempotency behavior isolated from the initial execution path.
+
+### Consequence
+
+The exchange adapter now supports signed order-status lookup, recent open live orders can be reconciled through a dedicated service and control endpoint, and local trades or position updates are created only when the exchange reports a confirmed filled status with usable fill details.

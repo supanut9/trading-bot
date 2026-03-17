@@ -34,6 +34,16 @@ class ExchangeOrderSubmission:
     response_payload: dict[str, object]
 
 
+@dataclass(frozen=True, slots=True)
+class ExchangeOrderStatus:
+    status: str
+    client_order_id: str | None
+    exchange_order_id: str | None
+    executed_quantity: Decimal
+    average_fill_price: Decimal | None
+    response_payload: dict[str, object]
+
+
 class MarketDataExchangeClient(Protocol):
     name: str
 
@@ -50,3 +60,11 @@ class LiveOrderExchangeClient(Protocol):
     name: str
 
     def submit_order(self, request: ExchangeOrderRequest) -> ExchangeOrderSubmission: ...
+
+    def fetch_order_status(
+        self,
+        *,
+        symbol: str,
+        client_order_id: str | None = None,
+        exchange_order_id: str | None = None,
+    ) -> ExchangeOrderStatus: ...

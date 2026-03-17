@@ -6,6 +6,7 @@ from app.config import Settings, get_settings
 from app.infrastructure.database.session import get_session_factory_dependency
 from app.interfaces.api.schemas import (
     BacktestControlResponse,
+    LiveReconcileControlResponse,
     MarketSyncControlResponse,
     WorkerControlResponse,
 )
@@ -61,3 +62,19 @@ def run_market_sync(
         session_factory=session_factory,
     ).run_market_sync(source="api.control")
     return MarketSyncControlResponse.model_validate(result)
+
+
+@router.post(
+    "/live-reconcile",
+    response_model=LiveReconcileControlResponse,
+    status_code=status.HTTP_200_OK,
+)
+def run_live_reconcile(
+    settings: Settings = settings_dependency,
+    session_factory: sessionmaker[Session] = session_factory_dependency,
+) -> LiveReconcileControlResponse:
+    result = OperationalControlService(
+        settings,
+        session_factory=session_factory,
+    ).run_live_reconcile(source="api.control")
+    return LiveReconcileControlResponse.model_validate(result)

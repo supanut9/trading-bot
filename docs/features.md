@@ -466,7 +466,7 @@ Main outputs:
 
 Status:
 
-- in progress
+- implemented on branch
 
 Scope:
 
@@ -481,10 +481,30 @@ Main outputs:
 - persisted local live orders with exchange order ids
 - worker and control behavior for submitted live orders
 
+### 26. `feature/live-fill-reconciliation`
+
+Status:
+
+- implemented on branch
+
+Scope:
+
+- reconcile recent live exchange orders back into local runtime state
+- create local trades and position updates only after confirmed remote filled status
+- keep reconciliation bounded to recent open live orders and expose it through an operator control
+- add tests and docs for idempotent reconciliation behavior
+
+Main outputs:
+
+- live fill reconciliation service
+- signed exchange order-status lookup support
+- `POST /controls/live-reconcile`
+- tests for filled, open, and already-reconciled live orders
+
 ## Next Recommended Feature
 
-`feature/live-fill-reconciliation`
+No immediate next feature in the current roadmap slice.
 
 Reason:
 
-- once live orders can be submitted safely, the next bounded step is reconciling exchange fill state back into local trades and positions
+- the current documented feature map is now implemented through live order submission and fill reconciliation

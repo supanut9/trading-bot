@@ -10,6 +10,7 @@ from app.application.services.market_data_sync_service import MarketDataSyncResu
 from app.config import Settings, get_settings
 from app.infrastructure.database.base import Base
 from app.infrastructure.database.models.audit_event import AuditEventRecord
+from app.infrastructure.database.models.order import OrderRecord
 from app.infrastructure.database.models.trade import TradeRecord
 from app.infrastructure.database.session import (
     create_engine_from_settings,
@@ -255,5 +256,68 @@ def test_worker_cycle_control_refuses_live_mode_without_live_executor(tmp_path: 
         assert payload["status"] == "submitted"
         assert payload["detail"] == "signal submitted to live exchange"
         assert payload["signal_action"] == "buy"
+    finally:
+        teardown_client()
+
+
+def test_live_reconcile_control_returns_completed_summary(tmp_path: Path) -> None:
+    client, settings = build_client(tmp_path)
+    try:
+        settings.paper_trading = False
+        settings.live_trading_enabled = True
+        settings.exchange_api_key = "key"
+        settings.exchange_api_secret = "secret"
+
+        session = create_session_factory(settings)()
+        try:
+            session.add(
+                OrderRecord(
+                    exchange="binance",
+                    symbol="BTC/USDT",
+                    side="buy",
+                    order_type="market",
+                    status="submitted",
+                    mode="live",
+                    quantity=Decimal("0.002"),
+                    price=Decimal("50000"),
+                    client_order_id="live-buy-1",
+                    exchange_order_id="123",
+                )
+            )
+            session.commit()
+        finally:
+            session.close()
+
+        from app.application.services import operational_control_service as controls_module
+
+        original_client_builder = controls_module.build_live_order_exchange_client
+        controls_module.build_live_order_exchange_client = lambda current_settings: type(
+            "OrderStatusClient",
+            (),
+            {
+                "fetch_order_status": lambda self, **kwargs: type(
+                    "OrderStatus",
+                    (),
+                    {
+                        "status": "filled",
+                        "client_order_id": kwargs.get("client_order_id"),
+                        "exchange_order_id": kwargs.get("exchange_order_id"),
+                        "executed_quantity": Decimal("0.002"),
+                        "average_fill_price": Decimal("50000"),
+                        "response_payload": {},
+                    },
+                )(),
+            },
+        )()
+        try:
+            response = client.post("/controls/live-reconcile")
+        finally:
+            controls_module.build_live_order_exchange_client = original_client_builder
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["status"] == "completed"
+        assert payload["reconciled_count"] == 1
+        assert payload["filled_count"] == 1
     finally:
         teardown_client()
