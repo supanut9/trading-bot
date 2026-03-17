@@ -194,3 +194,17 @@ The system now has multiple operator-triggered and scheduled workflows, plus out
 ### Consequence
 
 The database now stores compact audit events for worker-cycle, backtest, market-sync, and notification-delivery outcomes, and operators can review recent entries through the reporting dashboard and audit CSV export.
+
+## 2026-03-17
+
+### Decision
+
+Treat execution mode as an explicit configuration state and refuse live-mode execution until a dedicated live executor exists.
+
+### Reason
+
+The system already exposed both `PAPER_TRADING` and `LIVE_TRADING_ENABLED`, but without stricter semantics the worker could enter a misleading live-mode path and fail only when it reached the paper executor. That is too implicit for a trading safety boundary.
+
+### Consequence
+
+Configuration now rejects contradictory mode combinations, the status surface exposes a single derived execution mode, and the worker returns `execution_unavailable` instead of attempting unsupported live execution.

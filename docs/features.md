@@ -390,7 +390,7 @@ Main outputs:
 
 Status:
 
-- in progress
+- implemented on branch
 
 Scope:
 
@@ -405,10 +405,29 @@ Main outputs:
 - audit recording from control flows and notification delivery
 - reporting dashboard and CSV export for recent audit events
 
+### 22. `feature/live-execution-guardrails`
+
+Status:
+
+- in progress
+
+Scope:
+
+- make execution-mode configuration explicit and internally consistent
+- refuse explicit live-mode execution safely until a real live executor exists
+- expose execution mode through status and operator docs
+- add tests for invalid config states and live-mode refusal behavior
+
+Main outputs:
+
+- settings validation for execution-mode flags
+- safe worker refusal path for unsupported live execution
+- status visibility and tests for execution mode
+
 ## Next Recommended Feature
 
-`feature/live-execution-guardrails`
+`feature/exchange-order-adapter`
 
 Reason:
 
-- the system now has stronger operational visibility, so the next meaningful boundary is expanding the safety model needed before any controlled live execution is considered
+- once execution-mode guardrails exist, the next bounded step toward controlled live trading is a replaceable exchange-order adapter behind the existing execution boundary

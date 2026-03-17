@@ -1,7 +1,7 @@
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import Field
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -58,6 +58,18 @@ class Settings(BaseSettings):
     database_echo: bool = Field(default=False, alias="DATABASE_ECHO")
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
+
+    @model_validator(mode="after")
+    def validate_execution_mode(self) -> "Settings":
+        if self.paper_trading and self.live_trading_enabled:
+            raise ValueError("PAPER_TRADING and LIVE_TRADING_ENABLED cannot both be true")
+        if not self.paper_trading and not self.live_trading_enabled:
+            raise ValueError("LIVE_TRADING_ENABLED must be true when PAPER_TRADING is false")
+        return self
+
+    @property
+    def execution_mode(self) -> Literal["paper", "live"]:
+        return "paper" if self.paper_trading else "live"
 
 
 @lru_cache

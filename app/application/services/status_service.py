@@ -13,6 +13,7 @@ class StatusService:
         return {
             "app": self._settings.app_name,
             "environment": self._settings.app_env,
+            "execution_mode": self._settings.execution_mode,
             "paper_trading": self._settings.paper_trading,
             "live_trading_enabled": self._settings.live_trading_enabled,
             "exchange": self._settings.exchange_name,

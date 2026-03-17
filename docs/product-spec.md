@@ -45,6 +45,8 @@ Build a maintainable trading bot that supports research, backtesting, paper trad
 - fixed risk per trade
 - max open positions limit
 - daily loss limit before execution approval
+- execution mode must be configured explicitly as either paper or live, never both
+- explicit live mode must fail safely until a real live execution adapter exists
 
 ## Current Paper Execution Baseline
 
