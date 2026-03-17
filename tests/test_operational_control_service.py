@@ -3,6 +3,7 @@ from datetime import UTC, datetime
 
 from app.application.services.market_data_sync_service import MarketDataSyncResult
 from app.application.services.operational_control_service import (
+    LiveReconcileControlResult,
     MarketSyncControlResult,
     OperationalControlService,
     WorkerControlResult,
@@ -190,3 +191,86 @@ def test_market_sync_control_reports_no_new_candles(monkeypatch) -> None:
     assert result.notified is True
     assert len(audit.entries) == 1
     assert audit.entries[0]["status"] == "completed"
+
+
+def test_live_reconcile_control_returns_completed_result(monkeypatch) -> None:
+    settings = Settings(
+        DATABASE_URL="sqlite:///./operational_controls.db",
+        PAPER_TRADING=False,
+        LIVE_TRADING_ENABLED=True,
+        EXCHANGE_API_KEY="key",
+        EXCHANGE_API_SECRET="secret",
+    )
+    audit = RecordingAudit()
+
+    class FakeReconcileService:
+        def __init__(self, _session: FakeSession, client: object) -> None:
+            assert client is not None
+
+        def reconcile_recent_live_orders(self):
+            return [
+                type("Result", (), {"trade_created": True})(),
+                type("Result", (), {"trade_created": False})(),
+            ]
+
+    monkeypatch.setattr(
+        "app.application.services.operational_control_service.LiveFillReconciliationService",
+        FakeReconcileService,
+    )
+    monkeypatch.setattr(
+        "app.application.services.operational_control_service.build_live_order_exchange_client",
+        lambda _settings: object(),
+    )
+
+    service = OperationalControlService(
+        settings,
+        session_factory=lambda: FakeSession(SessionState()),
+        audit=audit,
+    )
+
+    result = service.run_live_reconcile(source="job.live_reconcile")
+
+    assert result == LiveReconcileControlResult(
+        status="completed",
+        detail="live orders reconciled",
+        reconciled_count=2,
+        filled_count=1,
+        notified=False,
+    )
+    assert len(audit.entries) == 1
+    assert audit.entries[0]["control_type"] == "live_reconcile"
+    assert audit.entries[0]["source"] == "job.live_reconcile"
+
+
+def test_live_reconcile_control_returns_failed_result_on_client_error(monkeypatch) -> None:
+    settings = Settings(
+        DATABASE_URL="sqlite:///./operational_controls.db",
+        PAPER_TRADING=False,
+        LIVE_TRADING_ENABLED=True,
+        EXCHANGE_API_KEY="key",
+        EXCHANGE_API_SECRET="secret",
+    )
+    audit = RecordingAudit()
+
+    monkeypatch.setattr(
+        "app.application.services.operational_control_service.build_live_order_exchange_client",
+        lambda _settings: (_ for _ in ()).throw(RuntimeError("boom")),
+    )
+
+    service = OperationalControlService(
+        settings,
+        session_factory=lambda: FakeSession(SessionState()),
+        audit=audit,
+    )
+
+    result = service.run_live_reconcile(source="job.live_reconcile")
+
+    assert result == LiveReconcileControlResult(
+        status="failed",
+        detail="live reconciliation failed",
+        reconciled_count=0,
+        filled_count=0,
+        notified=False,
+    )
+    assert len(audit.entries) == 1
+    assert audit.entries[0]["status"] == "failed"

@@ -331,11 +331,33 @@ class OperationalControlService:
         source: str = "internal",
         audit: bool = True,
     ) -> LiveReconcileControlResult:
-        with self._session_factory() as session:
-            results = LiveFillReconciliationService(
-                session,
-                client=build_live_order_exchange_client(self._settings),
-            ).reconcile_recent_live_orders()
+        try:
+            with self._session_factory() as session:
+                results = LiveFillReconciliationService(
+                    session,
+                    client=build_live_order_exchange_client(self._settings),
+                ).reconcile_recent_live_orders()
+        except Exception:
+            control_result = LiveReconcileControlResult(
+                status="failed",
+                detail="live reconciliation failed",
+                reconciled_count=0,
+                filled_count=0,
+                notified=False,
+            )
+            if audit:
+                self._audit.record_control_result(
+                    control_type="live_reconcile",
+                    source=source,
+                    status=control_result.status,
+                    detail=control_result.detail,
+                    settings=self._settings,
+                    payload={
+                        "reconciled_count": control_result.reconciled_count,
+                        "filled_count": control_result.filled_count,
+                    },
+                )
+            return control_result
 
         reconciled_count = len(results)
         filled_count = sum(1 for result in results if result.trade_created)

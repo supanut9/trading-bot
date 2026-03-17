@@ -52,6 +52,14 @@ class Settings(BaseSettings):
         default=3600,
         alias="BACKTEST_SCHEDULE_INTERVAL_SECONDS",
     )
+    live_reconcile_schedule_enabled: bool = Field(
+        default=False,
+        alias="LIVE_RECONCILE_SCHEDULE_ENABLED",
+    )
+    live_reconcile_schedule_interval_seconds: int = Field(
+        default=300,
+        alias="LIVE_RECONCILE_SCHEDULE_INTERVAL_SECONDS",
+    )
     notification_channel: Literal["none", "log", "webhook"] = Field(
         default="none",
         alias="NOTIFICATION_CHANNEL",
