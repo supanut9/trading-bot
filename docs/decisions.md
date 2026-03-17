@@ -362,3 +362,17 @@ The alerting need is operational, not user-driven. Startup sync failure, schedul
 ### Consequence
 
 Notification handling now emits warning events for startup sync failure, scheduled reconciliation failure, and stale live order detection, while manual API controls remain read-only or operator-triggered without additional alert noise.
+
+## 2026-03-18
+
+### Decision
+
+Treat production readiness for live-capable operation as an explicit runbook requirement, not an implicit code-complete milestone.
+
+### Reason
+
+The system now has bounded live controls, reconciliation, stale-order review, and alerting, but those pieces are only safe if operators know the required startup, restart, rollback, backup, and incident-response workflow. Code alone does not guarantee recoverable live operation.
+
+### Consequence
+
+The repository now documents a concrete readiness checklist and recovery workflow, and live-capable operation should be considered incomplete unless PostgreSQL persistence, backups, startup sync, scheduled reconciliation, and alert routing are all in place.

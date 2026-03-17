@@ -648,7 +648,7 @@ Main outputs:
 
 Status:
 
-- planned
+- implemented on branch
 
 Scope:
 
@@ -662,3 +662,7 @@ Main outputs:
 - production operations runbook
 - readiness checklist for live deployment
 - documented recovery workflow
+
+Current next feature:
+
+- no immediate next feature in the defined roadmap; add the next bounded phase here before continuing implementation

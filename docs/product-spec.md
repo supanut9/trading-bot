@@ -41,6 +41,7 @@ Build a maintainable trading bot that supports research, backtesting, paper trad
 - detect stale open live orders locally and surface them for operator review without automatic cancellation
 - expose a compact recovery report for unresolved live orders and recent reconciliation or cancel context
 - emit optional live-operations alerts for failed startup sync, failed scheduled reconciliation, and stale live orders
+- document deployment, restart, rollback, backup, and alert-response expectations before live-capable operation
 - emit optional notifications for worker execution, risk rejection, backtest outcomes, and market sync outcomes
 - persist bot state and logs
 - expose minimal operational API for health, status, positions, trades, candle ingestion, and bounded manual controls
@@ -58,6 +59,7 @@ Build a maintainable trading bot that supports research, backtesting, paper trad
 - daily loss limit before execution approval
 - execution mode must be configured explicitly as either paper or live, never both
 - explicit live mode must fail safely when exchange submission or later fill reconciliation cannot confirm runtime state
+- live-capable operation requires PostgreSQL persistence, backup coverage, startup sync, scheduled reconciliation, and tested alerts
 
 ## Current Paper Execution Baseline
 
