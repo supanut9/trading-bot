@@ -418,3 +418,17 @@ Deployment verification needs to confirm that API and worker roles are reachable
 ### Consequence
 
 The repository now provides role-aware smoke checks for deployed API and worker runtimes, and the verification path stays read-only so deploy and rollback validation can happen before any manual controls or scheduled jobs are trusted.
+
+## 2026-03-18
+
+### Decision
+
+Fail runtime startup early on deployment-critical misconfiguration instead of relying on later operational errors.
+
+### Reason
+
+The system now has deployment packaging, env baselines, and smoke checks, but those are weaker if API, worker, or backtest startup can proceed with obviously invalid runtime settings such as SQLite in production or loopback-only API binding. Those failures should surface immediately and with explicit diagnostics.
+
+### Consequence
+
+Runtime startup now validates configuration and database connectivity before normal API, worker, or backtest operation continues, and startup logs include a stable runtime summary for operator troubleshooting.

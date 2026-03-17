@@ -182,3 +182,14 @@ Use the bounded smoke checks after deploy or rollback:
 - `make smoke-check-worker`
 
 These checks are non-destructive. They verify health, status, database reachability, and configuration alignment without triggering a worker cycle.
+
+## Runtime Reliability
+
+Runtime startup now validates deployment-critical settings before API, worker, or backtest execution continues.
+
+Current startup guarantees:
+
+- non-local runtimes must not use SQLite
+- non-local API runtimes must not bind to loopback hosts
+- webhook notification mode requires `NOTIFICATION_WEBHOOK_URL`
+- live worker runtimes require `STARTUP_STATE_SYNC_ENABLED=true`

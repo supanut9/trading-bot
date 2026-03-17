@@ -1,4 +1,5 @@
 from app.application.services.operational_control_service import LiveReconcileControlResult
+from app.application.services.runtime_startup_service import build_runtime_startup_context
 from app.config import Settings, get_settings
 from app.worker import main
 
@@ -16,6 +17,10 @@ def test_worker_run_once_executes_worker_job_without_scheduler(monkeypatch) -> N
 
     monkeypatch.setattr("app.worker.get_settings", lambda: settings)
     monkeypatch.setattr("app.worker.configure_logging", lambda _settings: None)
+    monkeypatch.setattr(
+        "app.worker.validate_runtime_startup",
+        lambda _settings, component: build_runtime_startup_context(settings, component),
+    )
     monkeypatch.setattr("app.worker.init_database", lambda _settings: ["candles"])
     monkeypatch.setattr("app.worker.WorkerCycleJob", FakeWorkerCycleJob)
 
@@ -66,6 +71,10 @@ def test_worker_run_once_performs_startup_state_sync_before_live_execution(monke
 
     monkeypatch.setattr("app.worker.get_settings", lambda: settings)
     monkeypatch.setattr("app.worker.configure_logging", lambda _settings: None)
+    monkeypatch.setattr(
+        "app.worker.validate_runtime_startup",
+        lambda _settings, component: build_runtime_startup_context(settings, component),
+    )
     monkeypatch.setattr("app.worker.init_database", lambda _settings: ["candles"])
     monkeypatch.setattr("app.worker.StartupStateSyncJob", FakeStartupStateSyncJob)
     monkeypatch.setattr("app.worker.WorkerCycleJob", FakeWorkerCycleJob)
@@ -109,6 +118,10 @@ def test_worker_run_once_aborts_when_startup_state_sync_fails(monkeypatch) -> No
 
     monkeypatch.setattr("app.worker.get_settings", lambda: settings)
     monkeypatch.setattr("app.worker.configure_logging", lambda _settings: None)
+    monkeypatch.setattr(
+        "app.worker.validate_runtime_startup",
+        lambda _settings, component: build_runtime_startup_context(settings, component),
+    )
     monkeypatch.setattr("app.worker.init_database", lambda _settings: ["candles"])
     monkeypatch.setattr("app.worker.StartupStateSyncJob", FakeStartupStateSyncJob)
     monkeypatch.setattr("app.worker.WorkerCycleJob", FakeWorkerCycleJob)
@@ -172,6 +185,10 @@ def test_worker_scheduled_mode_registers_backtest_job_when_enabled(monkeypatch) 
 
     monkeypatch.setattr("app.worker.get_settings", lambda: settings)
     monkeypatch.setattr("app.worker.configure_logging", lambda _settings: None)
+    monkeypatch.setattr(
+        "app.worker.validate_runtime_startup",
+        lambda _settings, component: build_runtime_startup_context(settings, component),
+    )
     monkeypatch.setattr("app.worker.init_database", lambda _settings: ["candles"])
     monkeypatch.setattr("app.worker.WorkerCycleJob", FakeWorkerCycleJob)
     monkeypatch.setattr("app.worker.BacktestSummaryJob", FakeBacktestSummaryJob)
@@ -258,6 +275,10 @@ def test_worker_scheduled_mode_registers_live_reconcile_job_when_enabled(
 
     monkeypatch.setattr("app.worker.get_settings", lambda: settings)
     monkeypatch.setattr("app.worker.configure_logging", lambda _settings: None)
+    monkeypatch.setattr(
+        "app.worker.validate_runtime_startup",
+        lambda _settings, component: build_runtime_startup_context(settings, component),
+    )
     monkeypatch.setattr("app.worker.init_database", lambda _settings: ["candles"])
     monkeypatch.setattr("app.worker.StartupStateSyncJob", FakeStartupStateSyncJob)
     monkeypatch.setattr("app.worker.WorkerCycleJob", FakeWorkerCycleJob)
@@ -335,6 +356,10 @@ def test_worker_scheduled_mode_runs_startup_state_sync_before_registering_jobs(
 
     monkeypatch.setattr("app.worker.get_settings", lambda: settings)
     monkeypatch.setattr("app.worker.configure_logging", lambda _settings: None)
+    monkeypatch.setattr(
+        "app.worker.validate_runtime_startup",
+        lambda _settings, component: build_runtime_startup_context(settings, component),
+    )
     monkeypatch.setattr("app.worker.init_database", lambda _settings: ["candles"])
     monkeypatch.setattr("app.worker.StartupStateSyncJob", FakeStartupStateSyncJob)
     monkeypatch.setattr("app.worker.WorkerCycleJob", FakeWorkerCycleJob)
@@ -349,3 +374,32 @@ def test_worker_scheduled_mode_runs_startup_state_sync_before_registering_jobs(
 
     assert fake_scheduler.jobs == [("worker_cycle", 60)]
     assert events == ["startup_sync", "worker_job"]
+
+
+def test_worker_returns_early_when_runtime_startup_validation_fails(monkeypatch) -> None:
+    settings = Settings(WORKER_RUN_ONCE=True)
+    events: list[str] = []
+
+    def fail_validation(_settings: Settings, _component: str) -> None:
+        raise RuntimeError("database connectivity check failed")
+
+    class FakeWorkerCycleJob:
+        def __init__(self, _settings: Settings) -> None:
+            raise AssertionError("worker job should not be created after startup validation fails")
+
+    monkeypatch.setattr("app.worker.get_settings", lambda: settings)
+    monkeypatch.setattr("app.worker.configure_logging", lambda _settings: None)
+    monkeypatch.setattr("app.worker.validate_runtime_startup", fail_validation)
+    monkeypatch.setattr(
+        "app.worker.init_database",
+        lambda _settings: events.append("init_database") or ["candles"],
+    )
+    monkeypatch.setattr("app.worker.WorkerCycleJob", FakeWorkerCycleJob)
+    get_settings.cache_clear()
+
+    try:
+        main()
+    finally:
+        get_settings.cache_clear()
+
+    assert events == []

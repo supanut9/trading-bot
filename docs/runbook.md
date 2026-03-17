@@ -174,6 +174,14 @@ Post-deploy smoke checks:
 - `make smoke-check-worker` verifies the deployed worker configuration and database reachability without running a worker cycle
 - run the smoke checks after deploy and again after rollback before resuming normal operator workflows
 
+Runtime startup validation:
+
+- API, worker, and backtest startup now fail early when deployment-critical configuration is invalid
+- non-local runtimes must use a PostgreSQL-compatible `DATABASE_URL`
+- non-local API runtimes must not bind `API_HOST` to loopback addresses
+- `NOTIFICATION_CHANNEL=webhook` requires `NOTIFICATION_WEBHOOK_URL`
+- live worker runtimes require `STARTUP_STATE_SYNC_ENABLED=true`
+
 To run it as a polling worker instead of a single cycle:
 
 ```bash
