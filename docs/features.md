@@ -318,6 +318,25 @@ Main outputs:
 - worker entrypoint wired through scheduled jobs instead of inline looping
 - optional scheduled backtest summary with safe default disabled
 
+### 17. `feature/review-gating-strict`
+
+Status:
+
+- implemented on branch
+
+Scope:
+
+- tighten Codex review completion rules
+- require real review evidence after the latest `@codex review` request
+- prevent generic connector comments from satisfying the merge gate
+- update tests and workflow docs for the stricter rule
+
+Main outputs:
+
+- stricter `codex_review_status` matching logic
+- tests for review objects, review comments, and explicit no-issues signals
+- updated merge-gate documentation
+
 ## Next Recommended Feature
 
 `feature/market-sync-adapter`

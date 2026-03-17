@@ -3,7 +3,10 @@ from datetime import UTC, datetime
 from scripts.codex_review_status import (
     CodexReviewState,
     evaluate_codex_review_status,
+    load_pr_activity,
+    parse_pr_repository,
     parse_timestamp,
+    run_gh_paginated_json,
 )
 
 
@@ -22,62 +25,56 @@ def make_review(author: str, created_at: str) -> dict[str, object]:
     }
 
 
+def make_review_comment(author: str, body: str, created_at: str) -> dict[str, object]:
+    return {
+        "user": {"login": author},
+        "body": body,
+        "created_at": created_at,
+    }
+
+
+def make_review_thread(author: str, is_resolved: bool) -> dict[str, object]:
+    return {
+        "isResolved": is_resolved,
+        "comments": {
+            "nodes": [
+                {
+                    "author": {"login": author},
+                }
+            ]
+        },
+    }
+
+
 def test_codex_review_pending_without_request_comment() -> None:
-    state = evaluate_codex_review_status({"comments": [], "reviews": []})
+    state = evaluate_codex_review_status(
+        {"comments": [], "reviews": [], "review_comments": [], "review_threads": []}
+    )
 
     assert state == CodexReviewState(False, "latest @codex review request not found")
 
 
-def test_codex_review_pending_without_connector_response() -> None:
+def test_codex_review_pending_without_review_evidence() -> None:
     state = evaluate_codex_review_status(
         {
             "comments": [
                 make_comment("github-actions", "@codex review", "2026-03-17T01:00:00Z"),
-            ],
-            "reviews": [],
-        }
-    )
-
-    assert state == CodexReviewState(False, "connector has not responded yet")
-
-
-def test_codex_review_pending_when_response_is_older_than_latest_request() -> None:
-    state = evaluate_codex_review_status(
-        {
-            "comments": [
-                make_comment("github-actions", "@codex review", "2026-03-17T01:10:00Z"),
                 make_comment(
                     "chatgpt-codex-connector",
-                    "old response",
-                    "2026-03-17T01:05:00Z",
+                    "connector ping only",
+                    "2026-03-17T01:01:00Z",
                 ),
             ],
             "reviews": [],
+            "review_comments": [],
+            "review_threads": [],
         }
     )
 
     assert state == CodexReviewState(
         False,
-        "connector response is older than the latest review request",
+        "connector has not produced review evidence after the latest request",
     )
-
-
-def test_codex_review_completed_from_connector_comment_after_request() -> None:
-    state = evaluate_codex_review_status(
-        {
-            "comments": [
-                make_comment("github-actions", "@codex review", "2026-03-17T01:00:00Z"),
-                make_comment(
-                    "chatgpt-codex-connector",
-                    "review finished",
-                    "2026-03-17T01:01:00Z",
-                ),
-            ],
-            "reviews": [],
-        }
-    )
-
-    assert state == CodexReviewState(True, "connector response recorded after request")
 
 
 def test_codex_review_completed_from_connector_review_after_request() -> None:
@@ -89,13 +86,267 @@ def test_codex_review_completed_from_connector_review_after_request() -> None:
             "reviews": [
                 make_review("chatgpt-codex-connector", "2026-03-17T01:02:00Z"),
             ],
+            "review_comments": [],
+            "review_threads": [],
         }
     )
 
-    assert state == CodexReviewState(True, "connector response recorded after request")
+    assert state == CodexReviewState(True, "connector review recorded after request")
+
+
+def test_codex_review_completed_from_connector_review_with_submitted_at() -> None:
+    state = evaluate_codex_review_status(
+        {
+            "comments": [
+                make_comment("github-actions", "@codex review", "2026-03-17T01:00:00Z"),
+            ],
+            "reviews": [
+                {
+                    "author": {"login": "chatgpt-codex-connector"},
+                    "submittedAt": "2026-03-17T01:02:00Z",
+                },
+            ],
+            "review_comments": [],
+            "review_threads": [],
+        }
+    )
+
+    assert state == CodexReviewState(True, "connector review recorded after request")
+
+
+def test_codex_review_completed_from_connector_review_comment_after_request() -> None:
+    state = evaluate_codex_review_status(
+        {
+            "comments": [
+                make_comment("github-actions", "@codex review", "2026-03-17T01:00:00Z"),
+            ],
+            "reviews": [],
+            "review_comments": [
+                make_review_comment(
+                    "chatgpt-codex-connector[bot]",
+                    "Review finding",
+                    "2026-03-17T01:03:00Z",
+                ),
+            ],
+            "review_threads": [],
+        }
+    )
+
+    assert state == CodexReviewState(
+        True,
+        "connector review comment recorded after request",
+    )
+
+
+def test_codex_review_completed_from_explicit_no_issues_comment_after_request() -> None:
+    state = evaluate_codex_review_status(
+        {
+            "comments": [
+                make_comment("github-actions", "@codex review", "2026-03-17T01:00:00Z"),
+                make_comment(
+                    "chatgpt-codex-connector",
+                    "No issues found in this pull request.",
+                    "2026-03-17T01:04:00Z",
+                ),
+            ],
+            "reviews": [],
+            "review_comments": [],
+            "review_threads": [],
+        }
+    )
+
+    assert state == CodexReviewState(
+        True,
+        "connector no-issues comment recorded after request",
+    )
+
+
+def test_codex_review_accepts_manual_request_comment() -> None:
+    state = evaluate_codex_review_status(
+        {
+            "comments": [
+                make_comment("supanut9", "@codex review", "2026-03-17T01:00:00Z"),
+            ],
+            "reviews": [
+                make_review("chatgpt-codex-connector", "2026-03-17T01:02:00Z"),
+            ],
+            "review_comments": [],
+            "review_threads": [],
+        }
+    )
+
+    assert state == CodexReviewState(True, "connector review recorded after request")
 
 
 def test_parse_timestamp_normalizes_zulu_to_utc() -> None:
     parsed = parse_timestamp("2026-03-17T01:02:03Z")
 
     assert parsed == datetime(2026, 3, 17, 1, 2, 3, tzinfo=UTC)
+
+
+def test_codex_review_completed_when_connector_threads_resolved() -> None:
+    state = evaluate_codex_review_status(
+        {
+            "comments": [
+                make_comment("github-actions", "@codex review", "2026-03-17T01:00:00Z"),
+                make_comment(
+                    "chatgpt-codex-connector",
+                    "setup message",
+                    "2026-03-17T01:05:00Z",
+                ),
+            ],
+            "reviews": [
+                make_review("chatgpt-codex-connector", "2026-03-17T00:55:00Z"),
+            ],
+            "review_comments": [],
+            "review_threads": [
+                make_review_thread("chatgpt-codex-connector", True),
+            ],
+        }
+    )
+
+    assert state == CodexReviewState(True, "all connector review threads are resolved")
+
+
+def test_codex_review_pending_when_connector_thread_still_open() -> None:
+    state = evaluate_codex_review_status(
+        {
+            "comments": [
+                make_comment("github-actions", "@codex review", "2026-03-17T01:00:00Z"),
+            ],
+            "reviews": [
+                make_review("chatgpt-codex-connector", "2026-03-17T00:55:00Z"),
+            ],
+            "review_comments": [],
+            "review_threads": [
+                make_review_thread("chatgpt-codex-connector", False),
+            ],
+        }
+    )
+
+    assert state == CodexReviewState(
+        False,
+        "connector has not produced review evidence after the latest request",
+    )
+
+
+def test_parse_pr_repository_uses_requested_pr_url() -> None:
+    owner, repo = parse_pr_repository(
+        {"url": "https://github.com/example-org/example-repo/pull/42"}
+    )
+
+    assert (owner, repo) == ("example-org", "example-repo")
+
+
+def test_run_gh_paginated_json_flattens_pages(monkeypatch) -> None:
+    def fake_run_gh_json(command: list[str]) -> list[list[dict[str, object]]]:
+        assert command == ["gh", "api", "--paginate", "--slurp", "repos/o/r/pulls/42/comments"]
+        return [
+            [make_review_comment("first", "page-one", "2026-03-17T01:00:00Z")],
+            [make_review_comment("second", "page-two", "2026-03-17T01:01:00Z")],
+        ]
+
+    monkeypatch.setattr("scripts.codex_review_status.run_gh_json", fake_run_gh_json)
+
+    payload = run_gh_paginated_json(
+        ["gh", "api", "--paginate", "--slurp", "repos/o/r/pulls/42/comments"]
+    )
+
+    assert payload == [
+        make_review_comment("first", "page-one", "2026-03-17T01:00:00Z"),
+        make_review_comment("second", "page-two", "2026-03-17T01:01:00Z"),
+    ]
+
+
+def test_load_pr_activity_uses_requested_pr_repository_for_comments(monkeypatch) -> None:
+    calls: list[list[str]] = []
+
+    def fake_run_gh_json(command: list[str]) -> object:
+        calls.append(command)
+        if command[:4] == [
+            "gh",
+            "pr",
+            "view",
+            "https://github.com/example-org/example-repo/pull/42",
+        ]:
+            return {
+                "number": 42,
+                "url": "https://github.com/example-org/example-repo/pull/42",
+                "comments": [],
+                "reviews": [],
+            }
+        if command == [
+            "gh",
+            "api",
+            "--paginate",
+            "--slurp",
+            "repos/example-org/example-repo/pulls/42/comments",
+        ]:
+            return [
+                [
+                    make_review_comment(
+                        "chatgpt-codex-connector",
+                        "evidence",
+                        "2026-03-17T01:00:00Z",
+                    )
+                ]
+            ]
+        if command[:3] == ["gh", "api", "graphql"]:
+            return {
+                "data": {
+                    "repository": {
+                        "pullRequest": {
+                            "reviewThreads": {
+                                "nodes": [make_review_thread("chatgpt-codex-connector", True)],
+                                "pageInfo": {
+                                    "hasNextPage": False,
+                                    "endCursor": None,
+                                },
+                            }
+                        }
+                    }
+                }
+            }
+        raise AssertionError(f"unexpected command: {command}")
+
+    monkeypatch.setattr("scripts.codex_review_status.run_gh_json", fake_run_gh_json)
+
+    payload = load_pr_activity("https://github.com/example-org/example-repo/pull/42")
+
+    assert payload["review_comments"] == [
+        make_review_comment(
+            "chatgpt-codex-connector",
+            "evidence",
+            "2026-03-17T01:00:00Z",
+        )
+    ]
+    assert payload["review_threads"] == [make_review_thread("chatgpt-codex-connector", True)]
+    assert calls[0] == [
+        "gh",
+        "pr",
+        "view",
+        "https://github.com/example-org/example-repo/pull/42",
+        "--json",
+        "number,comments,reviews,url",
+    ]
+    assert calls[1] == [
+        "gh",
+        "api",
+        "--paginate",
+        "--slurp",
+        "repos/example-org/example-repo/pulls/42/comments",
+    ]
+    assert calls[2][:11] == [
+        "gh",
+        "api",
+        "graphql",
+        "-F",
+        "owner=example-org",
+        "-F",
+        "repo=example-repo",
+        "-F",
+        "number=42",
+        "-f",
+        calls[2][10],
+    ]
+    assert calls[2][10].startswith("query=")

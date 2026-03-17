@@ -9,7 +9,11 @@ from app.application.services.market_data_service import CandleInput, MarketData
 from app.config import Settings, get_settings
 from app.infrastructure.database.base import Base
 from app.infrastructure.database.models.trade import TradeRecord
-from app.infrastructure.database.session import create_engine_from_settings, create_session_factory
+from app.infrastructure.database.session import (
+    create_engine_from_settings,
+    create_session_factory,
+    get_session_factory_dependency,
+)
 from app.main import app
 
 
@@ -22,7 +26,9 @@ def build_client(tmp_path: Path) -> tuple[TestClient, Settings]:
     )
     engine = create_engine_from_settings(settings)
     Base.metadata.create_all(bind=engine)
+    shared_factory = create_session_factory(settings)
     app.dependency_overrides[get_settings] = lambda: settings
+    app.dependency_overrides[get_session_factory_dependency] = lambda: shared_factory
     return TestClient(app), settings
 
 
@@ -115,5 +121,26 @@ def test_backtest_control_returns_summary_for_completed_run(tmp_path: Path) -> N
         assert payload["required_candles"] == 6
         assert payload["total_trades"] == 2
         assert payload["ending_equity"] == "10000.00000000"
+    finally:
+        teardown_client()
+
+
+def test_controls_use_injected_shared_session_factory(tmp_path: Path) -> None:
+    client, settings = build_client(tmp_path)
+    try:
+        store_closes(settings, [10, 10, 10, 10, 10, 9, 9, 9, 20])
+        shared_factory = create_session_factory(settings)
+        captured: list[object] = []
+
+        def override_session_factory() -> object:
+            captured.append(shared_factory)
+            return shared_factory
+
+        app.dependency_overrides[get_session_factory_dependency] = override_session_factory
+
+        response = client.post("/controls/worker-cycle")
+
+        assert response.status_code == 200
+        assert captured == [shared_factory]
     finally:
         teardown_client()

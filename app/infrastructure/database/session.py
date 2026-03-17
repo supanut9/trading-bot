@@ -1,4 +1,5 @@
 from collections.abc import Generator
+from functools import lru_cache
 
 from sqlalchemy import Engine, create_engine
 from sqlalchemy.orm import Session, sessionmaker
@@ -26,6 +27,11 @@ def create_session_factory(settings: Settings) -> sessionmaker[Session]:
 
 
 _session_factory = create_session_factory(get_settings())
+
+
+@lru_cache
+def get_session_factory_dependency() -> sessionmaker[Session]:
+    return _session_factory
 
 
 def get_session() -> Generator[Session, None, None]:

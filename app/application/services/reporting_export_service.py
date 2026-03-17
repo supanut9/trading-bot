@@ -1,7 +1,7 @@
 import csv
 from io import StringIO
 
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, sessionmaker
 
 from app.application.services.operational_control_service import OperationalControlService
 from app.application.services.operations_service import OperationsService
@@ -9,9 +9,16 @@ from app.config import Settings
 
 
 class ReportingExportService:
-    def __init__(self, session: Session, settings: Settings) -> None:
+    def __init__(
+        self,
+        session: Session,
+        settings: Settings,
+        *,
+        session_factory: sessionmaker[Session] | None = None,
+    ) -> None:
         self._operations = OperationsService(session)
-        self._controls = OperationalControlService(settings)
+        self._settings = settings
+        self._session_factory = session_factory
 
     def export_positions_csv(self) -> str:
         output = StringIO()
@@ -76,7 +83,10 @@ class ReportingExportService:
         return output.getvalue()
 
     def export_backtest_summary_csv(self) -> str:
-        result = self._controls.run_backtest(notify=False)
+        result = OperationalControlService(
+            self._settings,
+            session_factory=self._session_factory,
+        ).run_backtest(notify=False)
 
         output = StringIO()
         writer = csv.writer(output)

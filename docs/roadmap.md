@@ -53,7 +53,7 @@ Before merge:
 
 1. review comments are inspected
 2. AI review is triggered for the PR when needed
-3. the `Codex Review Status` check confirms a connector response exists for the latest `@codex review` request
+3. the `Codex Review Status` check confirms review evidence exists for the latest `@codex review` request
 4. valid comments are fixed
 5. validation is rerun for affected areas
 6. replies are posted on the PR

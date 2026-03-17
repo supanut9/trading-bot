@@ -2,15 +2,16 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import Response
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, sessionmaker
 
 from app.application.services.reporting_export_service import ReportingExportService
 from app.config import Settings, get_settings
-from app.infrastructure.database.session import get_session
+from app.infrastructure.database.session import get_session, get_session_factory_dependency
 
 router = APIRouter(prefix="/reports", tags=["reports"])
 session_dependency = Depends(get_session)
 settings_dependency = Depends(get_settings)
+session_factory_dependency = Depends(get_session_factory_dependency)
 
 
 def _csv_response(filename: str, content: str) -> Response:
@@ -44,6 +45,11 @@ def export_trades(
 def export_backtest_summary(
     session: Session = session_dependency,
     settings: Settings = settings_dependency,
+    session_factory: sessionmaker[Session] = session_factory_dependency,
 ) -> Response:
-    content = ReportingExportService(session, settings).export_backtest_summary_csv()
+    content = ReportingExportService(
+        session,
+        settings,
+        session_factory=session_factory,
+    ).export_backtest_summary_csv()
     return _csv_response("backtest-summary.csv", content)

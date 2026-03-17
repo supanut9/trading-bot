@@ -64,3 +64,32 @@ def test_interval_scheduler_reports_seconds_until_next_run() -> None:
     assert scheduler.seconds_until_next_run() == 10.0
     now[0] = 55.0
     assert scheduler.seconds_until_next_run() == 5.0
+
+
+def test_interval_scheduler_reschedules_from_post_run_time() -> None:
+    now = [100.0]
+    calls: list[float] = []
+
+    def now_provider() -> float:
+        return now[0]
+
+    def slow_runner() -> None:
+        calls.append(now[0])
+        now[0] = 120.0
+
+    scheduler = IntervalScheduler(now_provider=now_provider)
+    scheduler.add_job(
+        name="worker_cycle",
+        interval_seconds=60,
+        runner=slow_runner,
+    )
+
+    scheduler.run_pending()
+
+    assert scheduler.seconds_until_next_run() == 60.0
+    now[0] = 179.0
+    scheduler.run_pending()
+    assert calls == [100.0]
+    now[0] = 180.0
+    scheduler.run_pending()
+    assert calls == [100.0, 180.0]

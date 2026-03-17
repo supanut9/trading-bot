@@ -1,11 +1,14 @@
 from fastapi import APIRouter, Depends, status
+from sqlalchemy.orm import Session, sessionmaker
 
 from app.application.services.operational_control_service import OperationalControlService
 from app.config import Settings, get_settings
+from app.infrastructure.database.session import get_session_factory_dependency
 from app.interfaces.api.schemas import BacktestControlResponse, WorkerControlResponse
 
 router = APIRouter(prefix="/controls", tags=["controls"])
 settings_dependency = Depends(get_settings)
+session_factory_dependency = Depends(get_session_factory_dependency)
 
 
 @router.post(
@@ -13,8 +16,14 @@ settings_dependency = Depends(get_settings)
     response_model=WorkerControlResponse,
     status_code=status.HTTP_200_OK,
 )
-def run_worker_cycle(settings: Settings = settings_dependency) -> WorkerControlResponse:
-    result = OperationalControlService(settings).run_worker_cycle()
+def run_worker_cycle(
+    settings: Settings = settings_dependency,
+    session_factory: sessionmaker[Session] = session_factory_dependency,
+) -> WorkerControlResponse:
+    result = OperationalControlService(
+        settings,
+        session_factory=session_factory,
+    ).run_worker_cycle()
     return WorkerControlResponse.model_validate(result)
 
 
@@ -23,6 +32,12 @@ def run_worker_cycle(settings: Settings = settings_dependency) -> WorkerControlR
     response_model=BacktestControlResponse,
     status_code=status.HTTP_200_OK,
 )
-def run_backtest(settings: Settings = settings_dependency) -> BacktestControlResponse:
-    result = OperationalControlService(settings).run_backtest()
+def run_backtest(
+    settings: Settings = settings_dependency,
+    session_factory: sessionmaker[Session] = session_factory_dependency,
+) -> BacktestControlResponse:
+    result = OperationalControlService(
+        settings,
+        session_factory=session_factory,
+    ).run_backtest()
     return BacktestControlResponse.model_validate(result)
