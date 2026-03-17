@@ -86,3 +86,10 @@ Before merge:
 - add status and position endpoints
 - add notifications
 - improve test coverage
+
+## Phase 5
+
+- harden live operations around exchange state visibility
+- add scheduled reconciliation and startup resync paths
+- add bounded cancellation and stale-order controls
+- add exchange account visibility for operators

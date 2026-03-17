@@ -503,8 +503,86 @@ Main outputs:
 
 ## Next Recommended Feature
 
-No immediate next feature in the current roadmap slice.
+`feature/exchange-balance-sync`
 
 Reason:
 
-- the current documented feature map is now implemented through live order submission and fill reconciliation
+- the current documented feature map is complete, and the next operational gap is exchange-side account visibility before broader live automation is expanded
+
+## Next Expansion Slice
+
+### 27. `feature/exchange-balance-sync`
+
+Status:
+
+- planned
+
+Scope:
+
+- fetch exchange account balances through the configured live client
+- persist or expose a bounded operational view of quote and base asset availability
+- surface balance visibility through status or reporting without changing execution behavior
+- add tests and runbook updates for operator verification of funded live mode
+
+Main outputs:
+
+- exchange balance client support
+- operator-facing balance visibility
+- tests for balance parsing and API exposure
+
+### 28. `feature/scheduled-live-reconciliation`
+
+Status:
+
+- planned
+
+Scope:
+
+- run live fill reconciliation as an optional scheduled job
+- keep manual reconciliation as the bounded control fallback
+- add safe logging and audit events for scheduled reconciliation outcomes
+- add tests and runbook updates for recurring reconciliation behavior
+
+Main outputs:
+
+- optional scheduled live reconciliation job
+- audit visibility for reconciliation outcomes
+- tests for scheduler integration
+
+### 29. `feature/startup-state-sync`
+
+Status:
+
+- planned
+
+Scope:
+
+- sync recent live order state on worker startup before new execution is attempted
+- reduce drift between exchange state and local state after restarts or deploys
+- keep startup sync bounded to recent relevant live orders
+- add tests and runbook updates for restart behavior
+
+Main outputs:
+
+- startup reconciliation path
+- safer worker restart semantics for live mode
+- tests for startup sync behavior
+
+### 30. `feature/live-order-cancel-control`
+
+Status:
+
+- planned
+
+Scope:
+
+- add a bounded operator control to cancel a submitted live order by local or exchange id
+- update local order state from confirmed exchange cancel responses
+- keep cancellation manual and explicit rather than automatic
+- add tests and runbook updates for cancel workflow
+
+Main outputs:
+
+- exchange cancel-order client support
+- `POST /controls/live-cancel`
+- tests for cancel success and failure handling
