@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 
 from sqlalchemy.orm import Session
 
@@ -39,6 +39,11 @@ class MarketDataSyncService:
             self._client.name,
         )
         candles = self._client.fetch_closed_candles(symbol=symbol, timeframe=timeframe, limit=limit)
+        latest_stored_open_time = self._latest_stored_open_time(
+            exchange=exchange,
+            symbol=symbol,
+            timeframe=timeframe,
+        )
         if not candles:
             logger.warning(
                 "market_data_sync_completed exchange=%s symbol=%s timeframe=%s fetched=0 stored=0",
@@ -48,13 +53,36 @@ class MarketDataSyncService:
             )
             return MarketDataSyncResult(fetched_count=0, stored_count=0, latest_open_time=None)
 
+        new_candles = [
+            candle
+            for candle in candles
+            if latest_stored_open_time is None
+            or self._normalize_datetime(candle.open_time) > latest_stored_open_time
+        ]
+        if not new_candles:
+            latest_open_time = max(candle.open_time for candle in candles)
+            logger.info(
+                "market_data_sync_completed exchange=%s symbol=%s timeframe=%s "
+                "fetched=%s stored=0 latest_open_time=%s",
+                exchange,
+                symbol,
+                timeframe,
+                len(candles),
+                latest_open_time.isoformat(),
+            )
+            return MarketDataSyncResult(
+                fetched_count=len(candles),
+                stored_count=0,
+                latest_open_time=latest_open_time,
+            )
+
         stored = self._market_data.store_candles(
             exchange=exchange,
             symbol=symbol,
             timeframe=timeframe,
-            candles=[self._to_candle_input(candle) for candle in candles],
+            candles=[self._to_candle_input(candle) for candle in new_candles],
         )
-        latest_open_time = max(candle.open_time for candle in candles)
+        latest_open_time = max(candle.open_time for candle in new_candles)
         logger.info(
             "market_data_sync_completed exchange=%s symbol=%s timeframe=%s "
             "fetched=%s stored=%s latest_open_time=%s",
@@ -82,3 +110,26 @@ class MarketDataSyncService:
             close_price=candle.close_price,
             volume=candle.volume,
         )
+
+    def _latest_stored_open_time(
+        self,
+        *,
+        exchange: str,
+        symbol: str,
+        timeframe: str,
+    ) -> datetime | None:
+        latest = self._market_data.list_recent_candles(
+            exchange=exchange,
+            symbol=symbol,
+            timeframe=timeframe,
+            limit=1,
+        )
+        if not latest:
+            return None
+        return self._normalize_datetime(latest[0].open_time)
+
+    @staticmethod
+    def _normalize_datetime(value: datetime) -> datetime:
+        if value.tzinfo is None:
+            return value.replace(tzinfo=UTC)
+        return value.astimezone(UTC)
