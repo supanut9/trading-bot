@@ -52,6 +52,7 @@ Request behavior:
 Manual controls:
 
 - `POST /controls/worker-cycle` runs one worker cycle with the current configured strategy, risk, and paper/live mode
+- `POST /controls/market-sync` fetches recent closed candles for the configured exchange, symbol, and timeframe and stores them through the market data service
 - `POST /controls/backtest` runs one backtest over stored candles with the current configured strategy and risk settings
 - control endpoints do not accept arbitrary trading parameters; they only use current application configuration
 

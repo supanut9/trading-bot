@@ -92,3 +92,13 @@ class BacktestControlResponse(BaseModel):
     losing_trades: int | None = None
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class MarketSyncControlResponse(BaseModel):
+    status: str
+    detail: str
+    fetched_count: int
+    stored_count: int
+    latest_open_time: datetime | None = None
+
+    model_config = ConfigDict(from_attributes=True)

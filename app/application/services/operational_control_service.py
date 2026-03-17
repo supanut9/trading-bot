@@ -1,11 +1,13 @@
 from collections.abc import Sequence
 from dataclasses import dataclass
+from datetime import datetime
 from decimal import Decimal
 
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.application.services.backtest_service import BacktestResult, BacktestService
 from app.application.services.market_data_service import MarketDataService
+from app.application.services.market_data_sync_service import MarketDataSyncService
 from app.application.services.notification_service import (
     NotificationService,
     build_notification_service,
@@ -17,6 +19,7 @@ from app.domain.strategies.base import Candle
 from app.domain.strategies.ema_crossover import EmaCrossoverStrategy
 from app.infrastructure.database.models.candle import CandleRecord
 from app.infrastructure.database.session import create_session_factory
+from app.infrastructure.exchanges.factory import build_market_data_exchange_client
 
 
 @dataclass(frozen=True, slots=True)
@@ -48,6 +51,15 @@ class BacktestControlResult:
     losing_trades: int | None = None
 
 
+@dataclass(frozen=True, slots=True)
+class MarketSyncControlResult:
+    status: str
+    detail: str
+    fetched_count: int
+    stored_count: int
+    latest_open_time: datetime | None = None
+
+
 class OperationalControlService:
     _decimal_precision = Decimal("0.00000001")
 
@@ -76,6 +88,34 @@ class OperationalControlService:
             trade_id=result.trade_id,
             position_quantity=result.position_quantity,
             notified=notified,
+        )
+
+    def run_market_sync(self) -> MarketSyncControlResult:
+        with self._session_factory() as session:
+            try:
+                result = MarketDataSyncService(
+                    session,
+                    build_market_data_exchange_client(self._settings),
+                ).sync_recent_closed_candles(
+                    exchange=self._settings.exchange_name,
+                    symbol=self._settings.default_symbol,
+                    timeframe=self._settings.default_timeframe,
+                    limit=self._settings.market_data_sync_limit,
+                )
+            except Exception:
+                return MarketSyncControlResult(
+                    status="failed",
+                    detail="market data sync failed",
+                    fetched_count=0,
+                    stored_count=0,
+                )
+
+        return MarketSyncControlResult(
+            status="completed",
+            detail="market data sync completed",
+            fetched_count=result.fetched_count,
+            stored_count=result.stored_count,
+            latest_open_time=result.latest_open_time,
         )
 
     def run_backtest(self, *, notify: bool = True) -> BacktestControlResult:

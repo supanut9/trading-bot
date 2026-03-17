@@ -10,7 +10,7 @@ Build a maintainable trading bot that supports research, backtesting, paper trad
 - one strategy
 - candle-based execution
 - paper trading only
-- API endpoints for health, status, positions, trades, candle ingestion, and bounded manual controls
+- API endpoints for health, status, positions, trades, candle ingestion, market sync, and bounded manual controls
 
 ## Initial Market And Strategy
 
