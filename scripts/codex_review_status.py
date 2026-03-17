@@ -7,6 +7,7 @@ import sys
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
+from urllib.parse import urlparse
 
 REQUEST_AUTHOR = "github-actions"
 REQUEST_BODY = "@codex review"
@@ -65,24 +66,16 @@ def load_pr_activity(pr: str) -> dict[str, Any]:
             "view",
             pr,
             "--json",
-            "number,comments,reviews",
+            "number,comments,reviews,url",
         ]
     )
-    repo_payload = run_gh_json(
-        [
-            "gh",
-            "repo",
-            "view",
-            "--json",
-            "name,owner",
-        ]
-    )
-    owner = read_nested_login(repo_payload, "owner")
-    repo = read_string(repo_payload, "name")
-    review_comments = run_gh_json(
+    owner, repo = parse_pr_repository(pr_payload)
+    review_comments = run_gh_paginated_json(
         [
             "gh",
             "api",
+            "--paginate",
+            "--slurp",
             f"repos/{owner}/{repo}/pulls/{pr_payload['number']}/comments",
         ]
     )
@@ -100,6 +93,22 @@ def run_gh_json(command: list[str]) -> Any:
         message = result.stderr.strip() or result.stdout.strip() or "unknown gh error"
         raise RuntimeError(message)
     return json.loads(result.stdout)
+
+
+def run_gh_paginated_json(command: list[str]) -> list[dict[str, Any]]:
+    payload = run_gh_json(command)
+    if not isinstance(payload, list):
+        raise ValueError("expected paginated gh payload to be a list")
+
+    items: list[dict[str, Any]] = []
+    for page in payload:
+        if not isinstance(page, list):
+            raise ValueError("expected paginated gh payload page to be a list")
+        for item in page:
+            if not isinstance(item, dict):
+                raise ValueError("expected paginated gh payload item to be an object")
+            items.append(item)
+    return items
 
 
 def evaluate_codex_review_status(payload: dict[str, Any]) -> CodexReviewState:
@@ -232,6 +241,15 @@ def read_nested_login(item: dict[str, Any], key: str) -> str:
     if not isinstance(login, str):
         raise ValueError(f"missing {key}.login in PR activity payload")
     return login
+
+
+def parse_pr_repository(pr_payload: dict[str, Any]) -> tuple[str, str]:
+    url = read_string(pr_payload, "url")
+    parsed = urlparse(url)
+    parts = [part for part in parsed.path.split("/") if part]
+    if len(parts) < 4 or parts[2] != "pull":
+        raise ValueError("unexpected pull request URL format in PR activity payload")
+    return parts[0], parts[1]
 
 
 def parse_timestamp(value: str) -> datetime:
