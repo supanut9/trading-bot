@@ -762,7 +762,7 @@ Main outputs:
 
 Status:
 
-- planned
+- implemented on branch
 
 Scope:
 
@@ -836,4 +836,4 @@ Main outputs:
 
 Current next feature:
 
-- `feature/operator-paper-trading-console`
+- `feature/demo-scenario-loader`

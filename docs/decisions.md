@@ -167,6 +167,20 @@ The system already exposes the required reporting data through application servi
 
 Reporting now includes an HTML dashboard at `/reports` alongside the existing CSV exports, while reporting logic continues to reuse the existing operational and backtest services.
 
+## 2026-03-18
+
+### Decision
+
+Add a dedicated operator paper-trading console in the FastAPI app that reuses the existing bounded control services instead of introducing a separate UI stack or ad hoc action handlers.
+
+### Reason
+
+The reporting deck already covers operational visibility, but local paper-trading workflows still require manual API calls to trigger market sync, a single worker cycle, and a backtest. A small server-rendered console shortens that operator loop without widening the architecture or bypassing the current control boundaries.
+
+### Consequence
+
+Operators can use `/console` for one-click market sync, worker-cycle, and backtest actions with inline result feedback, while the existing `OperationalControlService` remains the single path for those actions.
+
 ## 2026-03-17
 
 ### Decision
