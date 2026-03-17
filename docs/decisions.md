@@ -152,3 +152,17 @@ The worker needed a real path to refresh candles from an exchange adapter, but m
 ### Consequence
 
 The worker can now sync recent closed Binance candles before strategy evaluation when `MARKET_DATA_SYNC_ENABLED=true`, while stored-candle-only behavior remains available by default.
+
+## 2026-03-17
+
+### Decision
+
+Serve reporting UI directly from the FastAPI application instead of introducing a separate frontend app.
+
+### Reason
+
+The system already exposes the required reporting data through application services and CSV exports, so a lightweight server-rendered dashboard adds operator usability without widening the stack or creating a second deployment path.
+
+### Consequence
+
+Reporting now includes an HTML dashboard at `/reports` alongside the existing CSV exports, while reporting logic continues to reuse the existing operational and backtest services.

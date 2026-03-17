@@ -348,10 +348,29 @@ Main outputs:
 - market-data sync service
 - worker integration with safe sync failure handling
 
+### 19. `feature/reporting-ui`
+
+Status:
+
+- in progress
+
+Scope:
+
+- add a human-friendly reporting page without introducing a separate frontend stack
+- reuse existing operational and backtest services for dashboard data
+- keep CSV exports available for download from the reporting surface
+- add API tests and runbook coverage for the dashboard route
+
+Main outputs:
+
+- server-rendered `/reports` dashboard
+- reporting dashboard aggregation service
+- updated operator docs for HTML and CSV report access
+
 ## Next Recommended Feature
 
-`feature/reporting-ui`
+`feature/notification-hardening`
 
 Reason:
 
-- once scheduling exists, the next gap is loading market data from a real adapter instead of only manual ingestion
+- reporting and market sync now expose more operational outcomes, so the next gap is making notification delivery and failure visibility more production-ready
