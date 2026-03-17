@@ -77,6 +77,25 @@ def test_codex_review_completed_from_connector_review_after_request() -> None:
     assert state == CodexReviewState(True, "connector review recorded after request")
 
 
+def test_codex_review_completed_from_connector_review_with_submitted_at() -> None:
+    state = evaluate_codex_review_status(
+        {
+            "comments": [
+                make_comment("github-actions", "@codex review", "2026-03-17T01:00:00Z"),
+            ],
+            "reviews": [
+                {
+                    "author": {"login": "chatgpt-codex-connector"},
+                    "submittedAt": "2026-03-17T01:02:00Z",
+                },
+            ],
+            "review_comments": [],
+        }
+    )
+
+    assert state == CodexReviewState(True, "connector review recorded after request")
+
+
 def test_codex_review_completed_from_connector_review_comment_after_request() -> None:
     state = evaluate_codex_review_status(
         {
@@ -120,6 +139,22 @@ def test_codex_review_completed_from_explicit_no_issues_comment_after_request() 
         True,
         "connector no-issues comment recorded after request",
     )
+
+
+def test_codex_review_accepts_manual_request_comment() -> None:
+    state = evaluate_codex_review_status(
+        {
+            "comments": [
+                make_comment("supanut9", "@codex review", "2026-03-17T01:00:00Z"),
+            ],
+            "reviews": [
+                make_review("chatgpt-codex-connector", "2026-03-17T01:02:00Z"),
+            ],
+            "review_comments": [],
+        }
+    )
+
+    assert state == CodexReviewState(True, "connector review recorded after request")
 
 
 def test_parse_timestamp_normalizes_zulu_to_utc() -> None:

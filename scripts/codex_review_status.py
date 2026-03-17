@@ -9,7 +9,6 @@ from datetime import UTC, datetime
 from typing import Any
 from urllib.parse import urlparse
 
-REQUEST_AUTHOR = "github-actions"
 REQUEST_BODY = "@codex review"
 CONNECTOR_LOGIN_PREFIX = "chatgpt-codex-connector"
 NO_ISSUES_MARKERS = (
@@ -143,9 +142,8 @@ def evaluate_codex_review_status(payload: dict[str, Any]) -> CodexReviewState:
 def find_latest_request(comments: list[dict[str, Any]]) -> Activity | None:
     latest: Activity | None = None
     for comment in comments:
-        author = read_author_login(comment)
         body = read_body(comment)
-        if author != REQUEST_AUTHOR or body.strip() != REQUEST_BODY:
+        if body.strip() != REQUEST_BODY:
             continue
         latest = max_activity(latest, to_activity(comment))
     return latest
@@ -218,6 +216,9 @@ def read_timestamp(item: dict[str, Any]) -> str:
     created_at = item.get("created_at")
     if isinstance(created_at, str):
         return created_at
+    submitted_at = item.get("submittedAt")
+    if isinstance(submitted_at, str):
+        return submitted_at
     raise ValueError("missing createdAt timestamp in PR activity payload")
 
 
