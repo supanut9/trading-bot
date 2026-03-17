@@ -503,11 +503,11 @@ Main outputs:
 
 ## Next Recommended Feature
 
-`feature/stale-live-order-detection`
+`feature/live-order-recovery-report`
 
 Reason:
 
-- the current live-state slice is complete, and the next operational gap is identifying unresolved live orders before they become hidden risk
+- stale live order detection is now the next implemented step, and the next operational gap is a compact recovery view over unresolved live state
 
 ## Next Expansion Slice
 
@@ -591,7 +591,7 @@ Main outputs:
 
 Status:
 
-- planned
+- implemented on branch
 
 Scope:
 

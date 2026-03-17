@@ -14,6 +14,7 @@ from app.application.services.paper_execution_service import (
 )
 from app.config import Settings, get_settings
 from app.infrastructure.database.base import Base
+from app.infrastructure.database.models.order import OrderRecord
 from app.infrastructure.database.session import (
     create_engine_from_settings,
     create_session_factory,
@@ -143,10 +144,45 @@ def test_reports_dashboard_renders_html_snapshot(tmp_path: Path) -> None:
         assert "Reporting Deck" in response.text
         assert "Open Positions" in response.text
         assert "Recent Trades" in response.text
+        assert "Stale Live Orders" in response.text
         assert "Backtest Snapshot" in response.text
         assert "Recent Audit Events" in response.text
         assert "BTC/USDT" in response.text
         assert "Download positions CSV" in response.text
+    finally:
+        teardown_client(session)
+
+
+def test_reports_dashboard_renders_stale_live_order_rows(tmp_path: Path) -> None:
+    client, session, settings = build_client(tmp_path)
+    try:
+        order = OrderRecord(
+            exchange="binance",
+            symbol="BTC/USDT",
+            side="buy",
+            order_type="market",
+            status="submitted",
+            mode="live",
+            quantity=Decimal("0.001"),
+            client_order_id="stale-live-1",
+            exchange_order_id="123",
+            created_at=datetime(2026, 1, 1, 0, tzinfo=UTC),
+            updated_at=datetime(2026, 1, 1, 0, tzinfo=UTC),
+        )
+        session.add(order)
+        session.commit()
+        settings.paper_trading = False
+        settings.live_trading_enabled = True
+        settings.exchange_api_key = "key"
+        settings.exchange_api_secret = "secret"
+        settings.stale_live_order_threshold_minutes = 30
+
+        response = client.get("/reports")
+
+        assert response.status_code == 200
+        assert "Stale Live Orders" in response.text
+        assert f"<td>{order.id}</td>" in response.text
+        assert "submitted" in response.text
     finally:
         teardown_client(session)
 

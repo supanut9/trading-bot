@@ -64,6 +64,10 @@ class Settings(BaseSettings):
         default=True,
         alias="STARTUP_STATE_SYNC_ENABLED",
     )
+    stale_live_order_threshold_minutes: int = Field(
+        default=120,
+        alias="STALE_LIVE_ORDER_THRESHOLD_MINUTES",
+    )
     notification_channel: Literal["none", "log", "webhook"] = Field(
         default="none",
         alias="NOTIFICATION_CHANNEL",
