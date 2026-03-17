@@ -819,7 +819,7 @@ Main outputs:
 
 Status:
 
-- planned
+- implemented on branch
 
 Scope:
 
@@ -836,4 +836,4 @@ Main outputs:
 
 Current next feature:
 
-- `feature/session-summary-dashboard`
+- no next feature selected
