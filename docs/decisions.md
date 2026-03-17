@@ -138,3 +138,17 @@ The worker already had recurring behavior, but it was embedded directly in the e
 ### Consequence
 
 The worker cycle now runs through an explicit scheduled job path, the worker can optionally run recurring backtest summaries on a separate interval, and the default runtime remains a single worker cycle unless polling mode is enabled.
+
+## 2026-03-17
+
+### Decision
+
+Add market-data sync through an exchange adapter as an opt-in worker behavior.
+
+### Reason
+
+The worker needed a real path to refresh candles from an exchange adapter, but making public-network fetches mandatory would make local bootstrap and isolated tests brittle.
+
+### Consequence
+
+The worker can now sync recent closed Binance candles before strategy evaluation when `MARKET_DATA_SYNC_ENABLED=true`, while stored-candle-only behavior remains available by default.

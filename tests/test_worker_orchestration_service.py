@@ -5,6 +5,7 @@ from pathlib import Path
 from sqlalchemy import func, select
 
 from app.application.services.market_data_service import CandleInput, MarketDataService
+from app.application.services.market_data_sync_service import MarketDataSyncResult
 from app.application.services.paper_execution_service import (
     PaperExecutionRequest,
     PaperExecutionService,
@@ -195,3 +196,61 @@ def test_returns_duplicate_signal_when_execution_hits_client_order_id_race(
     assert result.status == "duplicate_signal"
     assert result.signal_action == "buy"
     assert order_count == 0
+
+
+def test_syncs_market_data_before_strategy_evaluation(tmp_path: Path) -> None:
+    service, session, settings = build_service(tmp_path)
+    synced = {"called": False}
+
+    class SyncStub:
+        def sync_recent_closed_candles(
+            self,
+            *,
+            exchange: str,
+            symbol: str,
+            timeframe: str,
+            limit: int,
+        ) -> MarketDataSyncResult:
+            synced["called"] = True
+            assert exchange == settings.exchange_name
+            assert symbol == settings.default_symbol
+            assert timeframe == settings.default_timeframe
+            assert limit == 100
+            store_closes(session, settings, [10, 10, 10, 10, 10, 9, 9, 9, 20])
+            return MarketDataSyncResult(
+                fetched_count=9,
+                stored_count=9,
+                latest_open_time=datetime(2026, 1, 1, 8, tzinfo=UTC),
+            )
+
+    settings.market_data_sync_enabled = True
+    service._market_sync = SyncStub()
+
+    result = service.run_cycle()
+
+    assert synced["called"] is True
+    assert result.status == "executed"
+    assert result.signal_action == "buy"
+
+
+def test_skips_worker_cycle_when_market_data_sync_fails(tmp_path: Path) -> None:
+    service, _session, settings = build_service(tmp_path)
+
+    class FailingSyncStub:
+        def sync_recent_closed_candles(
+            self,
+            *,
+            exchange: str,
+            symbol: str,
+            timeframe: str,
+            limit: int,
+        ) -> MarketDataSyncResult:
+            raise RuntimeError("boom")
+
+    settings.market_data_sync_enabled = True
+    service._market_sync = FailingSyncStub()
+
+    result = service.run_cycle()
+
+    assert result.status == "market_data_sync_failed"
+    assert result.detail == "failed to sync market data"

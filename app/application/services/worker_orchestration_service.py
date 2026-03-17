@@ -5,6 +5,7 @@ from decimal import Decimal
 from sqlalchemy.orm import Session
 
 from app.application.services.market_data_service import MarketDataService
+from app.application.services.market_data_sync_service import MarketDataSyncService
 from app.application.services.paper_execution_service import (
     PaperExecutionRequest,
     PaperExecutionService,
@@ -20,6 +21,7 @@ from app.infrastructure.database.repositories.order_repository import (
     OrderRepository,
 )
 from app.infrastructure.database.repositories.position_repository import PositionRepository
+from app.infrastructure.exchanges.factory import build_market_data_exchange_client
 
 logger = get_logger(__name__)
 
@@ -43,6 +45,7 @@ class WorkerOrchestrationService:
         *,
         strategy: EmaCrossoverStrategy | None = None,
         risk_service: RiskService | None = None,
+        market_sync: MarketDataSyncService | None = None,
     ) -> None:
         self._session = session
         self._settings = settings
@@ -50,6 +53,7 @@ class WorkerOrchestrationService:
         self._execution = PaperExecutionService(session)
         self._positions = PositionRepository(session)
         self._orders = OrderRepository(session)
+        self._market_sync = market_sync
         self._strategy = strategy or EmaCrossoverStrategy(
             fast_period=settings.strategy_fast_period,
             slow_period=settings.strategy_slow_period,
@@ -64,11 +68,37 @@ class WorkerOrchestrationService:
         )
 
     def run_cycle(self) -> WorkerCycleResult:
+        candle_limit = max(
+            self._settings.strategy_slow_period + 1,
+            self._settings.market_data_sync_limit,
+        )
+        if self._settings.market_data_sync_enabled:
+            try:
+                self._get_market_sync().sync_recent_closed_candles(
+                    exchange=self._settings.exchange_name,
+                    symbol=self._settings.default_symbol,
+                    timeframe=self._settings.default_timeframe,
+                    limit=candle_limit,
+                )
+            except Exception as exc:
+                logger.exception(
+                    "worker_cycle_skipped reason=market_data_sync_failed "
+                    "exchange=%s symbol=%s timeframe=%s error=%s",
+                    self._settings.exchange_name,
+                    self._settings.default_symbol,
+                    self._settings.default_timeframe,
+                    exc,
+                )
+                return WorkerCycleResult(
+                    status="market_data_sync_failed",
+                    detail="failed to sync market data",
+                )
+
         candles = self._market_data.list_recent_candles(
             exchange=self._settings.exchange_name,
             symbol=self._settings.default_symbol,
             timeframe=self._settings.default_timeframe,
-            limit=max(self._settings.strategy_slow_period + 1, 100),
+            limit=candle_limit,
         )
         if len(candles) < self._settings.strategy_slow_period + 1:
             logger.info(
@@ -262,3 +292,11 @@ class WorkerOrchestrationService:
             f"{self._trading_mode}-{self._settings.exchange_name}-"
             f"{symbol_token}-{self._settings.default_timeframe}-{signal.action}-{candle_token}"
         )
+
+    def _get_market_sync(self) -> MarketDataSyncService:
+        if self._market_sync is None:
+            self._market_sync = MarketDataSyncService(
+                self._session,
+                build_market_data_exchange_client(self._settings),
+            )
+        return self._market_sync

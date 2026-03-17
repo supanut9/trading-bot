@@ -329,9 +329,28 @@ Main outputs:
 
 - updated merge-gate documentation
 
+### 18. `feature/market-sync-adapter`
+
+Status:
+
+- implemented on branch
+
+Scope:
+
+- add an exchange adapter for recent closed candle sync
+- keep exchange-specific fetch logic outside strategy and application decision code
+- let the worker optionally sync candles before evaluation
+- add tests and runbook coverage for the new sync path
+
+Main outputs:
+
+- Binance market-data adapter
+- market-data sync service
+- worker integration with safe sync failure handling
+
 ## Next Recommended Feature
 
-`feature/market-sync-adapter`
+`feature/reporting-ui`
 
 Reason:
 

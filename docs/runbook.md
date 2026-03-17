@@ -71,9 +71,11 @@ Default worker behavior:
 
 - runs one orchestration cycle and exits
 - reads the latest stored candles for the configured symbol and timeframe
+- can optionally sync recent closed candles from the configured exchange before strategy evaluation
 - applies strategy, risk checks, and paper execution in order
 - skips duplicate execution for the same signal candle
 - emits notifications for executions and risk rejections when configured
+- skips the cycle safely if enabled market-data sync fails
 
 To run it as a polling worker instead of a single cycle:
 
@@ -93,11 +95,21 @@ Optional worker tuning variables:
 - `MAX_OPEN_POSITIONS`
 - `MAX_DAILY_LOSS_PCT`
 - `WORKER_POLL_INTERVAL_SECONDS`
+- `MARKET_DATA_SYNC_ENABLED`
+- `MARKET_DATA_SYNC_LIMIT`
+- `MARKET_DATA_SYNC_TIMEOUT_SECONDS`
+- `MARKET_DATA_API_BASE_URL`
 - `BACKTEST_SCHEDULE_ENABLED`
 - `BACKTEST_SCHEDULE_INTERVAL_SECONDS`
 - `NOTIFICATION_CHANNEL`
 - `NOTIFICATION_WEBHOOK_URL`
 - `NOTIFICATION_TIMEOUT_SECONDS`
+
+To enable Binance candle sync before each worker cycle:
+
+```bash
+MARKET_DATA_SYNC_ENABLED=true make run-worker
+```
 
 ## Run Backtest
 

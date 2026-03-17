@@ -23,6 +23,7 @@ Build a maintainable trading bot that supports research, backtesting, paper trad
 
 - fetch candle data
 - ingest closed candle batches through a local API path
+- sync recent closed candles from a configured exchange adapter before worker execution when enabled
 - run deterministic backtests over stored historical candles
 - calculate indicators
 - generate signals from deterministic strategy rules
