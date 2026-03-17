@@ -739,6 +739,101 @@ Main outputs:
 - clearer startup validation failures
 - improved operator troubleshooting signals
 
+### 39. `feature/live-price-status`
+
+Status:
+
+- planned
+
+Scope:
+
+- fetch a read-only latest market price from the configured exchange
+- expose the latest price through the existing status and reporting surfaces
+- keep the feature bounded to operator visibility without changing strategy or execution logic
+- add tests for exchange parsing and status exposure
+
+Main outputs:
+
+- latest price visibility
+- exchange-backed market status context
+- tests for live price fetch behavior
+
+### 40. `feature/operator-paper-trading-console`
+
+Status:
+
+- planned
+
+Scope:
+
+- add one operator-facing page inside the FastAPI app for local paper-trading workflows
+- show current status, latest price, positions, trades, and recent audit events
+- allow bounded operator actions such as one worker cycle, one backtest, and market sync
+- preserve the current architecture instead of introducing a separate frontend app
+
+Main outputs:
+
+- operator paper-trading console
+- reduced manual API workflow for local testing
+- integrated status and control surface
+
+### 41. `feature/demo-scenario-loader`
+
+Status:
+
+- planned
+
+Scope:
+
+- provide preset candle scenarios that can be loaded without hand-writing JSON
+- focus on operator demo workflows such as no-action, buy crossover, and sell crossover paths
+- keep scenarios deterministic and local-only
+- add tests and runbook guidance for scenario loading
+
+Main outputs:
+
+- demo candle presets
+- easier local paper-trading verification
+- reduced manual test payload work
+
+### 42. `feature/operator-control-panel`
+
+Status:
+
+- planned
+
+Scope:
+
+- extend the operator UX with bounded controls for market sync, backtest, reconcile, and cancel actions
+- require explicit operator initiation and keep the controls aligned with existing safety rules
+- improve operator feedback for successful and failed control runs
+- avoid adding any automatic execution behavior in the UI layer
+
+Main outputs:
+
+- richer operator controls
+- better UI feedback for control results
+- safer local and operator-driven workflows
+
+### 43. `feature/session-summary-dashboard`
+
+Status:
+
+- planned
+
+Scope:
+
+- add a compact operator summary over latest worker result, PnL, trades, positions, and stale live state
+- keep the dashboard focused on operational clarity rather than historical analytics depth
+- reuse existing reporting data where possible instead of widening persistence
+- add tests for the new summary rendering behavior where practical
+
+Main outputs:
+
+- clearer at-a-glance operator state
+- PnL and trade summary visibility
+- better session-level understanding
+
 Current next feature:
 
-- no immediate next feature in the defined roadmap; add the next bounded phase here before continuing implementation
+- `feature/live-price-status`

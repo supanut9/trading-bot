@@ -121,3 +121,10 @@ Before merge:
 - improve structured logging and failure correlation across API and worker paths
 - tighten startup validation for deployment misconfiguration
 - add bounded health or readiness checks for unattended operation
+
+## Phase 10
+
+- add an operator-facing UX inside the current FastAPI app
+- surface live price and current market context without requiring raw API calls
+- make paper-trading and demo validation easier through bounded operator controls
+- keep the UX operational and lightweight instead of introducing a separate frontend stack
