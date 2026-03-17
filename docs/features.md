@@ -409,7 +409,7 @@ Main outputs:
 
 Status:
 
-- in progress
+- implemented on branch
 
 Scope:
 
@@ -424,10 +424,29 @@ Main outputs:
 - safe worker refusal path for unsupported live execution
 - status visibility and tests for execution mode
 
+### 23. `feature/exchange-order-adapter`
+
+Status:
+
+- in progress
+
+Scope:
+
+- introduce a replaceable execution adapter boundary for the worker
+- keep paper execution as the default concrete implementation
+- route explicit live mode through a deliberate unsupported adapter until exchange order routing exists
+- add tests and docs for adapter selection behavior
+
+Main outputs:
+
+- execution factory for worker orchestration
+- unsupported live execution adapter
+- tests for adapter selection and worker execution-unavailable behavior
+
 ## Next Recommended Feature
 
-`feature/exchange-order-adapter`
+`feature/live-order-routing`
 
 Reason:
 
-- once execution-mode guardrails exist, the next bounded step toward controlled live trading is a replaceable exchange-order adapter behind the existing execution boundary
+- once the execution adapter boundary exists, the next bounded step is implementing a real exchange-backed live order adapter behind that seam

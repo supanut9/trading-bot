@@ -208,3 +208,17 @@ The system already exposed both `PAPER_TRADING` and `LIVE_TRADING_ENABLED`, but 
 ### Consequence
 
 Configuration now rejects contradictory mode combinations, the status surface exposes a single derived execution mode, and the worker returns `execution_unavailable` instead of attempting unsupported live execution.
+
+## 2026-03-17
+
+### Decision
+
+Resolve worker execution through a replaceable adapter boundary instead of hard-coding the paper executor inside orchestration.
+
+### Reason
+
+The system still only supports paper execution, but the worker now needs a stable seam where a future exchange order adapter can be introduced without rewriting orchestration, risk, or control logic.
+
+### Consequence
+
+Worker orchestration now builds execution through a factory, paper mode uses the current paper adapter, and explicit live mode routes to an unsupported adapter that fails safely with `execution_unavailable`.

@@ -4,12 +4,10 @@ from decimal import Decimal
 
 from sqlalchemy.orm import Session
 
+from app.application.services.execution_factory import build_execution_service
 from app.application.services.market_data_service import MarketDataService
 from app.application.services.market_data_sync_service import MarketDataSyncService
-from app.application.services.paper_execution_service import (
-    PaperExecutionRequest,
-    PaperExecutionService,
-)
+from app.application.services.paper_execution_service import PaperExecutionRequest
 from app.config import Settings
 from app.core.logger import get_logger
 from app.domain.risk import PortfolioState, RiskLimits, RiskService, TradeContext
@@ -22,6 +20,7 @@ from app.infrastructure.database.repositories.order_repository import (
 )
 from app.infrastructure.database.repositories.position_repository import PositionRepository
 from app.infrastructure.exchanges.factory import build_market_data_exchange_client
+from app.infrastructure.executions.base import ExecutionService, ExecutionUnavailableError
 
 logger = get_logger(__name__)
 
@@ -46,11 +45,12 @@ class WorkerOrchestrationService:
         strategy: EmaCrossoverStrategy | None = None,
         risk_service: RiskService | None = None,
         market_sync: MarketDataSyncService | None = None,
+        execution_service: ExecutionService | None = None,
     ) -> None:
         self._session = session
         self._settings = settings
         self._market_data = MarketDataService(session)
-        self._execution = PaperExecutionService(session)
+        self._execution = execution_service or build_execution_service(session, settings)
         self._positions = PositionRepository(session)
         self._orders = OrderRepository(session)
         self._market_sync = market_sync
@@ -210,21 +210,6 @@ class WorkerOrchestrationService:
             if signal.action == "sell" and current_position is not None
             else risk_decision.quantity
         )
-        if self._trading_mode == "live":
-            logger.warning(
-                "worker_cycle_rejected reason=live_execution_unavailable "
-                "exchange=%s symbol=%s signal=%s client_order_id=%s",
-                self._settings.exchange_name,
-                self._settings.default_symbol,
-                signal.action,
-                client_order_id,
-            )
-            return WorkerCycleResult(
-                status="execution_unavailable",
-                detail="live execution is not configured",
-                signal_action=signal.action,
-                client_order_id=client_order_id,
-            )
         try:
             execution = self._execution.execute(
                 PaperExecutionRequest(
@@ -237,6 +222,22 @@ class WorkerOrchestrationService:
                     client_order_id=client_order_id,
                     submitted_reason=signal.reason,
                 )
+            )
+        except ExecutionUnavailableError as exc:
+            logger.warning(
+                "worker_cycle_rejected reason=execution_unavailable "
+                "exchange=%s symbol=%s signal=%s client_order_id=%s detail=%s",
+                self._settings.exchange_name,
+                self._settings.default_symbol,
+                signal.action,
+                client_order_id,
+                exc,
+            )
+            return WorkerCycleResult(
+                status="execution_unavailable",
+                detail=str(exc),
+                signal_action=signal.action,
+                client_order_id=client_order_id,
             )
         except DuplicateClientOrderIdError:
             logger.info(

@@ -83,6 +83,12 @@ Default worker behavior:
 - emits notifications for executions and risk rejections when configured
 - skips the cycle safely if enabled market-data sync fails
 
+Execution boundary notes:
+
+- worker execution now resolves through an execution adapter factory
+- paper mode uses the existing paper execution adapter
+- explicit live mode resolves to an unsupported adapter that raises `execution_unavailable` until a real exchange order adapter is implemented
+
 To run it as a polling worker instead of a single cycle:
 
 ```bash
