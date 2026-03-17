@@ -107,6 +107,8 @@ Live fill reconciliation:
 - open, partial, or detail-incomplete exchange states are persisted locally without inventing fills
 - repeated reconciliation is idempotent for already-reconciled orders because only recent open live orders are considered
 - `LIVE_RECONCILE_SCHEDULE_ENABLED=true` and `LIVE_RECONCILE_SCHEDULE_INTERVAL_SECONDS` enable the same workflow as a recurring worker job in live mode
+- `STARTUP_STATE_SYNC_ENABLED=true` runs the same reconciliation workflow once during live worker startup before any new execution is attempted
+- if startup state sync fails in live mode, the worker exits without entering a new execution cycle
 
 Live balance visibility:
 
@@ -140,6 +142,7 @@ Optional worker tuning variables:
 - `BACKTEST_SCHEDULE_INTERVAL_SECONDS`
 - `LIVE_RECONCILE_SCHEDULE_ENABLED`
 - `LIVE_RECONCILE_SCHEDULE_INTERVAL_SECONDS`
+- `STARTUP_STATE_SYNC_ENABLED`
 - `NOTIFICATION_CHANNEL`
 - `NOTIFICATION_WEBHOOK_URL`
 - `NOTIFICATION_TIMEOUT_SECONDS`
