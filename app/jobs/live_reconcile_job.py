@@ -1,9 +1,12 @@
+from app.application.services.notification_service import build_notification_service
 from app.application.services.operational_control_service import (
     LiveReconcileControlResult,
     OperationalControlService,
 )
+from app.application.services.stale_live_order_service import StaleLiveOrderService
 from app.config import Settings
 from app.core.logger import get_logger
+from app.infrastructure.database.session import create_session_factory
 
 logger = get_logger(__name__)
 
@@ -12,9 +15,27 @@ class LiveReconcileJob:
     def __init__(self, settings: Settings) -> None:
         self._settings = settings
         self._controls = OperationalControlService(settings)
+        self._notifications = build_notification_service(settings)
+        self._session_factory = create_session_factory(settings)
 
     def run(self) -> LiveReconcileControlResult:
         result = self._controls.run_live_reconcile(source="job.live_reconcile")
+        if result.status == "failed":
+            self._notifications.notify_live_reconcile_failure(
+                self._settings,
+                source="job.live_reconcile",
+                detail=result.detail,
+            )
+        with self._session_factory() as session:
+            stale_orders = StaleLiveOrderService(session).list_stale_orders(
+                threshold_minutes=self._settings.stale_live_order_threshold_minutes,
+                limit=10,
+            )
+        self._notifications.notify_stale_live_orders(
+            self._settings,
+            stale_orders=stale_orders,
+            threshold_minutes=self._settings.stale_live_order_threshold_minutes,
+        )
         logger.info(
             "scheduled_live_reconcile_completed status=%s detail=%s reconciled_count=%s "
             "filled_count=%s exchange=%s symbol=%s timeframe=%s",

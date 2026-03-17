@@ -503,11 +503,11 @@ Main outputs:
 
 ## Next Recommended Feature
 
-`feature/reconciliation-alerting`
+`feature/production-ops-runbook`
 
 Reason:
 
-- the recovery report is now in place, and the next operational gap is surfacing failed reconciliation or stale-order conditions as operator alerts
+- reconciliation alerting is now in place, and the remaining planned step in this slice is tightening the production operating runbook
 
 ## Next Expansion Slice
 
@@ -629,7 +629,7 @@ Main outputs:
 
 Status:
 
-- planned
+- implemented on branch
 
 Scope:
 

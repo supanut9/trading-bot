@@ -128,6 +128,12 @@ Live order recovery report:
 - `GET /reports/live-recovery.csv` exports unresolved live orders with the latest recovery-event context
 - recovery reporting is read-only and is intended to shorten operator review during live incident handling
 
+Reconciliation alerting:
+
+- failed startup sync emits a `startup_state_sync.failed` notification when notifications are enabled
+- failed scheduled live reconciliation emits a `live_reconcile.failed` notification when notifications are enabled
+- scheduled live reconciliation also emits `live_orders.stale_detected` when stale live orders remain after the reconciliation pass
+
 Live balance visibility:
 
 - `GET /status` includes `account_balance_status` and `account_balances`
