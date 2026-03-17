@@ -222,3 +222,17 @@ The system still only supports paper execution, but the worker now needs a stabl
 ### Consequence
 
 Worker orchestration now builds execution through a factory, paper mode uses the current paper adapter, and explicit live mode routes to an unsupported adapter that fails safely with `execution_unavailable`.
+
+## 2026-03-17
+
+### Decision
+
+Add signed exchange order routing as an infrastructure client before wiring live execution into worker state updates.
+
+### Reason
+
+Live execution needs a real exchange-facing order path, but persisting fills and reconciling positions safely is a separate concern from signing and submitting order requests. Splitting those steps keeps the codebase moving without pretending live runtime state handling is solved.
+
+### Consequence
+
+The Binance integration now includes a signed live order client and factory support for validate-only or submitted order requests, while worker execution remains blocked from using live routing until a dedicated live execution service is implemented.
