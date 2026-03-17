@@ -503,11 +503,11 @@ Main outputs:
 
 ## Next Recommended Feature
 
-`feature/exchange-balance-sync`
+`feature/scheduled-live-reconciliation`
 
 Reason:
 
-- the current documented feature map is complete, and the next operational gap is exchange-side account visibility before broader live automation is expanded
+- exchange-side balance visibility is now the next implemented step, and the next operational gap is recurring reconciliation without requiring manual control calls
 
 ## Next Expansion Slice
 
@@ -515,7 +515,7 @@ Reason:
 
 Status:
 
-- planned
+- implemented on branch
 
 Scope:
 

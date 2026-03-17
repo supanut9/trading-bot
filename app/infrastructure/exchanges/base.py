@@ -44,6 +44,13 @@ class ExchangeOrderStatus:
     response_payload: dict[str, object]
 
 
+@dataclass(frozen=True, slots=True)
+class ExchangeAssetBalance:
+    asset: str
+    free: Decimal
+    locked: Decimal
+
+
 class MarketDataExchangeClient(Protocol):
     name: str
 
@@ -60,6 +67,8 @@ class LiveOrderExchangeClient(Protocol):
     name: str
 
     def submit_order(self, request: ExchangeOrderRequest) -> ExchangeOrderSubmission: ...
+
+    def fetch_account_balances(self) -> Sequence[ExchangeAssetBalance]: ...
 
     def fetch_order_status(
         self,

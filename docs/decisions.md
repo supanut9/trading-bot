@@ -264,3 +264,17 @@ Live order submission and confirmed exchange fills are separate events, and the 
 ### Consequence
 
 The exchange adapter now supports signed order-status lookup, recent open live orders can be reconciled through a dedicated service and control endpoint, and local trades or position updates are created only when the exchange reports a confirmed filled status with usable fill details.
+
+## 2026-03-17
+
+### Decision
+
+Expose exchange balance visibility through the existing status surface instead of adding a separate balance control workflow first.
+
+### Reason
+
+The immediate operator need after live submission and fill reconciliation is to confirm that the configured live symbol is funded. That is read-only exchange state, so it fits the existing status surface better than a new mutation-oriented control path.
+
+### Consequence
+
+The authenticated exchange client now supports account-balance lookup, and `/status` reports base and quote asset balances for the configured symbol when live mode is enabled while leaving execution behavior unchanged.
