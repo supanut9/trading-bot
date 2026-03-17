@@ -161,6 +161,13 @@ Deployment packaging:
 - `make docker-run-worker` runs the worker with the same image and current `.env`
 - runtime packaging does not inject secrets; exchange credentials and database URLs must still come from environment variables
 
+Deployment environment baseline:
+
+- `.env.deploy.api.example` is the baseline for API containers and binds `API_HOST=0.0.0.0`
+- `.env.deploy.worker.example` is the baseline for worker containers and sets `WORKER_RUN_ONCE=false`
+- `.env.example` remains the local-development baseline and should not be copied into deployment unchanged
+- API and worker deployments should use separate env files even when they share the same database and exchange defaults
+
 To run it as a polling worker instead of a single cycle:
 
 ```bash

@@ -686,7 +686,7 @@ Main outputs:
 
 Status:
 
-- planned
+- implemented on branch
 
 Scope:
 
@@ -741,4 +741,4 @@ Main outputs:
 
 Current next feature:
 
-- `feature/deployment-env-baseline`
+- `feature/post-deploy-smoke-check`
