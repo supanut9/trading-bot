@@ -115,15 +115,15 @@ The API can export positions, recent trades, and backtest summary data in CSV fo
 
 ### Decision
 
-Make Codex review completion a separate required status check instead of treating the review-trigger workflow as merge readiness.
+Do not rely on Codex review automation as a required PR merge gate.
 
 ### Reason
 
-The previous setup only proved that `@codex review` was posted on the PR. It did not prove that the connector had actually responded yet, so PRs could appear fully green while review was still pending.
+The repository no longer uses Codex review as part of its normal delivery workflow, so keeping dedicated trigger and status-check automation would add maintenance cost without supporting an active process.
 
 ### Consequence
 
-The repository now uses a separate `Codex Review Status` check for merge readiness. It still requires real Codex review evidence on the PR, but it treats resolved Codex review threads as completion so branch protection reflects whether Codex feedback has been handled rather than whether the latest trigger comment happened to receive a fresh connector artifact.
+PR merge readiness is now based on normal CI results and resolved review feedback without Codex-specific automation.
 
 ## 2026-03-17
 

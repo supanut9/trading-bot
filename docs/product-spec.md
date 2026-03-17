@@ -34,7 +34,7 @@ Build a maintainable trading bot that supports research, backtesting, paper trad
 - expose minimal operational API for health, status, positions, trades, candle ingestion, and bounded manual controls
 - export operational and backtest summary data as CSV for review and offline inspection
 - run recurring worker and optional recurring backtest jobs through explicit scheduled job modules
-- enforce PR merge readiness with CI plus Codex review evidence and resolved Codex review threads
+- enforce PR merge readiness with CI and resolved review feedback
 
 ## Current Risk Policy Baseline
 

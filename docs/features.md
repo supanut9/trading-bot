@@ -288,16 +288,12 @@ Status:
 
 Scope:
 
-- make Codex review completion a real merge gate
-- separate review trigger from review completion status
-- add tested status-check logic for latest `@codex review` request
-- document the updated merge rule
+- tighten PR review merge handling
+- document review and merge expectations
 
 Main outputs:
 
-- `codex-review-status` workflow
-- script to validate connector response after the latest review request
-- workflow and review docs aligned with the new gate
+- review workflow documentation updates
 
 ### 16. `feature/scheduled-jobs`
 
@@ -326,15 +322,11 @@ Status:
 
 Scope:
 
-- tighten Codex review completion rules
-- require real review evidence after the latest `@codex review` request
-- prevent generic connector comments from satisfying the merge gate
-- update tests and workflow docs for the stricter rule
+- refine PR review merge handling
+- update workflow docs for stricter review resolution expectations
 
 Main outputs:
 
-- stricter `codex_review_status` matching logic
-- tests for review objects, review comments, and explicit no-issues signals
 - updated merge-gate documentation
 
 ## Next Recommended Feature
