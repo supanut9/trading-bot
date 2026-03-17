@@ -320,3 +320,17 @@ Order cancellation affects exchange-side state directly and can conflict with fi
 ### Consequence
 
 The live order client now supports authenticated cancel requests, the controls API can cancel a live order by one explicit identifier, and local order state changes to canceled only after a confirmed exchange cancel response.
+
+## 2026-03-17
+
+### Decision
+
+Detect stale live orders locally from persisted order age and surface them as read-only operator visibility before adding more recovery automation.
+
+### Reason
+
+The next unresolved live-ops risk is orders that remain open long enough to warrant operator review but not automatic action. Exposing those orders first gives operators visibility without introducing heuristics that could race exchange state changes.
+
+### Consequence
+
+The reporting surface now classifies stale live orders by a configured age threshold, shows them separately from ordinary trade history, and keeps stale-order handling read-only until later recovery features are added.

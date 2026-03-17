@@ -66,6 +66,21 @@ def _render_dashboard(service: ReportingDashboardService) -> str:
         )
         or '<tr><td colspan="5">No trades recorded.</td></tr>'
     )
+    stale_orders_rows = (
+        "".join(
+            (
+                "<tr>"
+                f"<td>{order.id}</td>"
+                f"<td>{order.symbol}</td>"
+                f"<td>{order.side}</td>"
+                f"<td>{order.status}</td>"
+                f"<td>{order.age_minutes}</td>"
+                "</tr>"
+            )
+            for order in dashboard.stale_live_orders
+        )
+        or '<tr><td colspan="5">No stale live orders detected.</td></tr>'
+    )
     audit_rows = (
         "".join(
             (
@@ -97,6 +112,7 @@ def _render_dashboard(service: ReportingDashboardService) -> str:
             _render_card("Recent Trades", str(dashboard.trade_count)),
             _render_card("Realized PnL", str(dashboard.total_realized_pnl)),
             _render_card("Unrealized PnL", str(dashboard.total_unrealized_pnl)),
+            _render_card("Stale Live Orders", str(len(dashboard.stale_live_orders))),
             _render_card("Backtest Status", dashboard.backtest.status),
             _render_card("Backtest Trades", str(dashboard.backtest.total_trades or 0)),
         ]
@@ -268,6 +284,21 @@ def _render_dashboard(service: ReportingDashboardService) -> str:
               </tr>
             </thead>
             <tbody>{trades_rows}</tbody>
+          </table>
+        </div>
+        <div class="panel">
+          <h2>Stale Live Orders</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Symbol</th>
+                <th>Side</th>
+                <th>Status</th>
+                <th>Age Minutes</th>
+              </tr>
+            </thead>
+            <tbody>{stale_orders_rows}</tbody>
           </table>
         </div>
         <div class="panel">

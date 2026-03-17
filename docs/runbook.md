@@ -116,6 +116,12 @@ Live order cancel control:
 - cancellation is bounded to local live orders in cancelable states such as `submitted`, `new`, or `partially_filled`
 - local order status is updated only after the exchange confirms cancellation
 
+Stale live order visibility:
+
+- reporting now flags open live orders whose `updated_at` age exceeds `STALE_LIVE_ORDER_THRESHOLD_MINUTES`
+- stale-order detection is read-only and does not imply automatic cancellation
+- operators should use stale-order visibility together with live reconcile and live cancel controls when reviewing unresolved exchange state
+
 Live balance visibility:
 
 - `GET /status` includes `account_balance_status` and `account_balances`
@@ -149,6 +155,7 @@ Optional worker tuning variables:
 - `LIVE_RECONCILE_SCHEDULE_ENABLED`
 - `LIVE_RECONCILE_SCHEDULE_INTERVAL_SECONDS`
 - `STARTUP_STATE_SYNC_ENABLED`
+- `STALE_LIVE_ORDER_THRESHOLD_MINUTES`
 - `NOTIFICATION_CHANNEL`
 - `NOTIFICATION_WEBHOOK_URL`
 - `NOTIFICATION_TIMEOUT_SECONDS`

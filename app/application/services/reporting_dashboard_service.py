@@ -9,6 +9,10 @@ from app.application.services.operational_control_service import (
     OperationalControlService,
 )
 from app.application.services.operations_service import OperationsService, PositionView, TradeView
+from app.application.services.stale_live_order_service import (
+    StaleLiveOrderService,
+    StaleLiveOrderView,
+)
 from app.application.services.status_service import StatusService
 from app.config import Settings
 
@@ -29,6 +33,7 @@ class ReportingDashboard:
     total_unrealized_pnl: Decimal
     positions: list[PositionView]
     trades: list[TradeView]
+    stale_live_orders: list[StaleLiveOrderView]
     backtest: BacktestControlResult
     audit_events: list[AuditEventView]
 
@@ -43,6 +48,7 @@ class ReportingDashboardService:
     ) -> None:
         self._operations = OperationsService(session)
         self._audit = AuditService(session=session)
+        self._stale_orders = StaleLiveOrderService(session)
         self._settings = settings
         self._session_factory = session_factory
 
@@ -50,6 +56,10 @@ class ReportingDashboardService:
         status = StatusService(self._settings).get_status()
         positions = self._operations.list_positions()
         trades = self._operations.list_trades(limit=10)
+        stale_live_orders = self._stale_orders.list_stale_orders(
+            threshold_minutes=self._settings.stale_live_order_threshold_minutes,
+            limit=10,
+        )
         backtest = OperationalControlService(
             self._settings,
             session_factory=self._session_factory,
@@ -77,6 +87,7 @@ class ReportingDashboardService:
             ),
             positions=positions,
             trades=trades,
+            stale_live_orders=stale_live_orders,
             backtest=backtest,
             audit_events=audit_events,
         )
