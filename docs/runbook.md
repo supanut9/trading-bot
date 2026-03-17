@@ -246,6 +246,95 @@ To initialize tables after dependencies are installed:
 make init-db
 ```
 
+## Production Readiness
+
+Minimum checks before enabling live mode:
+
+- `main` is green on the latest merged change and no required checks are failing
+- `GET /health` returns healthy and `GET /status` returns the expected `execution_mode`
+- exchange credentials are provided only through environment variables
+- `account_balance_status` is `available` and the reported base and quote assets match the configured symbol
+- `STARTUP_STATE_SYNC_ENABLED=true` and `LIVE_RECONCILE_SCHEDULE_ENABLED=true` are set for live-capable operation
+- notification delivery is configured and tested through the intended channel
+- stale live order threshold is set and understood by the operator
+- PostgreSQL persistence is in use; SQLite is not acceptable for live-capable operation
+- a recent database backup exists and restore steps have been verified
+- operators know the bounded recovery controls: live reconcile, live cancel, stale-order review, and live recovery report
+
+Recommended pre-live verification sequence:
+
+```bash
+make test
+make run-api
+make run-worker
+curl http://127.0.0.1:8000/health
+curl http://127.0.0.1:8000/status
+curl -X POST http://127.0.0.1:8000/controls/live-reconcile
+curl http://127.0.0.1:8000/reports/live-recovery.csv
+```
+
+Expected operator conclusion before enabling live mode:
+
+- local status is healthy
+- exchange balances are visible
+- reconciliation succeeds or clearly reports no unresolved work
+- no unexplained stale live orders remain
+- alerts are routed to an observed destination
+
+## Deployment And Restart
+
+Deployment expectations:
+
+- deploy only from merged `main`
+- use the same configuration bundle for API and worker where live flags and exchange credentials must agree
+- keep one writer-style worker deployment for live execution and reconciliation to avoid duplicated scheduled work
+- verify database connectivity before starting API or worker processes
+
+Recommended restart order for live-capable operation:
+
+1. Confirm there is no active incident requiring manual pause, cancel, or reconciliation.
+2. Start PostgreSQL and verify connectivity.
+3. Start the API and confirm `GET /health` and `GET /status` are healthy.
+4. Start the worker with startup state sync enabled.
+5. Confirm the worker completed startup sync before allowing new live execution to continue.
+
+Restart semantics:
+
+- live startup should fail closed if startup state sync cannot confirm exchange state
+- do not bypass startup sync after an unclean stop unless the open-order state is already understood manually
+- after restart, review `/reports`, `/reports/audit.csv`, and `/reports/live-recovery.csv` before concluding the system is caught up
+
+## Rollback
+
+Rollback expectations:
+
+- prefer rolling back application code without rolling back database state
+- do not restore an older code revision into live mode unless its order and reconciliation schema expectations still match the current database
+- if a deployment is reverted, run live reconcile before trusting local open-order state
+
+Recommended rollback sequence:
+
+1. Stop the worker so no new execution is attempted during rollback.
+2. Keep the API available if needed for bounded controls and reporting.
+3. Deploy the last known-good application revision.
+4. Run startup state sync or `POST /controls/live-reconcile` before resuming worker execution.
+5. Review stale orders, recent audit events, and live recovery output before resuming normal operation.
+
+## Backups And Recovery
+
+Backup expectations:
+
+- back up PostgreSQL on a regular schedule before live-capable operation
+- treat orders, trades, positions, candles, and audit events as the minimum recovery dataset
+- keep backups outside the running container or host-local ephemeral storage
+
+Recovery guidance:
+
+- restore the latest consistent PostgreSQL backup first
+- start the API in a non-live posture if exchange state is still uncertain
+- run reconciliation against the exchange before trusting restored local order, trade, or position state
+- use live recovery reports and stale-order visibility to identify any remaining mismatch after restore
+
 ## Stop
 
 Stop the running process with `Ctrl+C`.
@@ -255,6 +344,7 @@ Stop the running process with `Ctrl+C`.
 - local mode uses paper trading by default
 - valid execution-mode combinations are `PAPER_TRADING=true` with `LIVE_TRADING_ENABLED=false` or `PAPER_TRADING=false` with `LIVE_TRADING_ENABLED=true`
 - do not enable explicit live mode without exchange credentials and a clear plan for fill reconciliation
+- do not enable explicit live mode without PostgreSQL backups, alert routing, and a documented operator procedure
 - do not enable live trading during bootstrap
 - credentials should be provided only through environment variables
 - SQLite remains an acceptable fallback only for lightweight local bootstrap work
@@ -275,6 +365,26 @@ Stop the running process with `Ctrl+C`.
 - if live orders are being submitted, confirm exchange order status separately before assuming any local position change
 - if notifications are expected but absent, verify `NOTIFICATION_CHANNEL` and `NOTIFICATION_WEBHOOK_URL`
 - if webhook delivery fails, inspect the `notification_delivery_failed` log entry for the event type and channel, then confirm the webhook endpoint returned an HTTP `2xx`
+
+## Alerts And Incident Handling
+
+Alert response expectations:
+
+- `startup_state_sync.failed`: do not resume live execution until reconciliation failure is understood and cleared
+- `live_reconcile.failed`: investigate exchange connectivity or credential issues, then rerun bounded reconciliation
+- `live_orders.stale_detected`: review unresolved orders, rerun reconcile, and cancel only when the exchange state is confirmed
+
+Minimum operator review surfaces during an incident:
+
+- `/status`
+- `/reports`
+- `/reports/audit.csv`
+- `/reports/live-recovery.csv`
+
+Incident handling rule:
+
+- prefer bounded manual reconciliation and cancellation over speculative local state edits
+- if exchange state and local state disagree, trust the exchange only after a successful authenticated lookup confirms it
 
 ## Logging Expectations
 
