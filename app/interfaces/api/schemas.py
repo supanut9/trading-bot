@@ -134,3 +134,21 @@ class LiveReconcileControlResponse(BaseModel):
     notified: bool
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class LiveCancelControlRequest(BaseModel):
+    order_id: int | None = None
+    client_order_id: str | None = None
+    exchange_order_id: str | None = None
+
+
+class LiveCancelControlResponse(BaseModel):
+    status: str
+    detail: str
+    order_id: int | None
+    client_order_id: str | None
+    exchange_order_id: str | None
+    order_status: str | None
+    notified: bool
+
+    model_config = ConfigDict(from_attributes=True)

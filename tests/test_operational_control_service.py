@@ -3,6 +3,7 @@ from datetime import UTC, datetime
 
 from app.application.services.market_data_sync_service import MarketDataSyncResult
 from app.application.services.operational_control_service import (
+    LiveCancelControlResult,
     LiveReconcileControlResult,
     MarketSyncControlResult,
     OperationalControlService,
@@ -10,6 +11,7 @@ from app.application.services.operational_control_service import (
 )
 from app.application.services.worker_orchestration_service import WorkerCycleResult
 from app.config import Settings
+from app.infrastructure.database.models.order import OrderRecord
 
 
 @dataclass
@@ -274,3 +276,88 @@ def test_live_reconcile_control_returns_failed_result_on_client_error(monkeypatc
     )
     assert len(audit.entries) == 1
     assert audit.entries[0]["status"] == "failed"
+
+
+def test_live_cancel_control_returns_failed_when_identifier_missing() -> None:
+    settings = Settings(
+        DATABASE_URL="sqlite:///./operational_controls.db",
+        PAPER_TRADING=False,
+        LIVE_TRADING_ENABLED=True,
+        EXCHANGE_API_KEY="key",
+        EXCHANGE_API_SECRET="secret",
+    )
+    audit = RecordingAudit()
+
+    service = OperationalControlService(
+        settings,
+        session_factory=lambda: FakeSession(SessionState()),
+        audit=audit,
+    )
+
+    result = service.run_live_cancel(source="api.control")
+
+    assert result == LiveCancelControlResult(
+        status="failed",
+        detail="exactly one live order identifier is required",
+        order_id=None,
+        client_order_id=None,
+        exchange_order_id=None,
+        order_status=None,
+        notified=False,
+    )
+    assert audit.entries[0]["control_type"] == "live_cancel"
+
+
+def test_live_cancel_control_skips_non_cancelable_status(tmp_path) -> None:
+    settings = Settings(
+        DATABASE_URL=f"sqlite:///{tmp_path / 'cancel_control.db'}",
+        PAPER_TRADING=False,
+        LIVE_TRADING_ENABLED=True,
+        EXCHANGE_API_KEY="key",
+        EXCHANGE_API_SECRET="secret",
+    )
+    from app.infrastructure.database.base import Base
+    from app.infrastructure.database.session import (
+        create_engine_from_settings,
+        create_session_factory,
+    )
+
+    engine = create_engine_from_settings(settings)
+    Base.metadata.create_all(bind=engine)
+    session_factory = create_session_factory(settings)
+    with session_factory() as session:
+        session.add(
+            OrderRecord(
+                exchange="binance",
+                symbol="BTC/USDT",
+                side="buy",
+                order_type="market",
+                status="filled",
+                mode="live",
+                quantity=1,
+                client_order_id="filled-live-order",
+                exchange_order_id="999",
+            )
+        )
+        session.commit()
+        order_id = session.query(OrderRecord).one().id
+
+    audit = RecordingAudit()
+    service = OperationalControlService(
+        settings,
+        session_factory=session_factory,
+        audit=audit,
+    )
+
+    result = service.run_live_cancel(order_id=order_id, source="api.control")
+
+    assert result == LiveCancelControlResult(
+        status="skipped",
+        detail="live order is not cancelable in its current status",
+        order_id=order_id,
+        client_order_id="filled-live-order",
+        exchange_order_id="999",
+        order_status="filled",
+        notified=False,
+    )
+    assert audit.entries[0]["status"] == "skipped"

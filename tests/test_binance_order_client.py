@@ -126,6 +126,38 @@ def test_binance_order_client_fetches_account_balances(monkeypatch) -> None:
     assert balances[1].free == Decimal("125.50")
 
 
+def test_binance_order_client_cancels_order(monkeypatch) -> None:
+    captured: dict[str, object] = {}
+
+    def fake_urlopen(request, timeout: int) -> FakeOrderResponse:
+        captured["method"] = request.get_method()
+        captured["url"] = request.full_url
+        captured["body"] = request.data.decode("utf-8")
+        return FakeOrderResponse({"status": "CANCELED", "orderId": 12345})
+
+    monkeypatch.setattr("app.infrastructure.exchanges.binance.urlopen", fake_urlopen)
+    monkeypatch.setattr(
+        "app.infrastructure.exchanges.binance.datetime",
+        type(
+            "FixedDatetime",
+            (),
+            {"now": staticmethod(BinanceDateTime.now)},
+        ),
+    )
+
+    cancellation = BinanceSpotOrderClient(
+        api_key="key",
+        api_secret="secret",
+    ).cancel_order(symbol="BTC/USDT", exchange_order_id="12345")
+
+    assert captured["method"] == "DELETE"
+    assert captured["url"] == "https://api.binance.com/api/v3/order"
+    assert "orderId=12345" in str(captured["body"])
+    assert "signature=" in str(captured["body"])
+    assert cancellation.status == "canceled"
+    assert cancellation.exchange_order_id == "12345"
+
+
 def test_binance_order_client_raises_runtime_error_on_transport_failure(monkeypatch) -> None:
     def raise_timeout(request, timeout: int) -> FakeOrderResponse:
         raise TimeoutError("slow")

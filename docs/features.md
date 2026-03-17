@@ -503,11 +503,11 @@ Main outputs:
 
 ## Next Recommended Feature
 
-`feature/live-order-cancel-control`
+No immediate next feature in the current live-state slice.
 
 Reason:
 
-- startup state sync is now the next implemented step, and the next operational gap is giving operators a bounded way to cancel live orders
+- the currently documented live-state sync and manual recovery slice is complete through bounded live order cancellation
 
 ## Next Expansion Slice
 
@@ -572,7 +572,7 @@ Main outputs:
 
 Status:
 
-- planned
+- implemented on branch
 
 Scope:
 
