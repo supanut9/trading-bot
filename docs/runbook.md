@@ -134,6 +134,18 @@ Notification channels:
 - `NOTIFICATION_CHANNEL=log`: write notification payloads into stdout logs
 - `NOTIFICATION_CHANNEL=webhook`: send JSON payloads to `NOTIFICATION_WEBHOOK_URL`
 
+Current notification coverage:
+
+- worker execution outcomes
+- worker risk rejections
+- backtest completed and skipped outcomes
+- market sync completed and failed outcomes from `POST /controls/market-sync`
+
+Webhook delivery behavior:
+
+- webhook notifications are treated as successful only on HTTP `2xx`
+- non-`2xx` responses are logged as `notification_delivery_failed` and do not change the underlying worker, backtest, or market-sync result
+
 Example local notification test:
 
 ```bash
@@ -194,7 +206,7 @@ Stop the running process with `Ctrl+C`.
 - if the worker reports `no_candles`, load recent candles through `POST /market-data/candles` before retrying
 - if the worker reports `duplicate_signal`, confirm whether the latest signal candle was already executed as intended
 - if notifications are expected but absent, verify `NOTIFICATION_CHANNEL` and `NOTIFICATION_WEBHOOK_URL`
-- if webhook delivery fails, inspect the `notification_delivery_failed` log entry for the event type and channel
+- if webhook delivery fails, inspect the `notification_delivery_failed` log entry for the event type and channel, then confirm the webhook endpoint returned an HTTP `2xx`
 
 ## Logging Expectations
 

@@ -58,6 +58,7 @@ class MarketSyncControlResult:
     fetched_count: int
     stored_count: int
     latest_open_time: datetime | None = None
+    notified: bool = False
 
 
 class OperationalControlService:
@@ -103,11 +104,20 @@ class OperationalControlService:
                     limit=self._settings.market_data_sync_limit,
                 )
             except Exception:
-                return MarketSyncControlResult(
+                failed = MarketSyncControlResult(
                     status="failed",
                     detail="market data sync failed",
                     fetched_count=0,
                     stored_count=0,
+                )
+                notified = self._notifications.notify_market_sync(self._settings, failed)
+                return MarketSyncControlResult(
+                    status=failed.status,
+                    detail=failed.detail,
+                    fetched_count=failed.fetched_count,
+                    stored_count=failed.stored_count,
+                    latest_open_time=failed.latest_open_time,
+                    notified=notified,
                 )
 
         detail = "market data sync completed"
@@ -116,12 +126,21 @@ class OperationalControlService:
         elif result.stored_count == 0:
             detail = "no new candles stored"
 
-        return MarketSyncControlResult(
+        completed = MarketSyncControlResult(
             status="completed",
             detail=detail,
             fetched_count=result.fetched_count,
             stored_count=result.stored_count,
             latest_open_time=result.latest_open_time,
+        )
+        notified = self._notifications.notify_market_sync(self._settings, completed)
+        return MarketSyncControlResult(
+            status=completed.status,
+            detail=completed.detail,
+            fetched_count=completed.fetched_count,
+            stored_count=completed.stored_count,
+            latest_open_time=completed.latest_open_time,
+            notified=notified,
         )
 
     def run_backtest(self, *, notify: bool = True) -> BacktestControlResult:

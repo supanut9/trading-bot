@@ -30,4 +30,7 @@ class WebhookNotificationSender:
             method="POST",
         )
         with urlopen(request, timeout=self._timeout_seconds) as response:
+            status_code = getattr(response, "status", None)
+            if isinstance(status_code, int) and not 200 <= status_code < 300:
+                raise RuntimeError(f"webhook returned HTTP {status_code}")
             response.read()

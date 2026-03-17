@@ -166,3 +166,17 @@ The system already exposes the required reporting data through application servi
 ### Consequence
 
 Reporting now includes an HTML dashboard at `/reports` alongside the existing CSV exports, while reporting logic continues to reuse the existing operational and backtest services.
+
+## 2026-03-17
+
+### Decision
+
+Treat outbound webhook notifications as failed unless the receiver returns an HTTP `2xx`, and extend notification coverage to market-sync outcomes.
+
+### Reason
+
+The system now exposes a manual market-sync control and optional pre-worker sync behavior, so those outcomes need the same operator visibility as worker and backtest paths. Separately, a network request completing without raising is not enough to trust delivery if the webhook target returned a rejection status.
+
+### Consequence
+
+Market sync completion and failure can now emit notifications, and webhook senders log `notification_delivery_failed` for non-`2xx` responses instead of treating them as successful delivery.

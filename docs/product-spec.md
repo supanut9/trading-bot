@@ -30,7 +30,7 @@ Build a maintainable trading bot that supports research, backtesting, paper trad
 - apply risk checks
 - simulate order execution in paper mode
 - orchestrate a worker cycle from persisted candles through execution
-- emit optional notifications for worker execution, risk rejection, and backtest outcomes
+- emit optional notifications for worker execution, risk rejection, backtest outcomes, and market sync outcomes
 - persist bot state and logs
 - expose minimal operational API for health, status, positions, trades, candle ingestion, and bounded manual controls
 - export operational and backtest summary data as CSV for review and offline inspection

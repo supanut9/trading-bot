@@ -352,7 +352,7 @@ Main outputs:
 
 Status:
 
-- in progress
+- implemented on branch
 
 Scope:
 
@@ -367,10 +367,29 @@ Main outputs:
 - reporting dashboard aggregation service
 - updated operator docs for HTML and CSV report access
 
+### 20. `feature/notification-hardening`
+
+Status:
+
+- in progress
+
+Scope:
+
+- tighten outbound notification delivery semantics for webhook channels
+- extend notifications to market sync outcomes
+- keep notification failures non-blocking while making them more explicit
+- add tests and runbook coverage for hardened notification behavior
+
+Main outputs:
+
+- webhook sender that treats non-`2xx` responses as delivery failures
+- market sync notifications from manual control execution
+- updated notification and operational tests
+
 ## Next Recommended Feature
 
-`feature/notification-hardening`
+`feature/execution-audit-feed`
 
 Reason:
 
-- reporting and market sync now expose more operational outcomes, so the next gap is making notification delivery and failure visibility more production-ready
+- the bot now exposes controls, reporting, market sync, and notifications, so the next operational gap is a dedicated audit view of manual triggers, worker outcomes, and outbound delivery attempts for operator review

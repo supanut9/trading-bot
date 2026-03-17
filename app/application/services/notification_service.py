@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from typing import Any
 
 from app.application.services.backtest_service import BacktestResult
@@ -81,6 +83,34 @@ class NotificationService:
                 f"{settings.default_timeframe}: {reason}."
             ),
             metadata=metadata,
+        )
+        return self.publish(event)
+
+    def notify_market_sync(self, settings: Settings, result: Any) -> bool:
+        severity = "info" if result.status == "completed" else "warning"
+        event_type = (
+            "market_sync.completed" if result.status == "completed" else "market_sync.failed"
+        )
+        event = NotificationEvent(
+            event_type=event_type,
+            severity=severity,
+            title="Market sync completed" if result.status == "completed" else "Market sync failed",
+            body=(
+                f"Market sync {result.status} for {settings.default_symbol} on "
+                f"{settings.default_timeframe}: {result.detail}."
+            ),
+            metadata={
+                "app": settings.app_name,
+                "env": settings.app_env,
+                "exchange": settings.exchange_name,
+                "symbol": settings.default_symbol,
+                "timeframe": settings.default_timeframe,
+                "status": result.status,
+                "detail": result.detail,
+                "fetched_count": result.fetched_count,
+                "stored_count": result.stored_count,
+                "latest_open_time": result.latest_open_time,
+            },
         )
         return self.publish(event)
 
