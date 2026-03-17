@@ -11,6 +11,7 @@ def test_status_endpoint_returns_bootstrap_configuration() -> None:
     assert response.status_code == 200
     payload = response.json()
     assert payload["app"] == "trading-bot"
+    assert payload["execution_mode"] == "paper"
     assert payload["paper_trading"] is True
     assert payload["live_trading_enabled"] is False
     assert payload["database_status"] in {"available", "unavailable"}

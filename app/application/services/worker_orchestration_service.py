@@ -210,6 +210,21 @@ class WorkerOrchestrationService:
             if signal.action == "sell" and current_position is not None
             else risk_decision.quantity
         )
+        if self._trading_mode == "live":
+            logger.warning(
+                "worker_cycle_rejected reason=live_execution_unavailable "
+                "exchange=%s symbol=%s signal=%s client_order_id=%s",
+                self._settings.exchange_name,
+                self._settings.default_symbol,
+                signal.action,
+                client_order_id,
+            )
+            return WorkerCycleResult(
+                status="execution_unavailable",
+                detail="live execution is not configured",
+                signal_action=signal.action,
+                client_order_id=client_order_id,
+            )
         try:
             execution = self._execution.execute(
                 PaperExecutionRequest(
@@ -261,7 +276,7 @@ class WorkerOrchestrationService:
 
     @property
     def _trading_mode(self) -> str:
-        return "paper" if self._settings.paper_trading else "live"
+        return self._settings.execution_mode
 
     def _build_portfolio_state(self, current_position: PositionRecord | None) -> PortfolioState:
         realized_pnl = (

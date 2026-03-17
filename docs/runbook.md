@@ -78,6 +78,7 @@ Default worker behavior:
 - reads the latest stored candles for the configured symbol and timeframe
 - can optionally sync recent closed candles from the configured exchange before strategy evaluation
 - applies strategy, risk checks, and paper execution in order
+- refuses explicit live mode safely because no live execution adapter exists yet
 - skips duplicate execution for the same signal candle
 - emits notifications for executions and risk rejections when configured
 - skips the cycle safely if enabled market-data sync fails
@@ -191,6 +192,8 @@ Stop the running process with `Ctrl+C`.
 ## Safety
 
 - local mode uses paper trading by default
+- valid execution-mode combinations are `PAPER_TRADING=true` with `LIVE_TRADING_ENABLED=false` or `PAPER_TRADING=false` with `LIVE_TRADING_ENABLED=true`
+- do not enable explicit live mode until a live execution adapter exists; the worker will refuse live execution with `execution_unavailable`
 - do not enable live trading during bootstrap
 - credentials should be provided only through environment variables
 - SQLite remains an acceptable fallback only for lightweight local bootstrap work
@@ -208,6 +211,7 @@ Stop the running process with `Ctrl+C`.
 - if configuration is missing, verify `.env` values against `.env.example`
 - if the worker reports `no_candles`, load recent candles through `POST /market-data/candles` before retrying
 - if the worker reports `duplicate_signal`, confirm whether the latest signal candle was already executed as intended
+- if the worker reports `execution_unavailable`, switch back to paper mode or keep live mode disabled until a live execution adapter is implemented
 - if notifications are expected but absent, verify `NOTIFICATION_CHANNEL` and `NOTIFICATION_WEBHOOK_URL`
 - if webhook delivery fails, inspect the `notification_delivery_failed` log entry for the event type and channel, then confirm the webhook endpoint returned an HTTP `2xx`
 

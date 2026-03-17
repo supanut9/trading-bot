@@ -217,3 +217,21 @@ def test_market_sync_control_returns_completed_summary(tmp_path: Path) -> None:
         assert event.source == "api.control"
     finally:
         teardown_client()
+
+
+def test_worker_cycle_control_refuses_live_mode_without_live_executor(tmp_path: Path) -> None:
+    client, settings = build_client(tmp_path)
+    try:
+        settings.paper_trading = False
+        settings.live_trading_enabled = True
+        store_closes(settings, [10, 10, 10, 10, 10, 9, 9, 9, 20])
+
+        response = client.post("/controls/worker-cycle")
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["status"] == "execution_unavailable"
+        assert payload["detail"] == "live execution is not configured"
+        assert payload["signal_action"] == "buy"
+    finally:
+        teardown_client()

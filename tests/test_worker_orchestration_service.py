@@ -20,7 +20,10 @@ from app.infrastructure.database.repositories.position_repository import Positio
 from app.infrastructure.database.session import create_engine_from_settings, create_session_factory
 
 
-def build_service(tmp_path: Path) -> tuple[WorkerOrchestrationService, object, Settings]:
+def build_service(
+    tmp_path: Path,
+    **setting_overrides: object,
+) -> tuple[WorkerOrchestrationService, object, Settings]:
     settings = Settings(
         DATABASE_URL=f"sqlite:///{tmp_path / 'worker_orchestration.db'}",
         EXCHANGE_NAME="binance",
@@ -32,6 +35,7 @@ def build_service(tmp_path: Path) -> tuple[WorkerOrchestrationService, object, S
         RISK_PER_TRADE_PCT=0.01,
         MAX_OPEN_POSITIONS=1,
         MAX_DAILY_LOSS_PCT=0.03,
+        **setting_overrides,
     )
     engine = create_engine_from_settings(settings)
     Base.metadata.create_all(bind=engine)
@@ -254,3 +258,20 @@ def test_skips_worker_cycle_when_market_data_sync_fails(tmp_path: Path) -> None:
 
     assert result.status == "market_data_sync_failed"
     assert result.detail == "failed to sync market data"
+
+
+def test_rejects_live_mode_when_no_live_execution_service_exists(tmp_path: Path) -> None:
+    service, session, settings = build_service(
+        tmp_path,
+        PAPER_TRADING=False,
+        LIVE_TRADING_ENABLED=True,
+    )
+    store_closes(session, settings, [10, 10, 10, 10, 10, 9, 9, 9, 20])
+
+    result = service.run_cycle()
+    order_count = session.scalar(select(func.count()).select_from(OrderRecord))
+
+    assert result.status == "execution_unavailable"
+    assert result.detail == "live execution is not configured"
+    assert result.signal_action == "buy"
+    assert order_count == 0
