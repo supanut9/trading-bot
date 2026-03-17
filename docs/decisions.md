@@ -181,6 +181,20 @@ The reporting deck already covers operational visibility, but local paper-tradin
 
 Operators can use `/console` for one-click market sync, worker-cycle, and backtest actions with inline result feedback, while the existing `OperationalControlService` remains the single path for those actions.
 
+## 2026-03-18
+
+### Decision
+
+Load operator demo market states through named local candle presets instead of ad hoc JSON examples.
+
+### Reason
+
+The new operator console and bounded worker controls are easier to verify when the repository can load a known no-action, buy-crossover, or sell-crossover market shape without hand-building candle payloads each time. Reusing the existing market-data persistence path keeps the feature deterministic and avoids adding a second bootstrap mechanism.
+
+### Consequence
+
+Operators can call a dedicated demo-scenario endpoint to load repeatable candle sets into the configured market stream, and the returned metadata states the expected EMA signal outcome for that preset.
+
 ## 2026-03-17
 
 ### Decision

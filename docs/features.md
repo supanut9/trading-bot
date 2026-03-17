@@ -781,7 +781,7 @@ Main outputs:
 
 Status:
 
-- planned
+- implemented on branch
 
 Scope:
 
@@ -836,4 +836,4 @@ Main outputs:
 
 Current next feature:
 
-- `feature/demo-scenario-loader`
+- `feature/operator-control-panel`

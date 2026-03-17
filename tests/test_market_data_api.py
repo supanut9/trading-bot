@@ -1,10 +1,16 @@
 from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 from pathlib import Path
 
+import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy import func, select
 
 from app.config import Settings
+from app.domain.strategies.base import Candle
+from app.domain.strategies.ema_crossover import EmaCrossoverStrategy
 from app.infrastructure.database.base import Base
+from app.infrastructure.database.models.candle import CandleRecord
 from app.infrastructure.database.session import (
     create_engine_from_settings,
     create_session_factory,
@@ -33,6 +39,38 @@ def build_client(tmp_path: Path) -> tuple[TestClient, object]:
 def teardown_client(session: object) -> None:
     app.dependency_overrides.clear()
     session.close()
+
+
+def load_strategy_signal(
+    session: object,
+    *,
+    exchange: str,
+    symbol: str,
+    timeframe: str,
+) -> str | None:
+    records = session.scalars(
+        select(CandleRecord)
+        .where(
+            CandleRecord.exchange == exchange,
+            CandleRecord.symbol == symbol,
+            CandleRecord.timeframe == timeframe,
+        )
+        .order_by(CandleRecord.open_time.asc())
+    ).all()
+    candles = [
+        Candle(
+            open_time=record.open_time,
+            close_time=record.close_time,
+            open_price=Decimal(record.open_price),
+            high_price=Decimal(record.high_price),
+            low_price=Decimal(record.low_price),
+            close_price=Decimal(record.close_price),
+            volume=Decimal(record.volume),
+        )
+        for record in records
+    ]
+    signal = EmaCrossoverStrategy(fast_period=3, slow_period=5).evaluate(candles)
+    return signal.action if signal is not None else None
 
 
 def test_ingest_candles_persists_batch_with_default_market_config(tmp_path: Path) -> None:
@@ -120,5 +158,71 @@ def test_ingest_candles_normalizes_naive_and_aware_timestamps(tmp_path: Path) ->
         payload = response.json()
         assert payload["stored_count"] == 2
         assert payload["latest_open_time"] == "2026-01-01T01:00:00Z"
+    finally:
+        teardown_client(session)
+
+
+@pytest.mark.parametrize(
+    ("scenario_name", "expected_action"),
+    [
+        ("buy-crossover", "buy"),
+        ("sell-crossover", "sell"),
+        ("no-action", None),
+    ],
+)
+def test_load_demo_scenario_persists_expected_strategy_shape(
+    tmp_path: Path,
+    scenario_name: str,
+    expected_action: str | None,
+) -> None:
+    client, session = build_client(tmp_path)
+    try:
+        response = client.post(f"/market-data/demo-scenarios/{scenario_name}")
+
+        assert response.status_code == 201
+        payload = response.json()
+        assert payload["scenario"] == scenario_name
+        assert payload["exchange"] == "binance"
+        assert payload["symbol"] == "BTC/USDT"
+        assert payload["timeframe"] == "1h"
+        assert payload["candle_count"] == 9
+        assert payload["stored_count"] == 9
+        assert payload["latest_open_time"] == "2026-01-01T08:00:00Z"
+        assert payload["expected_signal_action"] == expected_action
+
+        assert (
+            load_strategy_signal(
+                session,
+                exchange="binance",
+                symbol="BTC/USDT",
+                timeframe="1h",
+            )
+            == expected_action
+        )
+    finally:
+        teardown_client(session)
+
+
+def test_load_demo_scenario_returns_not_found_for_unknown_name(tmp_path: Path) -> None:
+    client, session = build_client(tmp_path)
+    try:
+        response = client.post("/market-data/demo-scenarios/not-a-real-scenario")
+
+        assert response.status_code == 404
+        assert "unknown demo scenario" in response.json()["detail"]
+    finally:
+        teardown_client(session)
+
+
+def test_loading_same_demo_scenario_is_idempotent_for_candle_count(tmp_path: Path) -> None:
+    client, session = build_client(tmp_path)
+    try:
+        first = client.post("/market-data/demo-scenarios/buy-crossover")
+        second = client.post("/market-data/demo-scenarios/buy-crossover")
+
+        assert first.status_code == 201
+        assert second.status_code == 201
+        rows = session.scalar(select(func.count()).select_from(CandleRecord))
+        assert rows == 9
     finally:
         teardown_client(session)
