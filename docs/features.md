@@ -428,7 +428,7 @@ Main outputs:
 
 Status:
 
-- in progress
+- implemented on branch
 
 Scope:
 
@@ -443,10 +443,29 @@ Main outputs:
 - unsupported live execution adapter
 - tests for adapter selection and worker execution-unavailable behavior
 
+### 24. `feature/live-order-routing`
+
+Status:
+
+- in progress
+
+Scope:
+
+- add a signed live order client for the configured exchange
+- keep validate-only routing available so signed requests can be exercised safely before full live execution
+- wire credentials and request settings through configuration without enabling live trading by default
+- add unit tests for signed order submission behavior
+
+Main outputs:
+
+- Binance spot order client for signed market-order routing
+- factory support for live order clients
+- tests for validate-only and submitted-order request handling
+
 ## Next Recommended Feature
 
-`feature/live-order-routing`
+`feature/live-execution-service`
 
 Reason:
 
-- once the execution adapter boundary exists, the next bounded step is implementing a real exchange-backed live order adapter behind that seam
+- once signed live order routing exists, the next bounded step is a live execution service that persists accepted exchange orders and reconciles resulting runtime state safely

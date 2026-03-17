@@ -14,6 +14,16 @@ class Settings(BaseSettings):
     paper_trading: bool = Field(default=True, alias="PAPER_TRADING")
     live_trading_enabled: bool = Field(default=False, alias="LIVE_TRADING_ENABLED")
     exchange_name: str = Field(default="binance", alias="EXCHANGE_NAME")
+    exchange_api_base_url: str = Field(
+        default="https://api.binance.com",
+        alias="EXCHANGE_API_BASE_URL",
+    )
+    exchange_api_key: str | None = Field(default=None, alias="EXCHANGE_API_KEY")
+    exchange_api_secret: str | None = Field(default=None, alias="EXCHANGE_API_SECRET")
+    exchange_request_timeout_seconds: int = Field(
+        default=10,
+        alias="EXCHANGE_REQUEST_TIMEOUT_SECONDS",
+    )
     default_symbol: str = Field(default="BTC/USDT", alias="DEFAULT_SYMBOL")
     default_timeframe: str = Field(default="1h", alias="DEFAULT_TIMEFRAME")
     strategy_fast_period: int = Field(default=20, alias="STRATEGY_FAST_PERIOD")
