@@ -100,5 +100,6 @@ class MarketSyncControlResponse(BaseModel):
     fetched_count: int
     stored_count: int
     latest_open_time: datetime | None = None
+    notified: bool
 
     model_config = ConfigDict(from_attributes=True)

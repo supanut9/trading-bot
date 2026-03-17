@@ -9,6 +9,7 @@ from app.application.services.notification_service import (
     NotificationService,
     build_notification_service,
 )
+from app.application.services.operational_control_service import MarketSyncControlResult
 from app.application.services.worker_orchestration_service import WorkerCycleResult
 from app.config import Settings
 from app.infrastructure.notifications.senders import WebhookNotificationSender
@@ -135,6 +136,50 @@ def test_notifies_backtest_skip_event() -> None:
     assert event.metadata["required"] == 6
 
 
+def test_notifies_market_sync_completion_event() -> None:
+    sender = RecordingSender()
+    service = NotificationService(sender=sender, channel="log")
+    settings = build_settings()
+
+    sent = service.notify_market_sync(
+        settings,
+        MarketSyncControlResult(
+            status="completed",
+            detail="market data sync completed",
+            fetched_count=4,
+            stored_count=2,
+        ),
+    )
+
+    assert sent is True
+    assert len(sender.events) == 1
+    event = sender.events[0]
+    assert event.event_type == "market_sync.completed"
+    assert event.metadata["stored_count"] == 2
+
+
+def test_notifies_market_sync_failure_event() -> None:
+    sender = RecordingSender()
+    service = NotificationService(sender=sender, channel="log")
+    settings = build_settings()
+
+    sent = service.notify_market_sync(
+        settings,
+        MarketSyncControlResult(
+            status="failed",
+            detail="market data sync failed",
+            fetched_count=0,
+            stored_count=0,
+        ),
+    )
+
+    assert sent is True
+    assert len(sender.events) == 1
+    event = sender.events[0]
+    assert event.event_type == "market_sync.failed"
+    assert event.severity == "warning"
+
+
 def test_notification_failures_are_logged_and_do_not_raise(caplog) -> None:
     service = NotificationService(sender=FailingSender(), channel="webhook")
     settings = build_settings()
@@ -160,6 +205,8 @@ def test_webhook_sender_posts_json_payload(monkeypatch) -> None:
     captured: dict[str, object] = {}
 
     class FakeResponse:
+        status = 200
+
         def __enter__(self):
             return self
 
@@ -193,3 +240,41 @@ def test_webhook_sender_posts_json_payload(monkeypatch) -> None:
     assert captured["timeout"] == 7
     assert captured["body"]["event_type"] == "backtest.skipped"
     assert captured["body"]["metadata"]["required"] == 6
+
+
+def test_webhook_sender_raises_on_non_2xx_response(monkeypatch) -> None:
+    class FakeResponse:
+        status = 500
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb) -> None:
+            return None
+
+        def read(self) -> bytes:
+            return b"error"
+
+    monkeypatch.setattr(
+        "app.infrastructure.notifications.senders.urlopen",
+        lambda request, timeout: FakeResponse(),
+    )
+
+    sender = WebhookNotificationSender(url="https://example.com/hook", timeout_seconds=7)
+
+    with pytest.raises(RuntimeError, match="webhook returned HTTP 500"):
+        sender.send(RecordingSenderEventFactory.build())
+
+
+class RecordingSenderEventFactory:
+    @staticmethod
+    def build():
+        from app.infrastructure.notifications.models import NotificationEvent
+
+        return NotificationEvent(
+            event_type="test.event",
+            severity="info",
+            title="Test",
+            body="Test body",
+            metadata={},
+        )
