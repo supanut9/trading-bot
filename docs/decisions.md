@@ -195,6 +195,20 @@ The new operator console and bounded worker controls are easier to verify when t
 
 Operators can call a dedicated demo-scenario endpoint to load repeatable candle sets into the configured market stream, and the returned metadata states the expected EMA signal outcome for that preset.
 
+## 2026-03-18
+
+### Decision
+
+Extend the operator console with live reconcile and live cancel controls instead of keeping richer live operations available only through JSON endpoints.
+
+### Reason
+
+The console already reduces operator friction for paper workflows, but live incident handling still required manual API calls even though the bounded service paths already existed. Reusing those same control methods in the console improves operator feedback without adding any new automatic execution behavior.
+
+### Consequence
+
+Operators can trigger live reconcile and live cancel actions from `/console`, and the UI shows completed, skipped, and failed outcomes using the same control results already persisted to audit events.
+
 ## 2026-03-17
 
 ### Decision

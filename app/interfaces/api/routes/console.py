@@ -1,11 +1,13 @@
 from html import escape
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Form
 from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.application.services.operational_control_service import (
     BacktestControlResult,
+    LiveCancelControlResult,
+    LiveReconcileControlResult,
     MarketSyncControlResult,
     OperationalControlService,
     WorkerControlResult,
@@ -57,9 +59,36 @@ def _render_action_form(action: str, label: str, note: str) -> str:
     """
 
 
+def _render_live_cancel_form() -> str:
+    return """
+        <form method="post" action="/console/actions/live-cancel" class="action-form">
+          <button type="submit">Cancel Live Order</button>
+          <p>Cancel one live order by exactly one identifier. Leave unrelated fields blank.</p>
+          <label class="field">
+            <span>Order ID</span>
+            <input type="text" name="order_id" inputmode="numeric" />
+          </label>
+          <label class="field">
+            <span>Client Order ID</span>
+            <input type="text" name="client_order_id" />
+          </label>
+          <label class="field">
+            <span>Exchange Order ID</span>
+            <input type="text" name="exchange_order_id" />
+          </label>
+        </form>
+    """
+
+
 def _render_action_result(
     action_name: str,
-    result: WorkerControlResult | BacktestControlResult | MarketSyncControlResult,
+    result: (
+        WorkerControlResult
+        | BacktestControlResult
+        | MarketSyncControlResult
+        | LiveReconcileControlResult
+        | LiveCancelControlResult
+    ),
 ) -> str:
     rows: list[tuple[str, str]] = [
         ("Status", result.status),
@@ -90,7 +119,7 @@ def _render_action_result(
                 ("Losing Trades", str(result.losing_trades or 0)),
             ]
         )
-    else:
+    elif isinstance(result, MarketSyncControlResult):
         rows.extend(
             [
                 ("Fetched Count", str(result.fetched_count)),
@@ -99,6 +128,22 @@ def _render_action_result(
                     "Latest Open Time",
                     result.latest_open_time.isoformat() if result.latest_open_time else "-",
                 ),
+            ]
+        )
+    elif isinstance(result, LiveReconcileControlResult):
+        rows.extend(
+            [
+                ("Reconciled Count", str(result.reconciled_count)),
+                ("Filled Count", str(result.filled_count)),
+            ]
+        )
+    else:
+        rows.extend(
+            [
+                ("Order ID", str(result.order_id) if result.order_id is not None else "-"),
+                ("Client Order ID", result.client_order_id or "-"),
+                ("Exchange Order ID", result.exchange_order_id or "-"),
+                ("Order Status", result.order_status or "-"),
             ]
         )
 
@@ -176,7 +221,12 @@ def _render_console_page(
     *,
     action_name: str | None = None,
     action_result: (
-        WorkerControlResult | BacktestControlResult | MarketSyncControlResult | None
+        WorkerControlResult
+        | BacktestControlResult
+        | MarketSyncControlResult
+        | LiveReconcileControlResult
+        | LiveCancelControlResult
+        | None
     ) = None,
 ) -> str:
     latest_price_label = dashboard.latest_price or dashboard.latest_price_status
@@ -191,6 +241,14 @@ def _render_console_page(
             _render_metric_card("Unrealized PnL", str(dashboard.total_unrealized_pnl)),
             _render_metric_card("Database", dashboard.database_status),
             _render_metric_card("Backtest Status", dashboard.backtest.status),
+            _render_metric_card(
+                "Unresolved Live Orders",
+                str(dashboard.unresolved_live_orders),
+            ),
+            _render_metric_card(
+                "Recovery Events",
+                str(dashboard.recovery_event_count),
+            ),
         ]
     )
     action_result_section = ""
@@ -224,6 +282,12 @@ def _render_console_page(
                 "Run Backtest",
                 "Replay stored candles with the configured strategy and risk parameters.",
             ),
+            _render_action_form(
+                "live-reconcile",
+                "Reconcile Live Orders",
+                "Check recent live orders against the exchange and persist confirmed fill state.",
+            ),
+            _render_live_cancel_form(),
         ]
     )
     empty_result_section = (
@@ -397,6 +461,25 @@ def _render_console_page(
       }}
       .action-form p {{
         font-size: 0.92rem;
+      }}
+      .field {{
+        display: grid;
+        gap: 6px;
+      }}
+      .field span {{
+        font-size: 0.82rem;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }}
+      .field input {{
+        width: 100%;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 10px 12px;
+        font: inherit;
+        color: var(--ink);
+        background: rgba(255, 255, 255, 0.92);
       }}
       .result-panel {{
         background: linear-gradient(180deg, rgba(203, 92, 50, 0.08), rgba(255,255,255,0.96));
@@ -585,6 +668,67 @@ def run_console_backtest(
         _render_console_page(
             dashboard,
             action_name="Backtest",
+            action_result=result,
+        )
+    )
+
+
+@router.post("/actions/live-reconcile", response_class=HTMLResponse)
+def run_console_live_reconcile(
+    settings: Settings = settings_dependency,
+    session_factory: sessionmaker[Session] = session_factory_dependency,
+) -> HTMLResponse:
+    result = OperationalControlService(
+        settings,
+        session_factory=session_factory,
+    ).run_live_reconcile(source="api.console")
+    dashboard = _build_dashboard(settings, session_factory)
+    return _html_response(
+        _render_console_page(
+            dashboard,
+            action_name="Live Reconcile",
+            action_result=result,
+        )
+    )
+
+
+def _normalize_optional_text(value: str | None) -> str | None:
+    if value is None:
+        return None
+    normalized = value.strip()
+    return normalized or None
+
+
+@router.post("/actions/live-cancel", response_class=HTMLResponse)
+def run_console_live_cancel(
+    order_id: str | None = Form(default=None),
+    client_order_id: str | None = Form(default=None),
+    exchange_order_id: str | None = Form(default=None),
+    settings: Settings = settings_dependency,
+    session_factory: sessionmaker[Session] = session_factory_dependency,
+) -> HTMLResponse:
+    parsed_order_id = None
+    normalized_order_id = _normalize_optional_text(order_id)
+    if normalized_order_id is not None:
+        try:
+            parsed_order_id = int(normalized_order_id)
+        except ValueError:
+            parsed_order_id = None
+            client_order_id = "__invalid_order_id__"
+    result = OperationalControlService(
+        settings,
+        session_factory=session_factory,
+    ).run_live_cancel(
+        order_id=parsed_order_id,
+        client_order_id=_normalize_optional_text(client_order_id),
+        exchange_order_id=_normalize_optional_text(exchange_order_id),
+        source="api.console",
+    )
+    dashboard = _build_dashboard(settings, session_factory)
+    return _html_response(
+        _render_console_page(
+            dashboard,
+            action_name="Live Cancel",
             action_result=result,
         )
     )

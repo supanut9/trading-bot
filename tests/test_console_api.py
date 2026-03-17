@@ -14,6 +14,7 @@ from app.application.services.paper_execution_service import (
 from app.config import Settings, get_settings
 from app.infrastructure.database.base import Base
 from app.infrastructure.database.models.audit_event import AuditEventRecord
+from app.infrastructure.database.models.order import OrderRecord
 from app.infrastructure.database.models.trade import TradeRecord
 from app.infrastructure.database.session import (
     create_engine_from_settings,
@@ -116,6 +117,8 @@ def test_console_renders_operator_snapshot(tmp_path: Path) -> None:
         assert "Run Worker Cycle" in response.text
         assert "Run Backtest" in response.text
         assert "Sync Market Data" in response.text
+        assert "Reconcile Live Orders" in response.text
+        assert "Cancel Live Order" in response.text
         assert "Latest Price" in response.text
         assert "Open Positions" in response.text
         assert "Recent Trades" in response.text
@@ -219,5 +222,175 @@ def test_console_market_sync_action_renders_summary(tmp_path: Path) -> None:
 
         assert audit_events[0].event_type == "market_sync"
         assert audit_events[0].source == "api.console"
+    finally:
+        teardown_client()
+
+
+def test_console_live_reconcile_action_renders_summary(tmp_path: Path) -> None:
+    client, settings = build_client(tmp_path)
+    try:
+        settings.paper_trading = False
+        settings.live_trading_enabled = True
+        settings.exchange_api_key = "key"
+        settings.exchange_api_secret = "secret"
+
+        session = create_session_factory(settings)()
+        try:
+            session.add(
+                OrderRecord(
+                    exchange="binance",
+                    symbol="BTC/USDT",
+                    side="buy",
+                    order_type="market",
+                    status="submitted",
+                    mode="live",
+                    quantity=Decimal("0.002"),
+                    price=Decimal("50000"),
+                    client_order_id="console-live-reconcile-1",
+                    exchange_order_id="123",
+                )
+            )
+            session.commit()
+        finally:
+            session.close()
+
+        from app.application.services import operational_control_service as controls_module
+
+        original_client_builder = controls_module.build_live_order_exchange_client
+        controls_module.build_live_order_exchange_client = lambda current_settings: type(
+            "OrderStatusClient",
+            (),
+            {
+                "fetch_order_status": lambda self, **kwargs: type(
+                    "OrderStatus",
+                    (),
+                    {
+                        "status": "filled",
+                        "client_order_id": kwargs.get("client_order_id"),
+                        "exchange_order_id": kwargs.get("exchange_order_id"),
+                        "executed_quantity": Decimal("0.002"),
+                        "average_fill_price": Decimal("50000"),
+                        "response_payload": {},
+                    },
+                )(),
+            },
+        )()
+        try:
+            response = client.post("/console/actions/live-reconcile")
+        finally:
+            controls_module.build_live_order_exchange_client = original_client_builder
+
+        assert response.status_code == 200
+        assert "Live Reconcile" in response.text
+        assert "live orders reconciled" in response.text
+        assert "Reconciled Count" in response.text
+        assert "Filled Count" in response.text
+
+        session = create_session_factory(settings)()
+        try:
+            audit_events = session.scalars(
+                select(AuditEventRecord).order_by(AuditEventRecord.id.desc())
+            ).all()
+        finally:
+            session.close()
+
+        assert audit_events[0].event_type == "live_reconcile"
+        assert audit_events[0].source == "api.console"
+    finally:
+        teardown_client()
+
+
+def test_console_live_cancel_action_renders_completed_summary(tmp_path: Path) -> None:
+    client, settings = build_client(tmp_path)
+    try:
+        settings.paper_trading = False
+        settings.live_trading_enabled = True
+        settings.exchange_api_key = "key"
+        settings.exchange_api_secret = "secret"
+
+        session = create_session_factory(settings)()
+        try:
+            order = OrderRecord(
+                exchange="binance",
+                symbol="BTC/USDT",
+                side="buy",
+                order_type="market",
+                status="submitted",
+                mode="live",
+                quantity=Decimal("0.002"),
+                price=Decimal("50000"),
+                client_order_id="console-live-cancel-1",
+                exchange_order_id="789",
+            )
+            session.add(order)
+            session.commit()
+            order_id = order.id
+        finally:
+            session.close()
+
+        from app.application.services import operational_control_service as controls_module
+
+        original_client_builder = controls_module.build_live_order_exchange_client
+        controls_module.build_live_order_exchange_client = lambda current_settings: type(
+            "CancelOrderClient",
+            (),
+            {
+                "cancel_order": lambda self, **kwargs: type(
+                    "CancelResult",
+                    (),
+                    {
+                        "status": "canceled",
+                        "client_order_id": kwargs.get("client_order_id"),
+                        "exchange_order_id": kwargs.get("exchange_order_id"),
+                        "response_payload": {},
+                    },
+                )(),
+            },
+        )()
+        try:
+            response = client.post(
+                "/console/actions/live-cancel",
+                data={"order_id": str(order_id)},
+            )
+        finally:
+            controls_module.build_live_order_exchange_client = original_client_builder
+
+        assert response.status_code == 200
+        assert "Live Cancel" in response.text
+        assert "live order canceled" in response.text
+        assert "Order Status" in response.text
+        assert "canceled" in response.text
+
+        session = create_session_factory(settings)()
+        try:
+            audit_events = session.scalars(
+                select(AuditEventRecord).order_by(AuditEventRecord.id.desc())
+            ).all()
+        finally:
+            session.close()
+
+        assert audit_events[0].event_type == "live_cancel"
+        assert audit_events[0].source == "api.console"
+    finally:
+        teardown_client()
+
+
+def test_console_live_cancel_action_renders_failure_when_identifier_is_missing(
+    tmp_path: Path,
+) -> None:
+    client, settings = build_client(tmp_path)
+    try:
+        settings.paper_trading = False
+        settings.live_trading_enabled = True
+        settings.exchange_api_key = "key"
+        settings.exchange_api_secret = "secret"
+
+        response = client.post("/console/actions/live-cancel", data={})
+
+        assert response.status_code == 200
+        assert "Live Cancel" in response.text
+        assert "exactly one live order identifier is required" in response.text
+        assert "Status" in response.text
+        assert "failed" in response.text
     finally:
         teardown_client()

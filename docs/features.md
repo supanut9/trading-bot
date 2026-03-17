@@ -800,7 +800,7 @@ Main outputs:
 
 Status:
 
-- planned
+- implemented on branch
 
 Scope:
 
@@ -836,4 +836,4 @@ Main outputs:
 
 Current next feature:
 
-- `feature/operator-control-panel`
+- `feature/session-summary-dashboard`
