@@ -348,3 +348,17 @@ Once stale live orders are visible, operators still need a compact view that com
 ### Consequence
 
 Reporting now includes unresolved live order recovery context in the dashboard and a dedicated `live-recovery.csv` export, giving operators a single read-only surface for recent recovery activity and unresolved live state.
+
+## 2026-03-18
+
+### Decision
+
+Emit live-operations alerts from startup and scheduled job boundaries instead of from manual controls or lower-level services.
+
+### Reason
+
+The alerting need is operational, not user-driven. Startup sync failure, scheduled reconciliation failure, and stale-order detection are the specific unattended cases that need escalation, while manual controls should remain quiet unless an operator explicitly inspects them.
+
+### Consequence
+
+Notification handling now emits warning events for startup sync failure, scheduled reconciliation failure, and stale live order detection, while manual API controls remain read-only or operator-triggered without additional alert noise.

@@ -1,5 +1,6 @@
 import json
 import logging
+from datetime import UTC, datetime
 from decimal import Decimal
 
 import pytest
@@ -10,6 +11,7 @@ from app.application.services.notification_service import (
     build_notification_service,
 )
 from app.application.services.operational_control_service import MarketSyncControlResult
+from app.application.services.stale_live_order_service import StaleLiveOrderView
 from app.application.services.worker_orchestration_service import WorkerCycleResult
 from app.config import Settings
 from app.infrastructure.notifications.senders import WebhookNotificationSender
@@ -186,6 +188,52 @@ def test_notifies_market_sync_failure_event() -> None:
     event = sender.events[0]
     assert event.event_type == "market_sync.failed"
     assert event.severity == "warning"
+
+
+def test_notifies_startup_state_sync_failure_event() -> None:
+    sender = RecordingSender()
+    service = NotificationService(sender=sender, channel="log")
+    settings = build_settings()
+
+    sent = service.notify_live_reconcile_failure(
+        settings,
+        source="job.startup_state_sync",
+        detail="live reconciliation failed",
+    )
+
+    assert sent is True
+    event = sender.events[0]
+    assert event.event_type == "startup_state_sync.failed"
+    assert event.severity == "warning"
+
+
+def test_notifies_stale_live_orders_event() -> None:
+    sender = RecordingSender()
+    service = NotificationService(sender=sender, channel="log")
+    settings = build_settings()
+
+    sent = service.notify_stale_live_orders(
+        settings,
+        stale_orders=[
+            StaleLiveOrderView(
+                id=5,
+                symbol="BTC/USDT",
+                side="buy",
+                status="submitted",
+                client_order_id="stale-5",
+                exchange_order_id="555",
+                updated_at=datetime(2026, 1, 1, tzinfo=UTC),
+                age_minutes=180,
+            )
+        ],
+        threshold_minutes=120,
+    )
+
+    assert sent is True
+    event = sender.events[0]
+    assert event.event_type == "live_orders.stale_detected"
+    assert event.metadata["stale_order_count"] == 1
+    assert event.metadata["order_ids"] == [5]
 
 
 def test_notification_failures_are_logged_and_do_not_raise(caplog) -> None:

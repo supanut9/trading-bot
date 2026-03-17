@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from app.application.services.audit_service import AuditService
 from app.application.services.backtest_service import BacktestResult
+from app.application.services.stale_live_order_service import StaleLiveOrderView
 from app.application.services.worker_orchestration_service import WorkerCycleResult
 from app.config import Settings
 from app.core.logger import get_logger
@@ -120,6 +121,68 @@ class NotificationService:
                 "fetched_count": result.fetched_count,
                 "stored_count": result.stored_count,
                 "latest_open_time": result.latest_open_time,
+            },
+        )
+        return self.publish(event)
+
+    def notify_live_reconcile_failure(
+        self,
+        settings: Settings,
+        *,
+        source: str,
+        detail: str,
+    ) -> bool:
+        title = "Live reconciliation failed"
+        event_type = "live_reconcile.failed"
+        if source == "job.startup_state_sync":
+            title = "Startup state sync failed"
+            event_type = "startup_state_sync.failed"
+        event = NotificationEvent(
+            event_type=event_type,
+            severity="warning",
+            title=title,
+            body=(
+                f"{title} for {settings.default_symbol} on {settings.default_timeframe}: {detail}."
+            ),
+            metadata={
+                "app": settings.app_name,
+                "env": settings.app_env,
+                "exchange": settings.exchange_name,
+                "symbol": settings.default_symbol,
+                "timeframe": settings.default_timeframe,
+                "source": source,
+                "detail": detail,
+            },
+        )
+        return self.publish(event)
+
+    def notify_stale_live_orders(
+        self,
+        settings: Settings,
+        *,
+        stale_orders: list[StaleLiveOrderView],
+        threshold_minutes: int,
+    ) -> bool:
+        if not stale_orders:
+            return False
+        event = NotificationEvent(
+            event_type="live_orders.stale_detected",
+            severity="warning",
+            title="Stale live orders detected",
+            body=(
+                f"Detected {len(stale_orders)} stale live orders for {settings.default_symbol} "
+                f"older than {threshold_minutes} minutes."
+            ),
+            metadata={
+                "app": settings.app_name,
+                "env": settings.app_env,
+                "exchange": settings.exchange_name,
+                "symbol": settings.default_symbol,
+                "timeframe": settings.default_timeframe,
+                "threshold_minutes": threshold_minutes,
+                "stale_order_count": len(stale_orders),
+                "order_ids": [order.id for order in stale_orders],
+                "client_order_ids": [order.client_order_id for order in stale_orders],
             },
         )
         return self.publish(event)
