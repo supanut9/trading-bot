@@ -157,3 +157,17 @@ Container runtime selection uses `APP_RUNTIME`:
 - `api`
 - `worker`
 - `backtest`
+
+## Deployment Environment Baseline
+
+Use the example files by role instead of reusing the local template directly:
+
+- `.env.example`: local development defaults
+- `.env.deploy.api.example`: API deployment baseline
+- `.env.deploy.worker.example`: worker deployment baseline
+
+Deployment guidance:
+
+- keep API and worker env files separate
+- keep secrets out of the example files and inject them at deploy time
+- keep live trading disabled unless the live readiness checklist in `docs/runbook.md` has been completed

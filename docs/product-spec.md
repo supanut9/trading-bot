@@ -50,6 +50,7 @@ Build a maintainable trading bot that supports research, backtesting, paper trad
 - persist a lightweight audit feed for control outcomes and notification delivery attempts
 - run recurring worker and optional recurring backtest jobs through explicit scheduled job modules
 - package API and worker runtime entrypoints into one deployable repository image
+- provide explicit environment baselines for local development, deployed API runtime, and deployed worker runtime
 - enforce PR merge readiness with CI and resolved review feedback
 
 ## Current Risk Policy Baseline

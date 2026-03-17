@@ -390,3 +390,17 @@ The API, worker, and backtest entrypoints already exist as clean Python module b
 ### Consequence
 
 Deployment packaging now uses one image with `APP_RUNTIME` selecting `api`, `worker`, or `backtest`, while environment-specific configuration remains external and role-specific smoke checks can be added later without changing the image boundary.
+
+## 2026-03-18
+
+### Decision
+
+Keep separate environment baselines for local development, deployed API runtime, and deployed worker runtime.
+
+### Reason
+
+The repository now has a shared deployable image, but API and worker roles still have different operational defaults. Reusing one local `.env` file across all roles would keep deployment setup ambiguous and make it easier to carry the wrong host binding or worker scheduling defaults into production.
+
+### Consequence
+
+The repository now ships role-specific deployment env examples, local development keeps its own template, and future smoke-check or deployment automation can assume clearer per-role configuration inputs.
