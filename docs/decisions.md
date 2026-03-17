@@ -278,3 +278,17 @@ The immediate operator need after live submission and fill reconciliation is to 
 ### Consequence
 
 The authenticated exchange client now supports account-balance lookup, and `/status` reports base and quote asset balances for the configured symbol when live mode is enabled while leaving execution behavior unchanged.
+
+## 2026-03-17
+
+### Decision
+
+Schedule live fill reconciliation as a worker job by reusing the existing control workflow instead of introducing a separate scheduler-only implementation path.
+
+### Reason
+
+The manual live reconciliation path already owns the exchange lookup, local state updates, and audit behavior. Reusing it for recurring execution keeps manual and scheduled reconciliation semantics aligned and reduces the risk of two diverging implementations.
+
+### Consequence
+
+Worker scheduling can now run recurring live reconciliation in live mode through explicit config flags, and reconciliation failures are converted into auditable failed control results instead of escaping as uncategorized scheduler exceptions.

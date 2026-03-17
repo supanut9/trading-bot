@@ -5,6 +5,7 @@ from app.core.logger import configure_logging, get_logger
 from app.infrastructure.database.init_db import init_database
 from app.jobs.backtest_summary_job import BacktestSummaryJob
 from app.jobs.interval_scheduler import IntervalScheduler
+from app.jobs.live_reconcile_job import LiveReconcileJob
 from app.jobs.worker_cycle_job import WorkerCycleJob
 
 logger = get_logger(__name__)
@@ -46,6 +47,17 @@ def main() -> None:
                 name="backtest_summary",
                 interval_seconds=settings.backtest_schedule_interval_seconds,
                 runner=BacktestSummaryJob(settings).run,
+            )
+
+        if settings.live_trading_enabled and settings.live_reconcile_schedule_enabled:
+            logger.info(
+                "worker_live_reconcile_schedule_enabled interval_seconds=%s",
+                settings.live_reconcile_schedule_interval_seconds,
+            )
+            scheduler.add_job(
+                name="live_reconcile",
+                interval_seconds=settings.live_reconcile_schedule_interval_seconds,
+                runner=LiveReconcileJob(settings).run,
             )
 
         while True:

@@ -503,11 +503,11 @@ Main outputs:
 
 ## Next Recommended Feature
 
-`feature/scheduled-live-reconciliation`
+`feature/startup-state-sync`
 
 Reason:
 
-- exchange-side balance visibility is now the next implemented step, and the next operational gap is recurring reconciliation without requiring manual control calls
+- scheduled live reconciliation is now the next implemented step, and the next operational gap is syncing recent live state before new execution after restarts
 
 ## Next Expansion Slice
 
@@ -534,7 +534,7 @@ Main outputs:
 
 Status:
 
-- planned
+- implemented on branch
 
 Scope:
 
