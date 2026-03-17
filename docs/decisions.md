@@ -376,3 +376,17 @@ The system now has bounded live controls, reconciliation, stale-order review, an
 ### Consequence
 
 The repository now documents a concrete readiness checklist and recovery workflow, and live-capable operation should be considered incomplete unless PostgreSQL persistence, backups, startup sync, scheduled reconciliation, and alert routing are all in place.
+
+## 2026-03-18
+
+### Decision
+
+Package deployment runtime as one repository image with an explicit runtime role selector instead of separate per-role images.
+
+### Reason
+
+The API, worker, and backtest entrypoints already exist as clean Python module boundaries. A single image keeps the packaging surface smaller and makes it easier to deploy the same build artifact in different roles without duplicating dependency installation logic.
+
+### Consequence
+
+Deployment packaging now uses one image with `APP_RUNTIME` selecting `api`, `worker`, or `backtest`, while environment-specific configuration remains external and role-specific smoke checks can be added later without changing the image boundary.

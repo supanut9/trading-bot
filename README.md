@@ -60,6 +60,9 @@ Use the `Makefile` once dependencies are installed:
 - `make run-api`
 - `make run-worker`
 - `make run-backtest`
+- `make docker-build`
+- `make docker-run-api`
+- `make docker-run-worker`
 
 ## Operational API
 
@@ -126,3 +129,31 @@ postgresql+psycopg://trading_bot:trading_bot@127.0.0.1:5432/trading_bot
 ```
 
 SQLite can still be used as a fallback by overriding `DATABASE_URL`.
+
+## Deployment Packaging
+
+The repository now includes a single runtime image for API or worker deployment.
+
+Build the image:
+
+```bash
+make docker-build
+```
+
+Run the API container:
+
+```bash
+make docker-run-api
+```
+
+Run the worker container:
+
+```bash
+make docker-run-worker
+```
+
+Container runtime selection uses `APP_RUNTIME`:
+
+- `api`
+- `worker`
+- `backtest`
