@@ -667,7 +667,7 @@ Main outputs:
 
 Status:
 
-- planned
+- implemented on branch
 
 Scope:
 
@@ -741,4 +741,4 @@ Main outputs:
 
 Current next feature:
 
-- `feature/deployment-packaging`
+- `feature/deployment-env-baseline`

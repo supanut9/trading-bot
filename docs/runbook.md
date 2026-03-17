@@ -10,6 +10,13 @@ This runbook describes how to start, stop, and inspect the trading bot during lo
 make run-api
 ```
 
+Containerized API path:
+
+```bash
+make docker-build
+make docker-run-api
+```
+
 Operational endpoints:
 
 - `GET /health`
@@ -70,6 +77,13 @@ Report exports:
 
 ```bash
 make run-worker
+```
+
+Containerized worker path:
+
+```bash
+make docker-build
+make docker-run-worker
 ```
 
 Default worker behavior:
@@ -139,6 +153,13 @@ Live balance visibility:
 - `GET /status` includes `account_balance_status` and `account_balances`
 - balance visibility is read-only and only attempts exchange lookup when live trading is enabled
 - the snapshot is filtered to the configured symbol's base and quote assets so operators can verify funded live mode quickly
+
+Deployment packaging:
+
+- the repository ships one runtime image that selects `api`, `worker`, or `backtest` via `APP_RUNTIME`
+- `make docker-run-api` exposes the API on port `8000`
+- `make docker-run-worker` runs the worker with the same image and current `.env`
+- runtime packaging does not inject secrets; exchange credentials and database URLs must still come from environment variables
 
 To run it as a polling worker instead of a single cycle:
 

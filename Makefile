@@ -1,4 +1,4 @@
-.PHONY: install install-hooks init-db db-up db-down db-logs format lint test pr-check run-api run-worker run-backtest
+.PHONY: install install-hooks init-db db-up db-down db-logs format lint test pr-check run-api run-worker run-backtest docker-build docker-run-api docker-run-worker
 
 install:
 	python3 -m pip install -e ".[dev]"
@@ -38,3 +38,12 @@ run-worker:
 
 run-backtest:
 	python3 -m app.backtest
+
+docker-build:
+	docker build -t trading-bot:latest .
+
+docker-run-api:
+	docker run --rm -p 8000:8000 --env-file .env -e API_HOST=0.0.0.0 trading-bot:latest
+
+docker-run-worker:
+	docker run --rm --env-file .env -e APP_RUNTIME=worker trading-bot:latest
