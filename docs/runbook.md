@@ -77,8 +77,7 @@ Default worker behavior:
 - runs one orchestration cycle and exits
 - reads the latest stored candles for the configured symbol and timeframe
 - can optionally sync recent closed candles from the configured exchange before strategy evaluation
-- applies strategy, risk checks, and paper execution in order
-- refuses explicit live mode safely because no live execution adapter exists yet
+- applies strategy, risk checks, and the configured execution adapter in order
 - skips duplicate execution for the same signal candle
 - emits notifications for executions and risk rejections when configured
 - skips the cycle safely if enabled market-data sync fails
@@ -87,14 +86,19 @@ Execution boundary notes:
 
 - worker execution now resolves through an execution adapter factory
 - paper mode uses the existing paper execution adapter
-- explicit live mode resolves to an unsupported adapter that raises `execution_unavailable` until a real exchange order adapter is implemented
+- live mode resolves through the live execution service when exchange credentials are configured
 
 Live order routing groundwork:
 
 - `EXCHANGE_API_BASE_URL` configures the signed exchange API endpoint
-- `EXCHANGE_API_KEY` and `EXCHANGE_API_SECRET` are required before live order routing can be built
+- `EXCHANGE_API_KEY` and `EXCHANGE_API_SECRET` are required when live trading is enabled
 - the Binance live order client currently supports validate-only and submitted market-order requests as a tested infrastructure path
-- this branch does not yet wire those signed requests into the worker execution service
+
+Live execution behavior:
+
+- explicit live mode now submits orders through the live execution service when exchange credentials are configured
+- accepted live orders are persisted locally with mode `live`, submitted status, and exchange order id when available
+- local trades and positions are not updated from live submission alone; that waits for a separate fill-reconciliation step
 
 To run it as a polling worker instead of a single cycle:
 
@@ -206,7 +210,7 @@ Stop the running process with `Ctrl+C`.
 
 - local mode uses paper trading by default
 - valid execution-mode combinations are `PAPER_TRADING=true` with `LIVE_TRADING_ENABLED=false` or `PAPER_TRADING=false` with `LIVE_TRADING_ENABLED=true`
-- do not enable explicit live mode until a live execution adapter exists; the worker will refuse live execution with `execution_unavailable`
+- do not enable explicit live mode without exchange credentials and a clear plan for fill reconciliation
 - do not enable live trading during bootstrap
 - credentials should be provided only through environment variables
 - SQLite remains an acceptable fallback only for lightweight local bootstrap work
@@ -224,7 +228,7 @@ Stop the running process with `Ctrl+C`.
 - if configuration is missing, verify `.env` values against `.env.example`
 - if the worker reports `no_candles`, load recent candles through `POST /market-data/candles` before retrying
 - if the worker reports `duplicate_signal`, confirm whether the latest signal candle was already executed as intended
-- if the worker reports `execution_unavailable`, switch back to paper mode or keep live mode disabled until a live execution adapter is implemented
+- if live orders are being submitted, confirm exchange order status separately before assuming any local position change
 - if notifications are expected but absent, verify `NOTIFICATION_CHANNEL` and `NOTIFICATION_WEBHOOK_URL`
 - if webhook delivery fails, inspect the `notification_delivery_failed` log entry for the event type and channel, then confirm the webhook endpoint returned an HTTP `2xx`
 

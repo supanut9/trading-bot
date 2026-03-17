@@ -224,14 +224,36 @@ def test_worker_cycle_control_refuses_live_mode_without_live_executor(tmp_path: 
     try:
         settings.paper_trading = False
         settings.live_trading_enabled = True
+        settings.exchange_api_key = "key"
+        settings.exchange_api_secret = "secret"
         store_closes(settings, [10, 10, 10, 10, 10, 9, 9, 9, 20])
+        from app.application.services import worker_orchestration_service as worker_module
 
-        response = client.post("/controls/worker-cycle")
+        original_build_execution = worker_module.build_execution_service
+        worker_module.build_execution_service = lambda session, current_settings: type(
+            "LiveExecutionStub",
+            (),
+            {
+                "execute": lambda self, request: type(
+                    "ExecutionResult",
+                    (),
+                    {
+                        "order": type("Order", (), {"id": 77})(),
+                        "trade": None,
+                        "position": None,
+                    },
+                )(),
+            },
+        )()
+        try:
+            response = client.post("/controls/worker-cycle")
+        finally:
+            worker_module.build_execution_service = original_build_execution
 
         assert response.status_code == 200
         payload = response.json()
-        assert payload["status"] == "execution_unavailable"
-        assert payload["detail"] == "live execution is not configured"
+        assert payload["status"] == "submitted"
+        assert payload["detail"] == "signal submitted to live exchange"
         assert payload["signal_action"] == "buy"
     finally:
         teardown_client()

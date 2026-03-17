@@ -32,6 +32,7 @@ Build a maintainable trading bot that supports research, backtesting, paper trad
 - route execution through a replaceable adapter boundary, with paper execution as the current concrete implementation
 - provide a signed live order client for the configured exchange, with validate-only routing available before full live execution is enabled
 - orchestrate a worker cycle from persisted candles through execution
+- persist accepted live orders locally while keeping trades and positions unchanged until exchange fills are explicitly reconciled
 - emit optional notifications for worker execution, risk rejection, backtest outcomes, and market sync outcomes
 - persist bot state and logs
 - expose minimal operational API for health, status, positions, trades, candle ingestion, and bounded manual controls

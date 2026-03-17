@@ -265,13 +265,31 @@ def test_rejects_live_mode_when_no_live_execution_service_exists(tmp_path: Path)
         tmp_path,
         PAPER_TRADING=False,
         LIVE_TRADING_ENABLED=True,
+        EXCHANGE_API_KEY="key",
+        EXCHANGE_API_SECRET="secret",
     )
+    service._execution = type(
+        "LiveExecutionStub",
+        (),
+        {
+            "execute": lambda self, request: type(
+                "ExecutionResult",
+                (),
+                {
+                    "order": type("Order", (), {"id": 99})(),
+                    "trade": None,
+                    "position": None,
+                },
+            )(),
+        },
+    )()
     store_closes(session, settings, [10, 10, 10, 10, 10, 9, 9, 9, 20])
 
     result = service.run_cycle()
     order_count = session.scalar(select(func.count()).select_from(OrderRecord))
 
-    assert result.status == "execution_unavailable"
-    assert result.detail == "live execution is not configured"
+    assert result.status == "submitted"
+    assert result.detail == "signal submitted to live exchange"
     assert result.signal_action == "buy"
+    assert result.trade_id is None
     assert order_count == 0

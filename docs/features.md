@@ -447,7 +447,7 @@ Main outputs:
 
 Status:
 
-- in progress
+- implemented on branch
 
 Scope:
 
@@ -462,10 +462,29 @@ Main outputs:
 - factory support for live order clients
 - tests for validate-only and submitted-order request handling
 
+### 25. `feature/live-execution-service`
+
+Status:
+
+- in progress
+
+Scope:
+
+- submit live orders through the signed routing client from the execution boundary
+- persist accepted live orders locally without inventing trades or position fills
+- keep local runtime state unchanged until explicit fill reconciliation exists
+- add tests and docs for safe live order submission behavior
+
+Main outputs:
+
+- live execution service behind the execution factory
+- persisted local live orders with exchange order ids
+- worker and control behavior for submitted live orders
+
 ## Next Recommended Feature
 
-`feature/live-execution-service`
+`feature/live-fill-reconciliation`
 
 Reason:
 
-- once signed live order routing exists, the next bounded step is a live execution service that persists accepted exchange orders and reconciles resulting runtime state safely
+- once live orders can be submitted safely, the next bounded step is reconciling exchange fill state back into local trades and positions

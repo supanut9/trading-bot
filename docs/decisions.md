@@ -221,7 +221,7 @@ The system still only supports paper execution, but the worker now needs a stabl
 
 ### Consequence
 
-Worker orchestration now builds execution through a factory, paper mode uses the current paper adapter, and explicit live mode routes to an unsupported adapter that fails safely with `execution_unavailable`.
+Worker orchestration now builds execution through a factory, paper mode uses the current paper adapter, and the live execution path can be swapped independently without rewriting orchestration logic.
 
 ## 2026-03-17
 
@@ -235,4 +235,18 @@ Live execution needs a real exchange-facing order path, but persisting fills and
 
 ### Consequence
 
-The Binance integration now includes a signed live order client and factory support for validate-only or submitted order requests, while worker execution remains blocked from using live routing until a dedicated live execution service is implemented.
+The Binance integration now includes a signed live order client and factory support for validate-only or submitted order requests, establishing the infrastructure boundary needed for a dedicated live execution service.
+
+## 2026-03-17
+
+### Decision
+
+Persist live order submissions locally without updating trades or positions until exchange fills are separately reconciled.
+
+### Reason
+
+Submitting a live order and observing a confirmed fill are different runtime events. Updating local positions on submission alone would invent state the exchange has not yet confirmed and would weaken the safety model.
+
+### Consequence
+
+Live execution now writes local `orders` rows with live mode and exchange order ids after successful submission, while local `trades` and `positions` remain unchanged until a later fill-reconciliation workflow is introduced.
