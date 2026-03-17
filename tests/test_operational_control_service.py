@@ -1,6 +1,9 @@
 from dataclasses import dataclass
+from datetime import UTC, datetime
 
+from app.application.services.market_data_sync_service import MarketDataSyncResult
 from app.application.services.operational_control_service import (
+    MarketSyncControlResult,
     OperationalControlService,
     WorkerControlResult,
 )
@@ -63,3 +66,94 @@ def test_worker_control_notifies_after_session_scope_exits(monkeypatch) -> None:
     assert isinstance(result, WorkerControlResult)
     assert result.notified is True
     assert notifications.closed_state_during_notify == [True]
+
+
+def test_market_sync_control_returns_completed_result(monkeypatch) -> None:
+    settings = Settings(DATABASE_URL="sqlite:///./operational_controls.db")
+    session_state = SessionState()
+
+    class FakeSyncService:
+        def __init__(self, session: FakeSession, _client: object) -> None:
+            assert session._state is session_state
+
+        def sync_recent_closed_candles(
+            self,
+            *,
+            exchange: str,
+            symbol: str,
+            timeframe: str,
+            limit: int,
+        ) -> MarketDataSyncResult:
+            assert exchange == settings.exchange_name
+            assert symbol == settings.default_symbol
+            assert timeframe == settings.default_timeframe
+            assert limit == settings.market_data_sync_limit
+            return MarketDataSyncResult(
+                fetched_count=4,
+                stored_count=2,
+                latest_open_time=datetime(2026, 1, 1, 3, tzinfo=UTC),
+            )
+
+    monkeypatch.setattr(
+        "app.application.services.operational_control_service.MarketDataSyncService",
+        FakeSyncService,
+    )
+    monkeypatch.setattr(
+        "app.application.services.operational_control_service.build_market_data_exchange_client",
+        lambda _settings: object(),
+    )
+
+    service = OperationalControlService(
+        settings,
+        session_factory=lambda: FakeSession(session_state),
+    )
+
+    result = service.run_market_sync()
+
+    assert result == MarketSyncControlResult(
+        status="completed",
+        detail="market data sync completed",
+        fetched_count=4,
+        stored_count=2,
+        latest_open_time=datetime(2026, 1, 1, 3, tzinfo=UTC),
+    )
+
+
+def test_market_sync_control_reports_no_new_candles(monkeypatch) -> None:
+    settings = Settings(DATABASE_URL="sqlite:///./operational_controls.db")
+
+    class FakeSyncService:
+        def __init__(self, _session: FakeSession, _client: object) -> None:
+            pass
+
+        def sync_recent_closed_candles(
+            self,
+            *,
+            exchange: str,
+            symbol: str,
+            timeframe: str,
+            limit: int,
+        ) -> MarketDataSyncResult:
+            return MarketDataSyncResult(
+                fetched_count=4,
+                stored_count=0,
+                latest_open_time=datetime(2026, 1, 1, 3, tzinfo=UTC),
+            )
+
+    monkeypatch.setattr(
+        "app.application.services.operational_control_service.MarketDataSyncService",
+        FakeSyncService,
+    )
+    monkeypatch.setattr(
+        "app.application.services.operational_control_service.build_market_data_exchange_client",
+        lambda _settings: object(),
+    )
+
+    service = OperationalControlService(
+        settings,
+        session_factory=lambda: FakeSession(SessionState()),
+    )
+
+    result = service.run_market_sync()
+
+    assert result.detail == "no new candles stored"

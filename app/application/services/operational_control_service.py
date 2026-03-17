@@ -110,9 +110,15 @@ class OperationalControlService:
                     stored_count=0,
                 )
 
+        detail = "market data sync completed"
+        if result.fetched_count == 0:
+            detail = "no candles fetched"
+        elif result.stored_count == 0:
+            detail = "no new candles stored"
+
         return MarketSyncControlResult(
             status="completed",
-            detail="market data sync completed",
+            detail=detail,
             fetched_count=result.fetched_count,
             stored_count=result.stored_count,
             latest_open_time=result.latest_open_time,
