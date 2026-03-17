@@ -705,7 +705,7 @@ Main outputs:
 
 Status:
 
-- planned
+- implemented on branch
 
 Scope:
 
@@ -741,4 +741,4 @@ Main outputs:
 
 Current next feature:
 
-- `feature/post-deploy-smoke-check`
+- `feature/runtime-reliability-telemetry`

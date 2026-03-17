@@ -168,6 +168,12 @@ Deployment environment baseline:
 - `.env.example` remains the local-development baseline and should not be copied into deployment unchanged
 - API and worker deployments should use separate env files even when they share the same database and exchange defaults
 
+Post-deploy smoke checks:
+
+- `make smoke-check-api` verifies `/health`, `/status`, and database reachability against the deployed API
+- `make smoke-check-worker` verifies the deployed worker configuration and database reachability without running a worker cycle
+- run the smoke checks after deploy and again after rollback before resuming normal operator workflows
+
 To run it as a polling worker instead of a single cycle:
 
 ```bash
