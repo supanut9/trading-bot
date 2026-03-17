@@ -86,6 +86,8 @@ Manual controls:
 - control endpoints do not accept arbitrary trading parameters; they only use current application configuration
 - `GET /console` provides a local operator surface over the same bounded actions for market sync, worker cycle, and backtest
 - the console is intended for paper-trading workflows and shows inline feedback from the most recent action run
+- the console also exposes explicit live reconcile and live cancel actions that call the same bounded control service as the JSON API
+- live cancel in the console requires exactly one identifier: local `order_id`, `client_order_id`, or `exchange_order_id`
 
 Report exports:
 
