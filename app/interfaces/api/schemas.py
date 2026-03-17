@@ -4,6 +4,27 @@ from decimal import Decimal
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
+class AccountBalanceResponse(BaseModel):
+    asset: str
+    free: Decimal
+    locked: Decimal
+
+
+class StatusResponse(BaseModel):
+    app: str
+    environment: str
+    execution_mode: str
+    paper_trading: bool
+    live_trading_enabled: bool
+    exchange: str
+    symbol: str
+    timeframe: str
+    database_url: str
+    database_status: str
+    account_balance_status: str
+    account_balances: list[AccountBalanceResponse] = Field(default_factory=list)
+
+
 class PositionResponse(BaseModel):
     exchange: str
     symbol: str

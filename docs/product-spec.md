@@ -34,6 +34,7 @@ Build a maintainable trading bot that supports research, backtesting, paper trad
 - orchestrate a worker cycle from persisted candles through execution
 - persist accepted live orders locally while keeping trades and positions unchanged until exchange fills are explicitly reconciled
 - reconcile confirmed live exchange fills into local trades and positions through a bounded control workflow
+- expose exchange-side base and quote asset balances for the configured live symbol through the status surface
 - emit optional notifications for worker execution, risk rejection, backtest outcomes, and market sync outcomes
 - persist bot state and logs
 - expose minimal operational API for health, status, positions, trades, candle ingestion, and bounded manual controls

@@ -11,6 +11,7 @@ from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
 from app.infrastructure.exchanges.base import (
+    ExchangeAssetBalance,
     ExchangeCandle,
     ExchangeOrderRequest,
     ExchangeOrderStatus,
@@ -118,6 +119,30 @@ class BinanceSpotOrderClient(LiveOrderExchangeClient):
             exchange_order_id=str(exchange_order_id) if exchange_order_id is not None else None,
             response_payload=parsed,
         )
+
+    def fetch_account_balances(self) -> Sequence[ExchangeAssetBalance]:
+        parsed = self._signed_request(
+            method="GET",
+            endpoint="/api/v3/account",
+            parameters={},
+            error_action="fetch Binance account balances",
+        )
+        raw_balances = parsed.get("balances")
+        if not isinstance(raw_balances, list):
+            raise ValueError("unexpected Binance account balance payload")
+
+        balances: list[ExchangeAssetBalance] = []
+        for item in raw_balances:
+            if not isinstance(item, dict):
+                raise ValueError("unexpected Binance account balance row")
+            balances.append(
+                ExchangeAssetBalance(
+                    asset=str(item.get("asset", "")).upper(),
+                    free=Decimal(str(item.get("free", "0"))),
+                    locked=Decimal(str(item.get("locked", "0"))),
+                )
+            )
+        return balances
 
     def fetch_order_status(
         self,

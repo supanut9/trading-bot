@@ -107,6 +107,12 @@ Live fill reconciliation:
 - open, partial, or detail-incomplete exchange states are persisted locally without inventing fills
 - repeated reconciliation is idempotent for already-reconciled orders because only recent open live orders are considered
 
+Live balance visibility:
+
+- `GET /status` includes `account_balance_status` and `account_balances`
+- balance visibility is read-only and only attempts exchange lookup when live trading is enabled
+- the snapshot is filtered to the configured symbol's base and quote assets so operators can verify funded live mode quickly
+
 To run it as a polling worker instead of a single cycle:
 
 ```bash

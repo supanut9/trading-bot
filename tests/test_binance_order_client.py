@@ -93,6 +93,39 @@ def test_binance_order_client_parses_submitted_order_id(monkeypatch) -> None:
     assert submission.exchange_order_id == "12345"
 
 
+def test_binance_order_client_fetches_account_balances(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "app.infrastructure.exchanges.binance.urlopen",
+        lambda request, timeout: FakeOrderResponse(
+            {
+                "balances": [
+                    {"asset": "BTC", "free": "0.00200000", "locked": "0.00100000"},
+                    {"asset": "USDT", "free": "125.50", "locked": "0.00"},
+                ]
+            }
+        ),
+    )
+    monkeypatch.setattr(
+        "app.infrastructure.exchanges.binance.datetime",
+        type(
+            "FixedDatetime",
+            (),
+            {"now": staticmethod(BinanceDateTime.now)},
+        ),
+    )
+
+    balances = BinanceSpotOrderClient(
+        api_key="key",
+        api_secret="secret",
+    ).fetch_account_balances()
+
+    assert balances[0].asset == "BTC"
+    assert balances[0].free == Decimal("0.00200000")
+    assert balances[0].locked == Decimal("0.00100000")
+    assert balances[1].asset == "USDT"
+    assert balances[1].free == Decimal("125.50")
+
+
 def test_binance_order_client_raises_runtime_error_on_transport_failure(monkeypatch) -> None:
     def raise_timeout(request, timeout: int) -> FakeOrderResponse:
         raise TimeoutError("slow")
