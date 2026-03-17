@@ -36,7 +36,7 @@ Expected merge gate:
 2. CI checks pass
 3. review feedback is addressed
 4. review threads are resolved
-5. PR is merged, preferably with squash merge
+5. PR is merged with a normal merge commit unless preserving history differently is explicitly requested
 
 ## PR Metadata
 
@@ -107,3 +107,17 @@ Before merge:
 - define alerting and operator response expectations
 - improve backup, restore, and restart readiness
 - document production operating constraints and safety checks
+
+## Phase 8
+
+- package the API and worker for reproducible deployment
+- define deployment-time environment expectations and examples
+- add bounded smoke-check tooling for post-deploy verification
+- reduce manual setup drift between local and deployment environments
+
+## Phase 9
+
+- strengthen runtime reliability and operator diagnostics
+- improve structured logging and failure correlation across API and worker paths
+- tighten startup validation for deployment misconfiguration
+- add bounded health or readiness checks for unattended operation

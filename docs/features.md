@@ -663,6 +663,82 @@ Main outputs:
 - readiness checklist for live deployment
 - documented recovery workflow
 
+### 35. `feature/deployment-packaging`
+
+Status:
+
+- planned
+
+Scope:
+
+- package the API and worker for reproducible deployment from the repository
+- define the runtime image or compose expectations needed outside local development
+- keep environment injection external so secrets are still provided only through environment variables
+- add tests or verification notes for the packaging path where practical
+
+Main outputs:
+
+- deployable runtime packaging
+- documented deployment build path
+- verification guidance for packaged startup
+
+### 36. `feature/deployment-env-baseline`
+
+Status:
+
+- planned
+
+Scope:
+
+- provide an explicit deployment-oriented environment template separate from ad hoc local setup
+- document required and optional variables by runtime role where that reduces operator ambiguity
+- keep the feature documentation-first unless light validation code is clearly needed
+- align deployment configuration expectations with the existing runbook and live safety rules
+
+Main outputs:
+
+- deployment environment baseline
+- clearer role-specific config expectations
+- reduced config drift between API and worker runtime
+
+### 37. `feature/post-deploy-smoke-check`
+
+Status:
+
+- planned
+
+Scope:
+
+- add a bounded smoke-check path for API and worker deployment verification
+- focus on health, status, config sanity, and non-destructive live-state checks
+- avoid introducing execution-triggering behavior into the smoke-check path
+- document when operators should run the smoke check during deploy or rollback
+
+Main outputs:
+
+- post-deploy smoke-check workflow
+- non-destructive deployment verification
+- operator-facing validation guidance
+
+### 38. `feature/runtime-reliability-telemetry`
+
+Status:
+
+- planned
+
+Scope:
+
+- improve structured logging and diagnostic correlation for unattended runtime behavior
+- tighten startup validation around deployment misconfiguration and missing dependencies
+- keep the work focused on observability and reliability rather than new trading behavior
+- add tests for new validation or logging-facing helpers where practical
+
+Main outputs:
+
+- stronger runtime diagnostics
+- clearer startup validation failures
+- improved operator troubleshooting signals
+
 Current next feature:
 
-- no immediate next feature in the defined roadmap; add the next bounded phase here before continuing implementation
+- `feature/deployment-packaging`
