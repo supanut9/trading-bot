@@ -39,6 +39,7 @@ Build a maintainable trading bot that supports research, backtesting, paper trad
 - run startup live reconciliation before new live worker execution so restarts fail closed on uncertain exchange state
 - allow bounded manual cancellation of recent live orders through the controls surface
 - detect stale open live orders locally and surface them for operator review without automatic cancellation
+- expose a compact recovery report for unresolved live orders and recent reconciliation or cancel context
 - emit optional notifications for worker execution, risk rejection, backtest outcomes, and market sync outcomes
 - persist bot state and logs
 - expose minimal operational API for health, status, positions, trades, candle ingestion, and bounded manual controls

@@ -122,6 +122,12 @@ Stale live order visibility:
 - stale-order detection is read-only and does not imply automatic cancellation
 - operators should use stale-order visibility together with live reconcile and live cancel controls when reviewing unresolved exchange state
 
+Live order recovery report:
+
+- `GET /reports` now includes a compact recovery summary over unresolved live orders and recent recovery events
+- `GET /reports/live-recovery.csv` exports unresolved live orders with the latest recovery-event context
+- recovery reporting is read-only and is intended to shorten operator review during live incident handling
+
 Live balance visibility:
 
 - `GET /status` includes `account_balance_status` and `account_balances`

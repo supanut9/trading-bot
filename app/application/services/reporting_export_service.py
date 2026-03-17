@@ -4,6 +4,9 @@ from io import StringIO
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.application.services.audit_service import AuditService
+from app.application.services.live_order_recovery_report_service import (
+    LiveOrderRecoveryReportService,
+)
 from app.application.services.operational_control_service import OperationalControlService
 from app.application.services.operations_service import OperationsService
 from app.config import Settings
@@ -18,6 +21,7 @@ class ReportingExportService:
         session_factory: sessionmaker[Session] | None = None,
     ) -> None:
         self._audit = AuditService(session=session)
+        self._recovery = LiveOrderRecoveryReportService(session)
         self._operations = OperationsService(session)
         self._settings = settings
         self._session_factory = session_factory
@@ -160,6 +164,47 @@ class ReportingExportService:
                     event.channel,
                     event.related_event_type,
                     event.payload_json,
+                ]
+            )
+        return output.getvalue()
+
+    def export_live_recovery_csv(self) -> str:
+        report = self._recovery.build_report(order_limit=50, audit_limit=10)
+        latest_at, latest_type, latest_status = self._recovery.latest_event_summary(
+            report.recovery_events
+        )
+
+        output = StringIO()
+        writer = csv.writer(output)
+        writer.writerow(
+            [
+                "order_id",
+                "exchange",
+                "symbol",
+                "side",
+                "status",
+                "client_order_id",
+                "exchange_order_id",
+                "updated_at",
+                "latest_recovery_event_at",
+                "latest_recovery_event_type",
+                "latest_recovery_event_status",
+            ]
+        )
+        for order in report.unresolved_orders:
+            writer.writerow(
+                [
+                    order.id,
+                    order.exchange,
+                    order.symbol,
+                    order.side,
+                    order.status,
+                    order.client_order_id,
+                    order.exchange_order_id,
+                    order.updated_at.isoformat(),
+                    latest_at.isoformat() if latest_at is not None else None,
+                    latest_type,
+                    latest_status,
                 ]
             )
         return output.getvalue()

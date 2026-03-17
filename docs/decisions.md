@@ -334,3 +334,17 @@ The next unresolved live-ops risk is orders that remain open long enough to warr
 ### Consequence
 
 The reporting surface now classifies stale live orders by a configured age threshold, shows them separately from ordinary trade history, and keeps stale-order handling read-only until later recovery features are added.
+
+## 2026-03-18
+
+### Decision
+
+Add a dedicated live order recovery report before introducing alerting or further operator automation.
+
+### Reason
+
+Once stale live orders are visible, operators still need a compact view that combines unresolved live orders with the latest reconciliation and cancel context. That review surface improves incident handling without adding new mutation paths or alert noise prematurely.
+
+### Consequence
+
+Reporting now includes unresolved live order recovery context in the dashboard and a dedicated `live-recovery.csv` export, giving operators a single read-only surface for recent recovery activity and unresolved live state.

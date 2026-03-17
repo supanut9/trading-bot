@@ -187,6 +187,49 @@ def test_reports_dashboard_renders_stale_live_order_rows(tmp_path: Path) -> None
         teardown_client(session)
 
 
+def test_reports_dashboard_renders_live_recovery_summary(tmp_path: Path) -> None:
+    client, session, settings = build_client(tmp_path)
+    try:
+        session.add(
+            OrderRecord(
+                exchange="binance",
+                symbol="BTC/USDT",
+                side="buy",
+                order_type="market",
+                status="submitted",
+                mode="live",
+                quantity=Decimal("0.001"),
+                client_order_id="recovery-live-1",
+                exchange_order_id="456",
+                created_at=datetime(2026, 1, 1, 0, tzinfo=UTC),
+                updated_at=datetime(2026, 1, 1, 0, tzinfo=UTC),
+            )
+        )
+        AuditService(session=session).record_control_result(
+            control_type="live_reconcile",
+            source="job.live_reconcile",
+            status="completed",
+            detail="live orders reconciled",
+            settings=settings,
+            payload={"reconciled_count": 1, "filled_count": 0},
+        )
+        session.commit()
+        settings.paper_trading = False
+        settings.live_trading_enabled = True
+        settings.exchange_api_key = "key"
+        settings.exchange_api_secret = "secret"
+
+        response = client.get("/reports")
+
+        assert response.status_code == 200
+        assert "Unresolved Live Orders" in response.text
+        assert "Recovery Events" in response.text
+        assert "Latest recovery event: live_reconcile completed" in response.text
+        assert "Download live recovery CSV" in response.text
+    finally:
+        teardown_client(session)
+
+
 def test_trades_report_applies_limit_and_keeps_recent_first(tmp_path: Path) -> None:
     client, session, _settings = build_client(tmp_path)
     try:
@@ -261,6 +304,51 @@ def test_audit_report_exports_recent_events_csv(tmp_path: Path) -> None:
         assert rows[0]["event_type"] == "notification_delivery"
         assert rows[0]["source"] == "notification"
         assert rows[0]["status"] == "sent"
+    finally:
+        teardown_client(session)
+
+
+def test_live_recovery_report_exports_unresolved_orders_with_latest_context(
+    tmp_path: Path,
+) -> None:
+    client, session, settings = build_client(tmp_path)
+    try:
+        session.add(
+            OrderRecord(
+                exchange="binance",
+                symbol="BTC/USDT",
+                side="buy",
+                order_type="market",
+                status="submitted",
+                mode="live",
+                quantity=Decimal("0.001"),
+                client_order_id="recovery-order-1",
+                exchange_order_id="456",
+                created_at=datetime(2026, 1, 1, 0, tzinfo=UTC),
+                updated_at=datetime(2026, 1, 1, 0, tzinfo=UTC),
+            )
+        )
+        AuditService(session=session).record_control_result(
+            control_type="live_cancel",
+            source="api.control",
+            status="completed",
+            detail="live order canceled",
+            settings=settings,
+            payload={"order_id": 1},
+        )
+        session.commit()
+
+        response = client.get("/reports/live-recovery.csv")
+
+        assert response.status_code == 200
+        assert response.headers["content-disposition"] == (
+            'attachment; filename="live-recovery.csv"'
+        )
+        rows = read_csv_rows(response.text)
+        assert len(rows) == 1
+        assert rows[0]["client_order_id"] == "recovery-order-1"
+        assert rows[0]["latest_recovery_event_type"] == "live_cancel"
+        assert rows[0]["latest_recovery_event_status"] == "completed"
     finally:
         teardown_client(session)
 

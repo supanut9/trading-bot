@@ -4,6 +4,9 @@ from decimal import Decimal
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.application.services.audit_service import AuditEventView, AuditService
+from app.application.services.live_order_recovery_report_service import (
+    LiveOrderRecoveryReportService,
+)
 from app.application.services.operational_control_service import (
     BacktestControlResult,
     OperationalControlService,
@@ -34,6 +37,11 @@ class ReportingDashboard:
     positions: list[PositionView]
     trades: list[TradeView]
     stale_live_orders: list[StaleLiveOrderView]
+    unresolved_live_orders: int
+    recovery_event_count: int
+    latest_recovery_event_at: str | None
+    latest_recovery_event_type: str | None
+    latest_recovery_event_status: str | None
     backtest: BacktestControlResult
     audit_events: list[AuditEventView]
 
@@ -49,6 +57,7 @@ class ReportingDashboardService:
         self._operations = OperationsService(session)
         self._audit = AuditService(session=session)
         self._stale_orders = StaleLiveOrderService(session)
+        self._recovery_report = LiveOrderRecoveryReportService(session)
         self._settings = settings
         self._session_factory = session_factory
 
@@ -59,6 +68,10 @@ class ReportingDashboardService:
         stale_live_orders = self._stale_orders.list_stale_orders(
             threshold_minutes=self._settings.stale_live_order_threshold_minutes,
             limit=10,
+        )
+        recovery_report = self._recovery_report.build_report(order_limit=25, audit_limit=10)
+        latest_recovery_at, latest_recovery_type, latest_recovery_status = (
+            self._recovery_report.latest_event_summary(recovery_report.recovery_events)
         )
         backtest = OperationalControlService(
             self._settings,
@@ -88,6 +101,13 @@ class ReportingDashboardService:
             positions=positions,
             trades=trades,
             stale_live_orders=stale_live_orders,
+            unresolved_live_orders=len(recovery_report.unresolved_orders),
+            recovery_event_count=len(recovery_report.recovery_events),
+            latest_recovery_event_at=(
+                latest_recovery_at.isoformat() if latest_recovery_at is not None else None
+            ),
+            latest_recovery_event_type=latest_recovery_type,
+            latest_recovery_event_status=latest_recovery_status,
             backtest=backtest,
             audit_events=audit_events,
         )

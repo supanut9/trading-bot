@@ -503,11 +503,11 @@ Main outputs:
 
 ## Next Recommended Feature
 
-`feature/live-order-recovery-report`
+`feature/reconciliation-alerting`
 
 Reason:
 
-- stale live order detection is now the next implemented step, and the next operational gap is a compact recovery view over unresolved live state
+- the recovery report is now in place, and the next operational gap is surfacing failed reconciliation or stale-order conditions as operator alerts
 
 ## Next Expansion Slice
 
@@ -610,7 +610,7 @@ Main outputs:
 
 Status:
 
-- planned
+- implemented on branch
 
 Scope:
 

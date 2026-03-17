@@ -113,10 +113,18 @@ def _render_dashboard(service: ReportingDashboardService) -> str:
             _render_card("Realized PnL", str(dashboard.total_realized_pnl)),
             _render_card("Unrealized PnL", str(dashboard.total_unrealized_pnl)),
             _render_card("Stale Live Orders", str(len(dashboard.stale_live_orders))),
+            _render_card("Unresolved Live Orders", str(dashboard.unresolved_live_orders)),
+            _render_card("Recovery Events", str(dashboard.recovery_event_count)),
             _render_card("Backtest Status", dashboard.backtest.status),
             _render_card("Backtest Trades", str(dashboard.backtest.total_trades or 0)),
         ]
     )
+    latest_recovery_summary = "Latest recovery event: none."
+    if dashboard.latest_recovery_event_at is not None:
+        latest_recovery_summary = (
+            f"Latest recovery event: {dashboard.latest_recovery_event_type} "
+            f"{dashboard.latest_recovery_event_status} at {dashboard.latest_recovery_event_at}."
+        )
 
     return f"""<!DOCTYPE html>
 <html lang="en">
@@ -246,11 +254,13 @@ def _render_dashboard(service: ReportingDashboardService) -> str:
         <div class="eyebrow">Reporting Deck</div>
         <h1>{dashboard.app_name}</h1>
         <div class="sub">{subheadline}</div>
+        <div class="sub">{latest_recovery_summary}</div>
         <div class="exports">
           <a href="/reports/positions.csv">Download positions CSV</a>
           <a href="/reports/trades.csv">Download trades CSV</a>
           <a href="/reports/backtest-summary.csv">Download backtest CSV</a>
           <a href="/reports/audit.csv">Download audit CSV</a>
+          <a href="/reports/live-recovery.csv">Download live recovery CSV</a>
         </div>
       </section>
       <section class="cards">{cards}</section>
@@ -399,3 +409,17 @@ def export_audit_events(
         session_factory=session_factory,
     ).export_audit_events_csv(limit=limit)
     return _csv_response("audit.csv", content)
+
+
+@router.get("/live-recovery.csv")
+def export_live_recovery(
+    session: Session = session_dependency,
+    settings: Settings = settings_dependency,
+    session_factory: sessionmaker[Session] = session_factory_dependency,
+) -> Response:
+    content = ReportingExportService(
+        session,
+        settings,
+        session_factory=session_factory,
+    ).export_live_recovery_csv()
+    return _csv_response("live-recovery.csv", content)
