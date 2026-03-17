@@ -9,6 +9,7 @@ from app.application.services.market_data_service import CandleInput, MarketData
 from app.application.services.market_data_sync_service import MarketDataSyncResult
 from app.config import Settings, get_settings
 from app.infrastructure.database.base import Base
+from app.infrastructure.database.models.audit_event import AuditEventRecord
 from app.infrastructure.database.models.trade import TradeRecord
 from app.infrastructure.database.session import (
     create_engine_from_settings,
@@ -84,16 +85,18 @@ def test_worker_cycle_control_executes_and_persists_trade(tmp_path: Path) -> Non
         session = create_session_factory(settings)()
         try:
             trade_count = session.scalar(select(func.count()).select_from(TradeRecord))
+            audit_count = session.scalar(select(func.count()).select_from(AuditEventRecord))
         finally:
             session.close()
 
         assert trade_count == 1
+        assert audit_count == 1
     finally:
         teardown_client()
 
 
 def test_backtest_control_returns_skipped_when_no_candles_exist(tmp_path: Path) -> None:
-    client, _settings = build_client(tmp_path)
+    client, settings = build_client(tmp_path)
     try:
         response = client.post("/controls/backtest")
 
@@ -103,6 +106,16 @@ def test_backtest_control_returns_skipped_when_no_candles_exist(tmp_path: Path) 
         assert payload["detail"] == "no_candles"
         assert payload["candle_count"] == 0
         assert payload["required_candles"] == 6
+
+        session = create_session_factory(settings)()
+        try:
+            event = session.scalars(select(AuditEventRecord)).one()
+        finally:
+            session.close()
+
+        assert event.event_type == "backtest"
+        assert event.status == "skipped"
+        assert event.source == "api.control"
     finally:
         teardown_client()
 
@@ -192,5 +205,15 @@ def test_market_sync_control_returns_completed_summary(tmp_path: Path) -> None:
         assert payload["fetched_count"] == 3
         assert payload["stored_count"] == 3
         assert payload["latest_open_time"] == "2026-01-01T02:00:00Z"
+
+        session = create_session_factory(settings)()
+        try:
+            event = session.scalars(select(AuditEventRecord)).one()
+        finally:
+            session.close()
+
+        assert event.event_type == "market_sync"
+        assert event.status == "completed"
+        assert event.source == "api.control"
     finally:
         teardown_client()

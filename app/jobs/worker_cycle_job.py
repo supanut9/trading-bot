@@ -14,7 +14,7 @@ class WorkerCycleJob:
         self._controls = OperationalControlService(settings)
 
     def run(self) -> WorkerControlResult:
-        result = self._controls.run_worker_cycle()
+        result = self._controls.run_worker_cycle(source="job.worker_cycle")
         logger.info(
             "worker_cycle_completed status=%s detail=%s signal=%s "
             "order_id=%s trade_id=%s notified=%s",

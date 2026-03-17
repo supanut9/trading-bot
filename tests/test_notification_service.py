@@ -28,6 +28,14 @@ class FailingSender:
         raise RuntimeError("sender failed")
 
 
+class RecordingAudit:
+    def __init__(self) -> None:
+        self.entries: list[dict[str, object]] = []
+
+    def record_notification_delivery(self, **kwargs: object) -> None:
+        self.entries.append(kwargs)
+
+
 def build_settings(**overrides: object) -> Settings:
     return Settings(
         APP_NAME="trading-bot",
@@ -181,7 +189,8 @@ def test_notifies_market_sync_failure_event() -> None:
 
 
 def test_notification_failures_are_logged_and_do_not_raise(caplog) -> None:
-    service = NotificationService(sender=FailingSender(), channel="webhook")
+    audit = RecordingAudit()
+    service = NotificationService(sender=FailingSender(), channel="webhook", audit=audit)
     settings = build_settings()
 
     with caplog.at_level(logging.ERROR):
@@ -189,6 +198,9 @@ def test_notification_failures_are_logged_and_do_not_raise(caplog) -> None:
 
     assert sent is False
     assert "notification_delivery_failed channel=webhook event_type=backtest.skipped" in caplog.text
+    assert len(audit.entries) == 1
+    assert audit.entries[0]["status"] == "failed"
+    assert audit.entries[0]["related_event_type"] == "backtest.skipped"
 
 
 def test_build_notification_service_requires_webhook_url() -> None:
@@ -203,6 +215,7 @@ def test_build_notification_service_requires_webhook_url() -> None:
 
 def test_webhook_sender_posts_json_payload(monkeypatch) -> None:
     captured: dict[str, object] = {}
+    audit = RecordingAudit()
 
     class FakeResponse:
         status = 200
@@ -225,7 +238,7 @@ def test_webhook_sender_posts_json_payload(monkeypatch) -> None:
     monkeypatch.setattr("app.infrastructure.notifications.senders.urlopen", fake_urlopen)
 
     sender = WebhookNotificationSender(url="https://example.com/hook", timeout_seconds=7)
-    service = NotificationService(sender=sender, channel="webhook")
+    service = NotificationService(sender=sender, channel="webhook", audit=audit)
     settings = build_settings()
 
     sent = service.notify_backtest_skipped(
@@ -240,6 +253,9 @@ def test_webhook_sender_posts_json_payload(monkeypatch) -> None:
     assert captured["timeout"] == 7
     assert captured["body"]["event_type"] == "backtest.skipped"
     assert captured["body"]["metadata"]["required"] == 6
+    assert len(audit.entries) == 1
+    assert audit.entries[0]["status"] == "sent"
+    assert audit.entries[0]["channel"] == "webhook"
 
 
 def test_webhook_sender_raises_on_non_2xx_response(monkeypatch) -> None:

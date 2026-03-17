@@ -371,7 +371,7 @@ Main outputs:
 
 Status:
 
-- in progress
+- implemented on branch
 
 Scope:
 
@@ -386,10 +386,29 @@ Main outputs:
 - market sync notifications from manual control execution
 - updated notification and operational tests
 
+### 21. `feature/execution-audit-feed`
+
+Status:
+
+- in progress
+
+Scope:
+
+- persist compact audit events for control outcomes and notification delivery
+- expose recent audit events through the reporting surface
+- keep the audit model lightweight and review-oriented rather than building full log ingestion
+- add tests and docs for the new audit feed behavior
+
+Main outputs:
+
+- `audit_events` persistence model and application service
+- audit recording from control flows and notification delivery
+- reporting dashboard and CSV export for recent audit events
+
 ## Next Recommended Feature
 
-`feature/execution-audit-feed`
+`feature/live-execution-guardrails`
 
 Reason:
 
-- the bot now exposes controls, reporting, market sync, and notifications, so the next operational gap is a dedicated audit view of manual triggers, worker outcomes, and outbound delivery attempts for operator review
+- the system now has stronger operational visibility, so the next meaningful boundary is expanding the safety model needed before any controlled live execution is considered

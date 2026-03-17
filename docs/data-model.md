@@ -104,14 +104,40 @@ Important constraint:
 
 - one active position row per `exchange + symbol + mode`
 
+### `audit_events`
+
+Purpose:
+
+- store operator-facing audit events for control execution and notification delivery
+
+Key columns:
+
+- event_type
+- source
+- status
+- detail
+- exchange
+- symbol
+- timeframe
+- channel
+- related_event_type
+- payload_json
+
+Notes:
+
+- this table is a compact runtime audit feed, not a full log sink
+- `payload_json` keeps event-specific context without widening the schema for every new control or notification detail
+
 ## Relationships
 
 - `orders` may produce zero or more `trades`
 - `trades` affect `positions`
 - `candles` feed strategies but are not directly tied to order rows
+- `audit_events` reference runtime outcomes by context rather than foreign-key linkage
 
 ## Operational Notes
 
 - schema is intentionally small for v1
 - order, trade, and position data should be sufficient to reconstruct paper trading behavior
+- audit events add a lightweight operator timeline for controls and notifications
 - future tables may include signals, bot runs, bot logs, and strategy snapshots

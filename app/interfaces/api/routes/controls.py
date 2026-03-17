@@ -27,7 +27,7 @@ def run_worker_cycle(
     result = OperationalControlService(
         settings,
         session_factory=session_factory,
-    ).run_worker_cycle()
+    ).run_worker_cycle(source="api.control")
     return WorkerControlResponse.model_validate(result)
 
 
@@ -43,7 +43,7 @@ def run_backtest(
     result = OperationalControlService(
         settings,
         session_factory=session_factory,
-    ).run_backtest()
+    ).run_backtest(source="api.control")
     return BacktestControlResponse.model_validate(result)
 
 
@@ -59,5 +59,5 @@ def run_market_sync(
     result = OperationalControlService(
         settings,
         session_factory=session_factory,
-    ).run_market_sync()
+    ).run_market_sync(source="api.control")
     return MarketSyncControlResponse.model_validate(result)

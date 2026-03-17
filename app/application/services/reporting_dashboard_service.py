@@ -3,6 +3,7 @@ from decimal import Decimal
 
 from sqlalchemy.orm import Session, sessionmaker
 
+from app.application.services.audit_service import AuditEventView, AuditService
 from app.application.services.operational_control_service import (
     BacktestControlResult,
     OperationalControlService,
@@ -29,6 +30,7 @@ class ReportingDashboard:
     positions: list[PositionView]
     trades: list[TradeView]
     backtest: BacktestControlResult
+    audit_events: list[AuditEventView]
 
 
 class ReportingDashboardService:
@@ -40,6 +42,7 @@ class ReportingDashboardService:
         session_factory: sessionmaker[Session] | None = None,
     ) -> None:
         self._operations = OperationsService(session)
+        self._audit = AuditService(session=session)
         self._settings = settings
         self._session_factory = session_factory
 
@@ -50,7 +53,8 @@ class ReportingDashboardService:
         backtest = OperationalControlService(
             self._settings,
             session_factory=self._session_factory,
-        ).run_backtest(notify=False)
+        ).run_backtest(notify=False, audit=False, source="reporting.snapshot")
+        audit_events = self._audit.list_recent(limit=10)
 
         return ReportingDashboard(
             app_name=str(status["app"]),
@@ -74,4 +78,5 @@ class ReportingDashboardService:
             positions=positions,
             trades=trades,
             backtest=backtest,
+            audit_events=audit_events,
         )
