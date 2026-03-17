@@ -143,6 +143,7 @@ def test_reports_dashboard_renders_html_snapshot(tmp_path: Path) -> None:
         assert response.headers["content-type"].startswith("text/html")
         assert "Reporting Deck" in response.text
         assert "Open Positions" in response.text
+        assert "Latest Price" in response.text
         assert "Recent Trades" in response.text
         assert "Stale Live Orders" in response.text
         assert "Backtest Snapshot" in response.text

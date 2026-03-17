@@ -193,3 +193,14 @@ Current startup guarantees:
 - non-local API runtimes must not bind to loopback hosts
 - webhook notification mode requires `NOTIFICATION_WEBHOOK_URL`
 - live worker runtimes require `STARTUP_STATE_SYNC_ENABLED=true`
+
+## Live Price Visibility
+
+The current status and reporting surfaces now include the latest read-only exchange price when it is available.
+
+Use:
+
+- `GET /status`
+- `GET /reports`
+
+This price is informational only. Strategy and execution behavior remain candle-based.

@@ -30,6 +30,8 @@ class ReportingDashboard:
     paper_trading: bool
     live_trading_enabled: bool
     database_status: str
+    latest_price_status: str
+    latest_price: str | None
     position_count: int
     trade_count: int
     total_realized_pnl: Decimal
@@ -88,6 +90,10 @@ class ReportingDashboardService:
             paper_trading=bool(status["paper_trading"]),
             live_trading_enabled=bool(status["live_trading_enabled"]),
             database_status=str(status["database_status"]),
+            latest_price_status=str(status["latest_price_status"]),
+            latest_price=(
+                str(status["latest_price"]) if status["latest_price"] is not None else None
+            ),
             position_count=len(positions),
             trade_count=len(trades),
             total_realized_pnl=sum(

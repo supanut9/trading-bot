@@ -21,6 +21,8 @@ class StatusResponse(BaseModel):
     timeframe: str
     database_url: str
     database_status: str
+    latest_price_status: str
+    latest_price: Decimal | None = None
     account_balance_status: str
     account_balances: list[AccountBalanceResponse] = Field(default_factory=list)
 

@@ -66,6 +66,20 @@ def test_binance_client_raises_runtime_error_on_transport_failure(monkeypatch) -
         )
 
 
+def test_binance_client_parses_latest_price(monkeypatch) -> None:
+    payload = {"symbol": "BTCUSDT", "price": "104321.55"}
+
+    monkeypatch.setattr(
+        "app.infrastructure.exchanges.binance.urlopen",
+        lambda url, timeout: FakeResponse(payload),
+    )
+
+    ticker = BinanceMarketDataClient().fetch_latest_price(symbol="BTC/USDT")
+
+    assert ticker.symbol == "BTC/USDT"
+    assert str(ticker.price) == "104321.55"
+
+
 class BinanceDateTime:
     @staticmethod
     def now(_tz) -> object:
