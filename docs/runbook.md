@@ -21,6 +21,7 @@ Operational endpoints:
 
 - `GET /health`
 - `GET /status`
+- `GET /console`
 - `GET /positions`
 - `GET /trades`
 - `POST /market-data/candles`
@@ -64,6 +65,8 @@ Manual controls:
 - `POST /controls/market-sync` fetches recent closed candles for the configured exchange, symbol, and timeframe and stores them through the market data service
 - `POST /controls/backtest` runs one backtest over stored candles with the current configured strategy and risk settings
 - control endpoints do not accept arbitrary trading parameters; they only use current application configuration
+- `GET /console` provides a local operator surface over the same bounded actions for market sync, worker cycle, and backtest
+- the console is intended for paper-trading workflows and shows inline feedback from the most recent action run
 
 Report exports:
 
@@ -186,6 +189,7 @@ Latest price visibility:
 
 - `GET /status` now includes `latest_price_status` and `latest_price`
 - `GET /reports` shows the same latest read-only price in the reporting deck
+- `GET /console` shows the same latest read-only price alongside paper-trading controls
 - latest price uses the public exchange market-data client and does not imply websocket or tick-stream support
 
 To run it as a polling worker instead of a single cycle:

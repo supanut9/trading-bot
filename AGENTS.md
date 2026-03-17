@@ -63,7 +63,8 @@ Build a paper-trading-first trading bot with backtesting, safe execution, and cl
 - `main` receives changes through pull requests only.
 - Do not merge a PR into `main` while required checks are failing or missing.
 - Do not merge a PR into `main` while unresolved review threads remain.
-- Prefer squash merge for feature branches unless preserving multiple commits is materially useful.
+- Do not squash merge feature branches.
+- Prefer merge commits for feature branches unless another merge method is explicitly requested.
 
 ## PR Metadata Policy
 
