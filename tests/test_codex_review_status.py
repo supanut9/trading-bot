@@ -33,8 +33,23 @@ def make_review_comment(author: str, body: str, created_at: str) -> dict[str, ob
     }
 
 
+def make_review_thread(author: str, is_resolved: bool) -> dict[str, object]:
+    return {
+        "isResolved": is_resolved,
+        "comments": {
+            "nodes": [
+                {
+                    "author": {"login": author},
+                }
+            ]
+        },
+    }
+
+
 def test_codex_review_pending_without_request_comment() -> None:
-    state = evaluate_codex_review_status({"comments": [], "reviews": [], "review_comments": []})
+    state = evaluate_codex_review_status(
+        {"comments": [], "reviews": [], "review_comments": [], "review_threads": []}
+    )
 
     assert state == CodexReviewState(False, "latest @codex review request not found")
 
@@ -52,6 +67,7 @@ def test_codex_review_pending_without_review_evidence() -> None:
             ],
             "reviews": [],
             "review_comments": [],
+            "review_threads": [],
         }
     )
 
@@ -71,6 +87,7 @@ def test_codex_review_completed_from_connector_review_after_request() -> None:
                 make_review("chatgpt-codex-connector", "2026-03-17T01:02:00Z"),
             ],
             "review_comments": [],
+            "review_threads": [],
         }
     )
 
@@ -90,6 +107,7 @@ def test_codex_review_completed_from_connector_review_with_submitted_at() -> Non
                 },
             ],
             "review_comments": [],
+            "review_threads": [],
         }
     )
 
@@ -110,6 +128,7 @@ def test_codex_review_completed_from_connector_review_comment_after_request() ->
                     "2026-03-17T01:03:00Z",
                 ),
             ],
+            "review_threads": [],
         }
     )
 
@@ -132,6 +151,7 @@ def test_codex_review_completed_from_explicit_no_issues_comment_after_request() 
             ],
             "reviews": [],
             "review_comments": [],
+            "review_threads": [],
         }
     )
 
@@ -151,6 +171,7 @@ def test_codex_review_accepts_manual_request_comment() -> None:
                 make_review("chatgpt-codex-connector", "2026-03-17T01:02:00Z"),
             ],
             "review_comments": [],
+            "review_threads": [],
         }
     )
 
@@ -161,6 +182,52 @@ def test_parse_timestamp_normalizes_zulu_to_utc() -> None:
     parsed = parse_timestamp("2026-03-17T01:02:03Z")
 
     assert parsed == datetime(2026, 3, 17, 1, 2, 3, tzinfo=UTC)
+
+
+def test_codex_review_completed_when_connector_threads_resolved() -> None:
+    state = evaluate_codex_review_status(
+        {
+            "comments": [
+                make_comment("github-actions", "@codex review", "2026-03-17T01:00:00Z"),
+                make_comment(
+                    "chatgpt-codex-connector",
+                    "setup message",
+                    "2026-03-17T01:05:00Z",
+                ),
+            ],
+            "reviews": [
+                make_review("chatgpt-codex-connector", "2026-03-17T00:55:00Z"),
+            ],
+            "review_comments": [],
+            "review_threads": [
+                make_review_thread("chatgpt-codex-connector", True),
+            ],
+        }
+    )
+
+    assert state == CodexReviewState(True, "all connector review threads are resolved")
+
+
+def test_codex_review_pending_when_connector_thread_still_open() -> None:
+    state = evaluate_codex_review_status(
+        {
+            "comments": [
+                make_comment("github-actions", "@codex review", "2026-03-17T01:00:00Z"),
+            ],
+            "reviews": [
+                make_review("chatgpt-codex-connector", "2026-03-17T00:55:00Z"),
+            ],
+            "review_comments": [],
+            "review_threads": [
+                make_review_thread("chatgpt-codex-connector", False),
+            ],
+        }
+    )
+
+    assert state == CodexReviewState(
+        False,
+        "connector has not produced review evidence after the latest request",
+    )
 
 
 def test_parse_pr_repository_uses_requested_pr_url() -> None:
@@ -224,6 +291,22 @@ def test_load_pr_activity_uses_requested_pr_repository_for_comments(monkeypatch)
                     )
                 ]
             ]
+        if command[:3] == ["gh", "api", "graphql"]:
+            return {
+                "data": {
+                    "repository": {
+                        "pullRequest": {
+                            "reviewThreads": {
+                                "nodes": [make_review_thread("chatgpt-codex-connector", True)],
+                                "pageInfo": {
+                                    "hasNextPage": False,
+                                    "endCursor": None,
+                                },
+                            }
+                        }
+                    }
+                }
+            }
         raise AssertionError(f"unexpected command: {command}")
 
     monkeypatch.setattr("scripts.codex_review_status.run_gh_json", fake_run_gh_json)
@@ -237,20 +320,33 @@ def test_load_pr_activity_uses_requested_pr_repository_for_comments(monkeypatch)
             "2026-03-17T01:00:00Z",
         )
     ]
-    assert calls == [
-        [
-            "gh",
-            "pr",
-            "view",
-            "https://github.com/example-org/example-repo/pull/42",
-            "--json",
-            "number,comments,reviews,url",
-        ],
-        [
-            "gh",
-            "api",
-            "--paginate",
-            "--slurp",
-            "repos/example-org/example-repo/pulls/42/comments",
-        ],
+    assert payload["review_threads"] == [make_review_thread("chatgpt-codex-connector", True)]
+    assert calls[0] == [
+        "gh",
+        "pr",
+        "view",
+        "https://github.com/example-org/example-repo/pull/42",
+        "--json",
+        "number,comments,reviews,url",
     ]
+    assert calls[1] == [
+        "gh",
+        "api",
+        "--paginate",
+        "--slurp",
+        "repos/example-org/example-repo/pulls/42/comments",
+    ]
+    assert calls[2][:11] == [
+        "gh",
+        "api",
+        "graphql",
+        "-F",
+        "owner=example-org",
+        "-F",
+        "repo=example-repo",
+        "-F",
+        "number=42",
+        "-f",
+        calls[2][10],
+    ]
+    assert calls[2][10].startswith("query=")

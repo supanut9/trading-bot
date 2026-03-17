@@ -123,7 +123,7 @@ The previous setup only proved that `@codex review` was posted on the PR. It did
 
 ### Consequence
 
-The repository now distinguishes between requesting review and receiving real review evidence for the latest request, allowing branch protection to block merges until Codex review has actually completed instead of passing on generic connector comments alone.
+The repository now uses a separate `Codex Review Status` check for merge readiness. It still requires real Codex review evidence on the PR, but it treats resolved Codex review threads as completion so branch protection reflects whether Codex feedback has been handled rather than whether the latest trigger comment happened to receive a fresh connector artifact.
 
 ## 2026-03-17
 

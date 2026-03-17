@@ -78,11 +78,13 @@ def load_pr_activity(pr: str) -> dict[str, Any]:
             f"repos/{owner}/{repo}/pulls/{pr_payload['number']}/comments",
         ]
     )
+    review_threads = load_review_threads(owner, repo, pr_payload["number"])
 
     return {
         "comments": pr_payload.get("comments", []),
         "reviews": pr_payload.get("reviews", []),
         "review_comments": review_comments,
+        "review_threads": review_threads,
     }
 
 
@@ -110,6 +112,59 @@ def run_gh_paginated_json(command: list[str]) -> list[dict[str, Any]]:
     return items
 
 
+def load_review_threads(owner: str, repo: str, number: int) -> list[dict[str, Any]]:
+    query = """
+query($owner: String!, $repo: String!, $number: Int!, $after: String) {
+  repository(owner: $owner, name: $repo) {
+    pullRequest(number: $number) {
+      reviewThreads(first: 100, after: $after) {
+        nodes {
+          isResolved
+          comments(first: 1) {
+            nodes {
+              author {
+                login
+              }
+            }
+          }
+        }
+        pageInfo {
+          hasNextPage
+          endCursor
+        }
+      }
+    }
+  }
+}
+"""
+
+    threads: list[dict[str, Any]] = []
+    after: str | None = None
+    while True:
+        command = [
+            "gh",
+            "api",
+            "graphql",
+            "-F",
+            f"owner={owner}",
+            "-F",
+            f"repo={repo}",
+            "-F",
+            f"number={number}",
+            "-f",
+            f"query={query}",
+        ]
+        if after is not None:
+            command.extend(["-F", f"after={after}"])
+        payload = run_gh_json(command)
+        review_threads = read_review_threads(payload)
+        threads.extend(review_threads["nodes"])
+        page_info = review_threads["pageInfo"]
+        if not page_info["hasNextPage"]:
+            return threads
+        after = page_info["endCursor"]
+
+
 def evaluate_codex_review_status(payload: dict[str, Any]) -> CodexReviewState:
     latest_request = find_latest_request(payload.get("comments", []))
     if latest_request is None:
@@ -131,6 +186,14 @@ def evaluate_codex_review_status(payload: dict[str, Any]) -> CodexReviewState:
         return CodexReviewState(
             completed=True,
             reason="connector no-issues comment recorded after request",
+        )
+
+    if has_any_connector_review_evidence(payload) and not has_unresolved_connector_threads(
+        payload.get("review_threads", [])
+    ):
+        return CodexReviewState(
+            completed=True,
+            reason="all connector review threads are resolved",
         )
 
     return CodexReviewState(
@@ -171,6 +234,39 @@ def find_latest_no_issues_comment(comments: list[dict[str, Any]]) -> Activity | 
             continue
         latest = max_activity(latest, to_activity(comment))
     return latest
+
+
+def has_any_connector_review_evidence(payload: dict[str, Any]) -> bool:
+    return any(
+        activity is not None
+        for activity in (
+            find_latest_connector_activity(payload.get("reviews", [])),
+            find_latest_connector_activity(payload.get("review_comments", [])),
+            find_latest_no_issues_comment(payload.get("comments", [])),
+        )
+    )
+
+
+def has_unresolved_connector_threads(threads: list[dict[str, Any]]) -> bool:
+    for thread in threads:
+        if not is_connector_thread(thread):
+            continue
+        if not read_bool(thread, "isResolved"):
+            return True
+    return False
+
+
+def is_connector_thread(thread: dict[str, Any]) -> bool:
+    comments = thread.get("comments")
+    if not isinstance(comments, dict):
+        return False
+    nodes = comments.get("nodes")
+    if not isinstance(nodes, list) or not nodes:
+        return False
+    first_comment = nodes[0]
+    if not isinstance(first_comment, dict):
+        return False
+    return read_author_login(first_comment).startswith(CONNECTOR_LOGIN_PREFIX)
 
 
 def is_after_request(activity: Activity | None, latest_request: Activity) -> bool:
@@ -234,6 +330,13 @@ def read_string(item: dict[str, Any], key: str) -> str:
     return value
 
 
+def read_bool(item: dict[str, Any], key: str) -> bool:
+    value = item.get(key)
+    if not isinstance(value, bool):
+        raise ValueError(f"missing {key} in PR activity payload")
+    return value
+
+
 def read_nested_login(item: dict[str, Any], key: str) -> str:
     nested = item.get(key)
     if not isinstance(nested, dict):
@@ -242,6 +345,26 @@ def read_nested_login(item: dict[str, Any], key: str) -> str:
     if not isinstance(login, str):
         raise ValueError(f"missing {key}.login in PR activity payload")
     return login
+
+
+def read_review_threads(payload: dict[str, Any]) -> dict[str, Any]:
+    data = payload.get("data")
+    if not isinstance(data, dict):
+        raise ValueError("missing data in PR activity payload")
+    repository = data.get("repository")
+    if not isinstance(repository, dict):
+        raise ValueError("missing repository in PR activity payload")
+    pull_request = repository.get("pullRequest")
+    if not isinstance(pull_request, dict):
+        raise ValueError("missing pullRequest in PR activity payload")
+    review_threads = pull_request.get("reviewThreads")
+    if not isinstance(review_threads, dict):
+        raise ValueError("missing reviewThreads in PR activity payload")
+    nodes = review_threads.get("nodes")
+    page_info = review_threads.get("pageInfo")
+    if not isinstance(nodes, list) or not isinstance(page_info, dict):
+        raise ValueError("invalid reviewThreads in PR activity payload")
+    return review_threads
 
 
 def parse_pr_repository(pr_payload: dict[str, Any]) -> tuple[str, str]:
