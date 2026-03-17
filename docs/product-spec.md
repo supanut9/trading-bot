@@ -10,7 +10,7 @@ Build a maintainable trading bot that supports research, backtesting, paper trad
 - one strategy
 - candle-based execution
 - paper trading only
-- API endpoints for health, status, positions, trades, candle ingestion, market sync, and bounded manual controls
+- API endpoints for health, status, positions, trades, candle ingestion, market sync, reporting UI, and bounded manual controls
 
 ## Initial Market And Strategy
 
@@ -34,6 +34,7 @@ Build a maintainable trading bot that supports research, backtesting, paper trad
 - persist bot state and logs
 - expose minimal operational API for health, status, positions, trades, candle ingestion, and bounded manual controls
 - export operational and backtest summary data as CSV for review and offline inspection
+- render an operator-facing reporting page over positions, trades, and backtest summary data
 - run recurring worker and optional recurring backtest jobs through explicit scheduled job modules
 - enforce PR merge readiness with CI and resolved review feedback
 

@@ -129,6 +129,26 @@ def test_positions_report_exports_csv_rows(tmp_path: Path) -> None:
         teardown_client(session)
 
 
+def test_reports_dashboard_renders_html_snapshot(tmp_path: Path) -> None:
+    client, session, settings = build_client(tmp_path)
+    try:
+        seed_execution_data(session)
+        store_closes(settings, [10, 10, 10, 10, 10, 9, 9, 9, 20])
+
+        response = client.get("/reports")
+
+        assert response.status_code == 200
+        assert response.headers["content-type"].startswith("text/html")
+        assert "Reporting Deck" in response.text
+        assert "Open Positions" in response.text
+        assert "Recent Trades" in response.text
+        assert "Backtest Snapshot" in response.text
+        assert "BTC/USDT" in response.text
+        assert "Download positions CSV" in response.text
+    finally:
+        teardown_client(session)
+
+
 def test_trades_report_applies_limit_and_keeps_recent_first(tmp_path: Path) -> None:
     client, session, _settings = build_client(tmp_path)
     try:

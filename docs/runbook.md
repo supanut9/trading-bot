@@ -19,6 +19,7 @@ Operational endpoints:
 - `POST /market-data/candles`
 - `POST /controls/worker-cycle`
 - `POST /controls/backtest`
+- `GET /reports`
 - `GET /reports/positions.csv`
 - `GET /reports/trades.csv`
 - `GET /reports/backtest-summary.csv`
@@ -58,6 +59,7 @@ Manual controls:
 
 Report exports:
 
+- `GET /reports` renders an operator-facing HTML dashboard over positions, trades, and backtest summary data
 - `GET /reports/positions.csv` exports the current positions view as CSV
 - `GET /reports/trades.csv` exports recent trades as CSV and supports the same `limit` query parameter as `GET /trades`
 - `GET /reports/backtest-summary.csv` runs one backtest summary export against stored candles using current settings
