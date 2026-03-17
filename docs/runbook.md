@@ -89,6 +89,13 @@ Execution boundary notes:
 - paper mode uses the existing paper execution adapter
 - explicit live mode resolves to an unsupported adapter that raises `execution_unavailable` until a real exchange order adapter is implemented
 
+Live order routing groundwork:
+
+- `EXCHANGE_API_BASE_URL` configures the signed exchange API endpoint
+- `EXCHANGE_API_KEY` and `EXCHANGE_API_SECRET` are required before live order routing can be built
+- the Binance live order client currently supports validate-only and submitted market-order requests as a tested infrastructure path
+- this branch does not yet wire those signed requests into the worker execution service
+
 To run it as a polling worker instead of a single cycle:
 
 ```bash
