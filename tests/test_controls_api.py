@@ -6,6 +6,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import func, select
 
 from app.application.services.market_data_service import CandleInput, MarketDataService
+from app.application.services.market_data_sync_service import MarketDataSyncResult
 from app.config import Settings, get_settings
 from app.infrastructure.database.base import Base
 from app.infrastructure.database.models.trade import TradeRecord
@@ -142,5 +143,54 @@ def test_controls_use_injected_shared_session_factory(tmp_path: Path) -> None:
 
         assert response.status_code == 200
         assert captured == [shared_factory]
+    finally:
+        teardown_client()
+
+
+def test_market_sync_control_returns_completed_summary(tmp_path: Path) -> None:
+    client, settings = build_client(tmp_path)
+    try:
+        session_factory = create_session_factory(settings)
+
+        class SyncStub:
+            def sync_recent_closed_candles(
+                self,
+                *,
+                exchange: str,
+                symbol: str,
+                timeframe: str,
+                limit: int,
+            ) -> MarketDataSyncResult:
+                assert exchange == settings.exchange_name
+                assert symbol == settings.default_symbol
+                assert timeframe == settings.default_timeframe
+                assert limit == settings.market_data_sync_limit
+                session = session_factory()
+                try:
+                    store_closes(settings, [10, 11, 12])
+                finally:
+                    session.close()
+                return MarketDataSyncResult(
+                    fetched_count=3,
+                    stored_count=3,
+                    latest_open_time=datetime(2026, 1, 1, 2, tzinfo=UTC),
+                )
+
+        from app.application.services import operational_control_service as controls_module
+
+        original = controls_module.MarketDataSyncService
+        controls_module.MarketDataSyncService = lambda session, client: SyncStub()
+        try:
+            response = client.post("/controls/market-sync")
+        finally:
+            controls_module.MarketDataSyncService = original
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["status"] == "completed"
+        assert payload["detail"] == "market data sync completed"
+        assert payload["fetched_count"] == 3
+        assert payload["stored_count"] == 3
+        assert payload["latest_open_time"] == "2026-01-01T02:00:00Z"
     finally:
         teardown_client()

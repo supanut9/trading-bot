@@ -115,15 +115,15 @@ The API can export positions, recent trades, and backtest summary data in CSV fo
 
 ### Decision
 
-Make Codex review completion a separate required status check instead of treating the review-trigger workflow as merge readiness.
+Do not rely on Codex review automation as a required PR merge gate.
 
 ### Reason
 
-The previous setup only proved that `@codex review` was posted on the PR. It did not prove that the connector had actually responded yet, so PRs could appear fully green while review was still pending.
+The repository no longer uses Codex review as part of its normal delivery workflow, so keeping dedicated trigger and status-check automation would add maintenance cost without supporting an active process.
 
 ### Consequence
 
-The repository now uses a separate `Codex Review Status` check for merge readiness. It still requires real Codex review evidence on the PR, but it treats resolved Codex review threads as completion so branch protection reflects whether Codex feedback has been handled rather than whether the latest trigger comment happened to receive a fresh connector artifact.
+PR merge readiness is now based on normal CI results and resolved review feedback without Codex-specific automation.
 
 ## 2026-03-17
 
@@ -138,3 +138,17 @@ The worker already had recurring behavior, but it was embedded directly in the e
 ### Consequence
 
 The worker cycle now runs through an explicit scheduled job path, the worker can optionally run recurring backtest summaries on a separate interval, and the default runtime remains a single worker cycle unless polling mode is enabled.
+
+## 2026-03-17
+
+### Decision
+
+Add market-data sync through an exchange adapter as an opt-in worker behavior.
+
+### Reason
+
+The worker needed a real path to refresh candles from an exchange adapter, but making public-network fetches mandatory would make local bootstrap and isolated tests brittle.
+
+### Consequence
+
+The worker can now sync recent closed Binance candles before strategy evaluation when `MARKET_DATA_SYNC_ENABLED=true`, while stored-candle-only behavior remains available by default.

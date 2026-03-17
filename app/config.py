@@ -24,6 +24,16 @@ class Settings(BaseSettings):
     max_daily_loss_pct: float = Field(default=0.03, alias="MAX_DAILY_LOSS_PCT")
     worker_poll_interval_seconds: int = Field(default=60, alias="WORKER_POLL_INTERVAL_SECONDS")
     worker_run_once: bool = Field(default=True, alias="WORKER_RUN_ONCE")
+    market_data_sync_enabled: bool = Field(default=False, alias="MARKET_DATA_SYNC_ENABLED")
+    market_data_sync_limit: int = Field(default=100, alias="MARKET_DATA_SYNC_LIMIT")
+    market_data_sync_timeout_seconds: int = Field(
+        default=10,
+        alias="MARKET_DATA_SYNC_TIMEOUT_SECONDS",
+    )
+    market_data_api_base_url: str = Field(
+        default="https://api.binance.com",
+        alias="MARKET_DATA_API_BASE_URL",
+    )
     backtest_schedule_enabled: bool = Field(
         default=False,
         alias="BACKTEST_SCHEDULE_ENABLED",

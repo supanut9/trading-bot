@@ -4,7 +4,11 @@ from sqlalchemy.orm import Session, sessionmaker
 from app.application.services.operational_control_service import OperationalControlService
 from app.config import Settings, get_settings
 from app.infrastructure.database.session import get_session_factory_dependency
-from app.interfaces.api.schemas import BacktestControlResponse, WorkerControlResponse
+from app.interfaces.api.schemas import (
+    BacktestControlResponse,
+    MarketSyncControlResponse,
+    WorkerControlResponse,
+)
 
 router = APIRouter(prefix="/controls", tags=["controls"])
 settings_dependency = Depends(get_settings)
@@ -41,3 +45,19 @@ def run_backtest(
         session_factory=session_factory,
     ).run_backtest()
     return BacktestControlResponse.model_validate(result)
+
+
+@router.post(
+    "/market-sync",
+    response_model=MarketSyncControlResponse,
+    status_code=status.HTTP_200_OK,
+)
+def run_market_sync(
+    settings: Settings = settings_dependency,
+    session_factory: sessionmaker[Session] = session_factory_dependency,
+) -> MarketSyncControlResponse:
+    result = OperationalControlService(
+        settings,
+        session_factory=session_factory,
+    ).run_market_sync()
+    return MarketSyncControlResponse.model_validate(result)

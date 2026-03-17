@@ -52,12 +52,10 @@ Default PR metadata should stay lightweight:
 Before merge:
 
 1. review comments are inspected
-2. AI review is triggered for the PR when needed
-3. the `Codex Review Status` check confirms review evidence exists for the latest `@codex review` request
-4. valid comments are fixed
-5. validation is rerun for affected areas
-6. replies are posted on the PR
-7. review threads are resolved
+2. valid comments are fixed
+3. validation is rerun for affected areas
+4. replies are posted on the PR
+5. review threads are resolved
 
 `main` should receive changes through PRs only, and PRs should clear review feedback before merge.
 
