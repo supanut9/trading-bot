@@ -93,3 +93,17 @@ Before merge:
 - add scheduled reconciliation and startup resync paths
 - add bounded cancellation and stale-order controls
 - add exchange account visibility for operators
+
+## Phase 6
+
+- detect and surface stale live orders that remain open too long
+- expose operator recovery tools for unresolved live order state
+- strengthen live-state reporting and audit visibility
+- reduce manual ambiguity during live incident handling
+
+## Phase 7
+
+- add deployment-oriented runbook hardening
+- define alerting and operator response expectations
+- improve backup, restore, and restart readiness
+- document production operating constraints and safety checks
