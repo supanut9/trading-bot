@@ -724,7 +724,7 @@ Main outputs:
 
 Status:
 
-- planned
+- implemented on branch
 
 Scope:
 
@@ -741,4 +741,4 @@ Main outputs:
 
 Current next feature:
 
-- `feature/runtime-reliability-telemetry`
+- no immediate next feature in the defined roadmap; add the next bounded phase here before continuing implementation

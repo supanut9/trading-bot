@@ -3,6 +3,7 @@ from decimal import Decimal
 from pathlib import Path
 
 from app.application.services.market_data_service import CandleInput, MarketDataService
+from app.application.services.runtime_startup_service import build_runtime_startup_context
 from app.backtest import main
 from app.config import Settings, get_settings
 from app.infrastructure.database.base import Base
@@ -44,6 +45,10 @@ def test_backtest_cli_logs_not_enough_candles_and_exits(
 
     get_settings.cache_clear()
     monkeypatch.setattr("app.backtest.get_settings", lambda: settings)
+    monkeypatch.setattr(
+        "app.backtest.validate_runtime_startup",
+        lambda _settings, component: build_runtime_startup_context(settings, component),
+    )
 
     try:
         main()
@@ -52,3 +57,26 @@ def test_backtest_cli_logs_not_enough_candles_and_exits(
 
     captured = capsys.readouterr()
     assert "backtest_skipped reason=not_enough_candles" in captured.err
+
+
+def test_backtest_exits_early_when_runtime_startup_validation_fails(
+    monkeypatch,
+    capsys,
+) -> None:
+    settings = Settings()
+    get_settings.cache_clear()
+    monkeypatch.setattr("app.backtest.get_settings", lambda: settings)
+    monkeypatch.setattr(
+        "app.backtest.validate_runtime_startup",
+        lambda _settings, _component: (_ for _ in ()).throw(
+            RuntimeError("database connectivity check failed")
+        ),
+    )
+
+    try:
+        main()
+    finally:
+        get_settings.cache_clear()
+
+    captured = capsys.readouterr()
+    assert "runtime_startup_failed component=backtest" in captured.err
