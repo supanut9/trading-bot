@@ -503,11 +503,11 @@ Main outputs:
 
 ## Next Recommended Feature
 
-No immediate next feature in the current live-state slice.
+`feature/stale-live-order-detection`
 
 Reason:
 
-- the currently documented live-state sync and manual recovery slice is complete through bounded live order cancellation
+- the current live-state slice is complete, and the next operational gap is identifying unresolved live orders before they become hidden risk
 
 ## Next Expansion Slice
 
@@ -586,3 +586,79 @@ Main outputs:
 - exchange cancel-order client support
 - `POST /controls/live-cancel`
 - tests for cancel success and failure handling
+
+### 31. `feature/stale-live-order-detection`
+
+Status:
+
+- planned
+
+Scope:
+
+- detect live orders that remain open beyond a bounded age threshold
+- surface stale-order visibility through status, reporting, or audit paths
+- keep detection read-only and avoid automatic cancellation behavior
+- add tests and runbook updates for stale-order inspection
+
+Main outputs:
+
+- stale live order classifier
+- operator-facing stale-order visibility
+- tests for stale-order threshold behavior
+
+### 32. `feature/live-order-recovery-report`
+
+Status:
+
+- planned
+
+Scope:
+
+- add a compact operator report for unresolved live orders and latest reconciliation state
+- combine local order status, exchange ids, and recent audit context in one review surface
+- keep the report read-only and focused on incident handling
+- add tests and docs for recovery review workflow
+
+Main outputs:
+
+- live order recovery report
+- reporting or CSV visibility for unresolved live state
+- tests for recovery report output
+
+### 33. `feature/reconciliation-alerting`
+
+Status:
+
+- planned
+
+Scope:
+
+- emit notifications for failed startup sync, failed scheduled reconciliation, or stale-order detection
+- keep alerting bounded to operational failure events rather than strategy outcomes
+- add tests and runbook guidance for alert-triggered operator response
+- preserve existing notification optionality and channel settings
+
+Main outputs:
+
+- live-ops alert notifications
+- tests for reconciliation and stale-order alert formatting
+- runbook guidance for alert handling
+
+### 34. `feature/production-ops-runbook`
+
+Status:
+
+- planned
+
+Scope:
+
+- document deployment, restart, rollback, and recovery expectations for live-capable operation
+- define minimum production readiness checks before enabling live mode
+- tighten runbook guidance around logs, alerts, backups, and restart semantics
+- keep this feature documentation-only unless a missing operational script is clearly required
+
+Main outputs:
+
+- production operations runbook
+- readiness checklist for live deployment
+- documented recovery workflow
