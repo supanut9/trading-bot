@@ -6,6 +6,7 @@ from pathlib import Path
 
 from fastapi.testclient import TestClient
 
+from app.application.services.audit_service import AuditService
 from app.application.services.market_data_service import CandleInput, MarketDataService
 from app.application.services.paper_execution_service import (
     PaperExecutionRequest,
@@ -143,6 +144,7 @@ def test_reports_dashboard_renders_html_snapshot(tmp_path: Path) -> None:
         assert "Open Positions" in response.text
         assert "Recent Trades" in response.text
         assert "Backtest Snapshot" in response.text
+        assert "Recent Audit Events" in response.text
         assert "BTC/USDT" in response.text
         assert "Download positions CSV" in response.text
     finally:
@@ -182,6 +184,47 @@ def test_backtest_summary_report_exports_completed_csv(tmp_path: Path) -> None:
         assert rows[0]["candle_count"] == "9"
         assert rows[0]["total_trades"] == "2"
         assert rows[0]["ending_equity"] == "10000.00000000"
+    finally:
+        teardown_client(session)
+
+
+def test_audit_report_exports_recent_events_csv(tmp_path: Path) -> None:
+    client, session, settings = build_client(tmp_path)
+    try:
+        AuditService(session=session).record_control_result(
+            control_type="worker_cycle",
+            source="api.control",
+            status="executed",
+            detail="signal executed in paper mode",
+            settings=settings,
+            payload={"notified": False},
+        )
+        AuditService(session=session).record_notification_delivery(
+            source="notification",
+            channel="log",
+            status="sent",
+            detail="worker.executed delivery sent",
+            related_event_type="worker.executed",
+            payload={
+                "event_type": "worker.executed",
+                "metadata": {
+                    "exchange": settings.exchange_name,
+                    "symbol": settings.default_symbol,
+                    "timeframe": settings.default_timeframe,
+                },
+            },
+        )
+        session.commit()
+
+        response = client.get("/reports/audit.csv?limit=1")
+
+        assert response.status_code == 200
+        assert response.headers["content-disposition"] == 'attachment; filename="audit.csv"'
+        rows = read_csv_rows(response.text)
+        assert len(rows) == 1
+        assert rows[0]["event_type"] == "notification_delivery"
+        assert rows[0]["source"] == "notification"
+        assert rows[0]["status"] == "sent"
     finally:
         teardown_client(session)
 

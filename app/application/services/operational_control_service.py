@@ -5,6 +5,7 @@ from decimal import Decimal
 
 from sqlalchemy.orm import Session, sessionmaker
 
+from app.application.services.audit_service import AuditService
 from app.application.services.backtest_service import BacktestResult, BacktestService
 from app.application.services.market_data_service import MarketDataService
 from app.application.services.market_data_sync_service import MarketDataSyncService
@@ -70,17 +71,27 @@ class OperationalControlService:
         *,
         session_factory: sessionmaker[Session] | None = None,
         notifications: NotificationService | None = None,
+        audit: AuditService | None = None,
     ) -> None:
         self._settings = settings
         self._session_factory = session_factory or create_session_factory(settings)
-        self._notifications = notifications or build_notification_service(settings)
+        self._notifications = notifications or build_notification_service(
+            settings,
+            session_factory=self._session_factory,
+        )
+        self._audit = audit or AuditService(session_factory=self._session_factory)
 
-    def run_worker_cycle(self) -> WorkerControlResult:
+    def run_worker_cycle(
+        self,
+        *,
+        source: str = "internal",
+        audit: bool = True,
+    ) -> WorkerControlResult:
         with self._session_factory() as session:
             result = WorkerOrchestrationService(session, self._settings).run_cycle()
 
         notified = self._notifications.notify_worker_cycle(self._settings, result)
-        return WorkerControlResult(
+        control_result = WorkerControlResult(
             status=result.status,
             detail=result.detail,
             signal_action=result.signal_action,
@@ -90,8 +101,30 @@ class OperationalControlService:
             position_quantity=result.position_quantity,
             notified=notified,
         )
+        if audit:
+            self._audit.record_control_result(
+                control_type="worker_cycle",
+                source=source,
+                status=control_result.status,
+                detail=control_result.detail,
+                settings=self._settings,
+                payload={
+                    "signal_action": control_result.signal_action,
+                    "client_order_id": control_result.client_order_id,
+                    "order_id": control_result.order_id,
+                    "trade_id": control_result.trade_id,
+                    "position_quantity": control_result.position_quantity,
+                    "notified": control_result.notified,
+                },
+            )
+        return control_result
 
-    def run_market_sync(self) -> MarketSyncControlResult:
+    def run_market_sync(
+        self,
+        *,
+        source: str = "internal",
+        audit: bool = True,
+    ) -> MarketSyncControlResult:
         with self._session_factory() as session:
             try:
                 result = MarketDataSyncService(
@@ -111,7 +144,7 @@ class OperationalControlService:
                     stored_count=0,
                 )
                 notified = self._notifications.notify_market_sync(self._settings, failed)
-                return MarketSyncControlResult(
+                control_result = MarketSyncControlResult(
                     status=failed.status,
                     detail=failed.detail,
                     fetched_count=failed.fetched_count,
@@ -119,6 +152,21 @@ class OperationalControlService:
                     latest_open_time=failed.latest_open_time,
                     notified=notified,
                 )
+                if audit:
+                    self._audit.record_control_result(
+                        control_type="market_sync",
+                        source=source,
+                        status=control_result.status,
+                        detail=control_result.detail,
+                        settings=self._settings,
+                        payload={
+                            "fetched_count": control_result.fetched_count,
+                            "stored_count": control_result.stored_count,
+                            "latest_open_time": control_result.latest_open_time,
+                            "notified": control_result.notified,
+                        },
+                    )
+                return control_result
 
         detail = "market data sync completed"
         if result.fetched_count == 0:
@@ -134,7 +182,7 @@ class OperationalControlService:
             latest_open_time=result.latest_open_time,
         )
         notified = self._notifications.notify_market_sync(self._settings, completed)
-        return MarketSyncControlResult(
+        control_result = MarketSyncControlResult(
             status=completed.status,
             detail=completed.detail,
             fetched_count=completed.fetched_count,
@@ -142,8 +190,29 @@ class OperationalControlService:
             latest_open_time=completed.latest_open_time,
             notified=notified,
         )
+        if audit:
+            self._audit.record_control_result(
+                control_type="market_sync",
+                source=source,
+                status=control_result.status,
+                detail=control_result.detail,
+                settings=self._settings,
+                payload={
+                    "fetched_count": control_result.fetched_count,
+                    "stored_count": control_result.stored_count,
+                    "latest_open_time": control_result.latest_open_time,
+                    "notified": control_result.notified,
+                },
+            )
+        return control_result
 
-    def run_backtest(self, *, notify: bool = True) -> BacktestControlResult:
+    def run_backtest(
+        self,
+        *,
+        notify: bool = True,
+        source: str = "internal",
+        audit: bool = True,
+    ) -> BacktestControlResult:
         with self._session_factory() as session:
             records = MarketDataService(session).list_historical_candles(
                 exchange=self._settings.exchange_name,
@@ -175,13 +244,27 @@ class OperationalControlService:
                     count=candle_count,
                     required=required_candles,
                 )
-            return BacktestControlResult(
+            control_result = BacktestControlResult(
                 status=status,
                 detail=detail,
                 notified=notified,
                 candle_count=candle_count,
                 required_candles=required_candles,
             )
+            if audit:
+                self._audit.record_control_result(
+                    control_type="backtest",
+                    source=source,
+                    status=control_result.status,
+                    detail=control_result.detail,
+                    settings=self._settings,
+                    payload={
+                        "candle_count": control_result.candle_count,
+                        "required_candles": control_result.required_candles,
+                        "notified": control_result.notified,
+                    },
+                )
+            return control_result
 
         notified = False
         if notify:
@@ -189,7 +272,7 @@ class OperationalControlService:
                 self._settings,
                 backtest_result,
             )
-        return BacktestControlResult(
+        control_result = BacktestControlResult(
             status=status,
             detail=detail,
             notified=notified,
@@ -204,6 +287,28 @@ class OperationalControlService:
             winning_trades=backtest_result.winning_trades,
             losing_trades=backtest_result.losing_trades,
         )
+        if audit:
+            self._audit.record_control_result(
+                control_type="backtest",
+                source=source,
+                status=control_result.status,
+                detail=control_result.detail,
+                settings=self._settings,
+                payload={
+                    "candle_count": control_result.candle_count,
+                    "required_candles": control_result.required_candles,
+                    "starting_equity": control_result.starting_equity,
+                    "ending_equity": control_result.ending_equity,
+                    "realized_pnl": control_result.realized_pnl,
+                    "total_return_pct": control_result.total_return_pct,
+                    "max_drawdown_pct": control_result.max_drawdown_pct,
+                    "total_trades": control_result.total_trades,
+                    "winning_trades": control_result.winning_trades,
+                    "losing_trades": control_result.losing_trades,
+                    "notified": control_result.notified,
+                },
+            )
+        return control_result
 
     def _run_backtest_from_records(self, records: Sequence[CandleRecord]) -> BacktestResult:
         return BacktestService(

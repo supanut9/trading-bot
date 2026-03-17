@@ -66,6 +66,21 @@ def _render_dashboard(service: ReportingDashboardService) -> str:
         )
         or '<tr><td colspan="5">No trades recorded.</td></tr>'
     )
+    audit_rows = (
+        "".join(
+            (
+                "<tr>"
+                f"<td>{event.created_at.isoformat()}</td>"
+                f"<td>{event.event_type}</td>"
+                f"<td>{event.source}</td>"
+                f"<td>{event.status}</td>"
+                f"<td>{event.detail}</td>"
+                "</tr>"
+            )
+            for event in dashboard.audit_events
+        )
+        or '<tr><td colspan="5">No audit events recorded.</td></tr>'
+    )
 
     mode_label = "Paper" if dashboard.paper_trading else "Live"
     live_label = "enabled" if dashboard.live_trading_enabled else "disabled"
@@ -219,6 +234,7 @@ def _render_dashboard(service: ReportingDashboardService) -> str:
           <a href="/reports/positions.csv">Download positions CSV</a>
           <a href="/reports/trades.csv">Download trades CSV</a>
           <a href="/reports/backtest-summary.csv">Download backtest CSV</a>
+          <a href="/reports/audit.csv">Download audit CSV</a>
         </div>
       </section>
       <section class="cards">{cards}</section>
@@ -267,6 +283,21 @@ def _render_dashboard(service: ReportingDashboardService) -> str:
               <tr><th>Return %</th><td>{dashboard.backtest.total_return_pct or "-"}</td></tr>
               <tr><th>Max Drawdown %</th><td>{dashboard.backtest.max_drawdown_pct or "-"}</td></tr>
             </tbody>
+          </table>
+        </div>
+        <div class="panel">
+          <h2>Recent Audit Events</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>When</th>
+                <th>Event</th>
+                <th>Source</th>
+                <th>Status</th>
+                <th>Detail</th>
+              </tr>
+            </thead>
+            <tbody>{audit_rows}</tbody>
           </table>
         </div>
       </section>
@@ -322,3 +353,18 @@ def export_backtest_summary(
         session_factory=session_factory,
     ).export_backtest_summary_csv()
     return _csv_response("backtest-summary.csv", content)
+
+
+@router.get("/audit.csv")
+def export_audit_events(
+    session: Session = session_dependency,
+    settings: Settings = settings_dependency,
+    session_factory: sessionmaker[Session] = session_factory_dependency,
+    limit: Annotated[int, Query(ge=1, le=500)] = 100,
+) -> Response:
+    content = ReportingExportService(
+        session,
+        settings,
+        session_factory=session_factory,
+    ).export_audit_events_csv(limit=limit)
+    return _csv_response("audit.csv", content)

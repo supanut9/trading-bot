@@ -42,10 +42,19 @@ class RecordingNotifications:
         return True
 
 
+class RecordingAudit:
+    def __init__(self) -> None:
+        self.entries: list[dict[str, object]] = []
+
+    def record_control_result(self, **kwargs: object) -> None:
+        self.entries.append(kwargs)
+
+
 def test_worker_control_notifies_after_session_scope_exits(monkeypatch) -> None:
     settings = Settings(DATABASE_URL="sqlite:///./operational_controls.db")
     session_state = SessionState()
     notifications = RecordingNotifications(session_state)
+    audit = RecordingAudit()
 
     class FakeOrchestrationService:
         def __init__(self, session: FakeSession, active_settings: Settings) -> None:
@@ -64,19 +73,24 @@ def test_worker_control_notifies_after_session_scope_exits(monkeypatch) -> None:
         settings,
         session_factory=lambda: FakeSession(session_state),
         notifications=notifications,
+        audit=audit,
     )
 
-    result = service.run_worker_cycle()
+    result = service.run_worker_cycle(source="api.control")
 
     assert isinstance(result, WorkerControlResult)
     assert result.notified is True
     assert notifications.closed_state_during_notify == [True]
+    assert len(audit.entries) == 1
+    assert audit.entries[0]["control_type"] == "worker_cycle"
+    assert audit.entries[0]["source"] == "api.control"
 
 
 def test_market_sync_control_returns_completed_result(monkeypatch) -> None:
     settings = Settings(DATABASE_URL="sqlite:///./operational_controls.db")
     session_state = SessionState()
     notifications = RecordingNotifications(session_state)
+    audit = RecordingAudit()
 
     class FakeSyncService:
         def __init__(self, session: FakeSession, _client: object) -> None:
@@ -113,6 +127,7 @@ def test_market_sync_control_returns_completed_result(monkeypatch) -> None:
         settings,
         session_factory=lambda: FakeSession(session_state),
         notifications=notifications,
+        audit=audit,
     )
 
     result = service.run_market_sync()
@@ -126,11 +141,14 @@ def test_market_sync_control_returns_completed_result(monkeypatch) -> None:
         notified=True,
     )
     assert len(notifications.market_sync_results) == 1
+    assert len(audit.entries) == 1
+    assert audit.entries[0]["control_type"] == "market_sync"
 
 
 def test_market_sync_control_reports_no_new_candles(monkeypatch) -> None:
     settings = Settings(DATABASE_URL="sqlite:///./operational_controls.db")
     notifications = RecordingNotifications(SessionState())
+    audit = RecordingAudit()
 
     class FakeSyncService:
         def __init__(self, _session: FakeSession, _client: object) -> None:
@@ -163,9 +181,12 @@ def test_market_sync_control_reports_no_new_candles(monkeypatch) -> None:
         settings,
         session_factory=lambda: FakeSession(SessionState()),
         notifications=notifications,
+        audit=audit,
     )
 
     result = service.run_market_sync()
 
     assert result.detail == "no new candles stored"
     assert result.notified is True
+    assert len(audit.entries) == 1
+    assert audit.entries[0]["status"] == "completed"

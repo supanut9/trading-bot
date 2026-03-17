@@ -10,7 +10,7 @@ def main() -> None:
     settings = get_settings()
     configure_logging(settings)
     init_database(settings)
-    result = OperationalControlService(settings).run_backtest()
+    result = OperationalControlService(settings).run_backtest(source="cli.backtest")
 
     if result.status == "skipped":
         logger.info(

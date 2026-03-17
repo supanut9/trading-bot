@@ -23,6 +23,7 @@ Operational endpoints:
 - `GET /reports/positions.csv`
 - `GET /reports/trades.csv`
 - `GET /reports/backtest-summary.csv`
+- `GET /reports/audit.csv`
 
 Load candles for local worker testing:
 
@@ -59,10 +60,11 @@ Manual controls:
 
 Report exports:
 
-- `GET /reports` renders an operator-facing HTML dashboard over positions, trades, and backtest summary data
+- `GET /reports` renders an operator-facing HTML dashboard over positions, trades, backtest summary data, and recent audit events
 - `GET /reports/positions.csv` exports the current positions view as CSV
 - `GET /reports/trades.csv` exports recent trades as CSV and supports the same `limit` query parameter as `GET /trades`
 - `GET /reports/backtest-summary.csv` runs one backtest summary export against stored candles using current settings
+- `GET /reports/audit.csv` exports recent audit events for control runs and notification delivery attempts
 
 ## Start Worker
 
@@ -197,6 +199,7 @@ Stop the running process with `Ctrl+C`.
 
 - API health endpoint: `/health`
 - logs are written to stdout
+- recent operational audit events are available through `/reports` and `/reports/audit.csv`
 - major architecture and workflow decisions are tracked in `docs/decisions.md`
 
 ## Failure Handling

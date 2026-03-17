@@ -180,3 +180,17 @@ The system now exposes a manual market-sync control and optional pre-worker sync
 ### Consequence
 
 Market sync completion and failure can now emit notifications, and webhook senders log `notification_delivery_failed` for non-`2xx` responses instead of treating them as successful delivery.
+
+## 2026-03-17
+
+### Decision
+
+Persist a lightweight audit feed for control outcomes and notification delivery, and expose it through the reporting surface.
+
+### Reason
+
+The system now has multiple operator-triggered and scheduled workflows, plus outbound notifications whose success or failure matters operationally. Runtime logs alone are not a stable operator review surface, but a full log-ingestion subsystem would be too heavy for v1.
+
+### Consequence
+
+The database now stores compact audit events for worker-cycle, backtest, market-sync, and notification-delivery outcomes, and operators can review recent entries through the reporting dashboard and audit CSV export.

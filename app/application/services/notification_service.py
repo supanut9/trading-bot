@@ -2,6 +2,9 @@ from __future__ import annotations
 
 from typing import Any
 
+from sqlalchemy.orm import Session, sessionmaker
+
+from app.application.services.audit_service import AuditService
 from app.application.services.backtest_service import BacktestResult
 from app.application.services.worker_orchestration_service import WorkerCycleResult
 from app.config import Settings
@@ -17,10 +20,17 @@ logger = get_logger(__name__)
 
 
 class NotificationService:
-    def __init__(self, *, sender: NotificationSender, channel: str) -> None:
+    def __init__(
+        self,
+        *,
+        sender: NotificationSender,
+        channel: str,
+        audit: AuditService | None = None,
+    ) -> None:
         self._sender = sender
         self._channel = channel
         self._enabled = channel != "none"
+        self._audit = audit
 
     def notify_worker_cycle(self, settings: Settings, result: WorkerCycleResult) -> bool:
         event = self._build_worker_event(settings, result)
@@ -120,6 +130,7 @@ class NotificationService:
         try:
             self._sender.send(event)
         except Exception:
+            self._record_delivery(event, status="failed")
             logger.exception(
                 "notification_delivery_failed channel=%s event_type=%s",
                 self._channel,
@@ -127,6 +138,7 @@ class NotificationService:
             )
             return False
 
+        self._record_delivery(event, status="sent")
         logger.info(
             "notification_sent channel=%s event_type=%s severity=%s",
             self._channel,
@@ -134,6 +146,18 @@ class NotificationService:
             event.severity,
         )
         return True
+
+    def _record_delivery(self, event: NotificationEvent, *, status: str) -> None:
+        if self._audit is None:
+            return
+        self._audit.record_notification_delivery(
+            source="notification",
+            channel=self._channel,
+            status=status,
+            detail=f"{event.event_type} delivery {status}",
+            related_event_type=event.event_type,
+            payload=event.to_payload(),
+        )
 
     def _build_worker_event(
         self,
@@ -188,7 +212,11 @@ class NotificationService:
         return None
 
 
-def build_notification_service(settings: Settings) -> NotificationService:
+def build_notification_service(
+    settings: Settings,
+    *,
+    session_factory: sessionmaker[Session] | None = None,
+) -> NotificationService:
     if settings.notification_channel == "none":
         sender = NoOpNotificationSender()
     elif settings.notification_channel == "log":
@@ -203,4 +231,12 @@ def build_notification_service(settings: Settings) -> NotificationService:
             timeout_seconds=settings.notification_timeout_seconds,
         )
 
-    return NotificationService(sender=sender, channel=settings.notification_channel)
+    audit = None
+    if session_factory is not None:
+        audit = AuditService(session_factory=session_factory)
+
+    return NotificationService(
+        sender=sender,
+        channel=settings.notification_channel,
+        audit=audit,
+    )

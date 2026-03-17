@@ -14,7 +14,7 @@ class BacktestSummaryJob:
         self._controls = OperationalControlService(settings)
 
     def run(self) -> BacktestControlResult:
-        result = self._controls.run_backtest()
+        result = self._controls.run_backtest(source="job.backtest_summary")
         if result.status == "skipped":
             logger.info(
                 "scheduled_backtest_skipped reason=%s exchange=%s symbol=%s timeframe=%s "
