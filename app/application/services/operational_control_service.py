@@ -22,6 +22,7 @@ from app.domain.risk import RiskLimits, RiskService
 from app.domain.strategies.base import Candle
 from app.domain.strategies.ema_crossover import EmaCrossoverStrategy
 from app.infrastructure.database.models.candle import CandleRecord
+from app.infrastructure.database.repositories.order_repository import OrderRepository
 from app.infrastructure.database.session import create_session_factory
 from app.infrastructure.exchanges.factory import (
     build_live_order_exchange_client,
@@ -74,6 +75,17 @@ class LiveReconcileControlResult:
     detail: str
     reconciled_count: int
     filled_count: int
+    notified: bool = False
+
+
+@dataclass(frozen=True, slots=True)
+class LiveCancelControlResult:
+    status: str
+    detail: str
+    order_id: int | None
+    client_order_id: str | None
+    exchange_order_id: str | None
+    order_status: str | None
     notified: bool = False
 
 
@@ -381,6 +393,115 @@ class OperationalControlService:
                 payload={
                     "reconciled_count": control_result.reconciled_count,
                     "filled_count": control_result.filled_count,
+                },
+            )
+        return control_result
+
+    def run_live_cancel(
+        self,
+        *,
+        order_id: int | None = None,
+        client_order_id: str | None = None,
+        exchange_order_id: str | None = None,
+        source: str = "internal",
+        audit: bool = True,
+    ) -> LiveCancelControlResult:
+        provided_identifiers = [
+            value is not None for value in (order_id, client_order_id, exchange_order_id)
+        ]
+        if sum(provided_identifiers) != 1:
+            control_result = LiveCancelControlResult(
+                status="failed",
+                detail="exactly one live order identifier is required",
+                order_id=order_id,
+                client_order_id=client_order_id,
+                exchange_order_id=exchange_order_id,
+                order_status=None,
+            )
+            if audit:
+                self._audit.record_control_result(
+                    control_type="live_cancel",
+                    source=source,
+                    status=control_result.status,
+                    detail=control_result.detail,
+                    settings=self._settings,
+                    payload={
+                        "order_id": control_result.order_id,
+                        "client_order_id": control_result.client_order_id,
+                        "exchange_order_id": control_result.exchange_order_id,
+                        "order_status": control_result.order_status,
+                    },
+                )
+            return control_result
+
+        with self._session_factory() as session:
+            orders = OrderRepository(session)
+            if order_id is not None:
+                order = orders.get_by_id(order_id)
+            elif client_order_id is not None:
+                order = orders.get_by_client_order_id(client_order_id)
+            else:
+                order = orders.get_by_exchange_order_id(str(exchange_order_id))
+
+            if order is None or order.mode != "live":
+                control_result = LiveCancelControlResult(
+                    status="failed",
+                    detail="live order not found",
+                    order_id=order_id,
+                    client_order_id=client_order_id,
+                    exchange_order_id=exchange_order_id,
+                    order_status=None,
+                )
+            elif order.status not in {"submitting", "submitted", "new", "partially_filled"}:
+                control_result = LiveCancelControlResult(
+                    status="skipped",
+                    detail="live order is not cancelable in its current status",
+                    order_id=order.id,
+                    client_order_id=order.client_order_id,
+                    exchange_order_id=order.exchange_order_id,
+                    order_status=order.status,
+                )
+            else:
+                try:
+                    cancellation = build_live_order_exchange_client(self._settings).cancel_order(
+                        symbol=order.symbol,
+                        client_order_id=order.client_order_id,
+                        exchange_order_id=order.exchange_order_id,
+                    )
+                    order.status = cancellation.status or "canceled"
+                    if cancellation.exchange_order_id:
+                        order.exchange_order_id = cancellation.exchange_order_id
+                    session.commit()
+                    control_result = LiveCancelControlResult(
+                        status="completed",
+                        detail="live order canceled",
+                        order_id=order.id,
+                        client_order_id=order.client_order_id,
+                        exchange_order_id=order.exchange_order_id,
+                        order_status=order.status,
+                    )
+                except Exception:
+                    control_result = LiveCancelControlResult(
+                        status="failed",
+                        detail="live order cancel failed",
+                        order_id=order.id,
+                        client_order_id=order.client_order_id,
+                        exchange_order_id=order.exchange_order_id,
+                        order_status=order.status,
+                    )
+
+        if audit:
+            self._audit.record_control_result(
+                control_type="live_cancel",
+                source=source,
+                status=control_result.status,
+                detail=control_result.detail,
+                settings=self._settings,
+                payload={
+                    "order_id": control_result.order_id,
+                    "client_order_id": control_result.client_order_id,
+                    "exchange_order_id": control_result.exchange_order_id,
+                    "order_status": control_result.order_status,
                 },
             )
         return control_result

@@ -321,3 +321,64 @@ def test_live_reconcile_control_returns_completed_summary(tmp_path: Path) -> Non
         assert payload["filled_count"] == 1
     finally:
         teardown_client()
+
+
+def test_live_cancel_control_cancels_submitted_live_order(tmp_path: Path) -> None:
+    client, settings = build_client(tmp_path)
+    try:
+        settings.paper_trading = False
+        settings.live_trading_enabled = True
+        settings.exchange_api_key = "key"
+        settings.exchange_api_secret = "secret"
+
+        session = create_session_factory(settings)()
+        try:
+            order = OrderRecord(
+                exchange="binance",
+                symbol="BTC/USDT",
+                side="buy",
+                order_type="market",
+                status="submitted",
+                mode="live",
+                quantity=Decimal("0.002"),
+                price=Decimal("50000"),
+                client_order_id="live-buy-cancel-1",
+                exchange_order_id="789",
+            )
+            session.add(order)
+            session.commit()
+            order_id = order.id
+        finally:
+            session.close()
+
+        from app.application.services import operational_control_service as controls_module
+
+        original_client_builder = controls_module.build_live_order_exchange_client
+        controls_module.build_live_order_exchange_client = lambda current_settings: type(
+            "CancelOrderClient",
+            (),
+            {
+                "cancel_order": lambda self, **kwargs: type(
+                    "CancelResult",
+                    (),
+                    {
+                        "status": "canceled",
+                        "client_order_id": kwargs.get("client_order_id"),
+                        "exchange_order_id": kwargs.get("exchange_order_id"),
+                        "response_payload": {},
+                    },
+                )(),
+            },
+        )()
+        try:
+            response = client.post("/controls/live-cancel", json={"order_id": order_id})
+        finally:
+            controls_module.build_live_order_exchange_client = original_client_builder
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["status"] == "completed"
+        assert payload["detail"] == "live order canceled"
+        assert payload["order_status"] == "canceled"
+    finally:
+        teardown_client()

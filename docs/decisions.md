@@ -306,3 +306,17 @@ After a restart or deploy, the local database may lag the exchange state for rec
 ### Consequence
 
 Live worker startup now runs the existing reconciliation workflow once before any new execution is attempted, and a failed startup sync causes the worker to stop instead of continuing with uncertain live state.
+
+## 2026-03-17
+
+### Decision
+
+Expose live order cancellation as a bounded manual control instead of adding automatic cancel behavior.
+
+### Reason
+
+Order cancellation affects exchange-side state directly and can conflict with fills or partial fills in flight. Keeping it manual and explicit gives operators a recovery tool without introducing implicit cancel heuristics that might race live exchange activity.
+
+### Consequence
+
+The live order client now supports authenticated cancel requests, the controls API can cancel a live order by one explicit identifier, and local order state changes to canceled only after a confirmed exchange cancel response.

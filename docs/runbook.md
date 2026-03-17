@@ -110,6 +110,12 @@ Live fill reconciliation:
 - `STARTUP_STATE_SYNC_ENABLED=true` runs the same reconciliation workflow once during live worker startup before any new execution is attempted
 - if startup state sync fails in live mode, the worker exits without entering a new execution cycle
 
+Live order cancel control:
+
+- `POST /controls/live-cancel` cancels a live order by exactly one identifier: `order_id`, `client_order_id`, or `exchange_order_id`
+- cancellation is bounded to local live orders in cancelable states such as `submitted`, `new`, or `partially_filled`
+- local order status is updated only after the exchange confirms cancellation
+
 Live balance visibility:
 
 - `GET /status` includes `account_balance_status` and `account_balances`

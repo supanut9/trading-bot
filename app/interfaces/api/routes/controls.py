@@ -6,6 +6,8 @@ from app.config import Settings, get_settings
 from app.infrastructure.database.session import get_session_factory_dependency
 from app.interfaces.api.schemas import (
     BacktestControlResponse,
+    LiveCancelControlRequest,
+    LiveCancelControlResponse,
     LiveReconcileControlResponse,
     MarketSyncControlResponse,
     WorkerControlResponse,
@@ -78,3 +80,25 @@ def run_live_reconcile(
         session_factory=session_factory,
     ).run_live_reconcile(source="api.control")
     return LiveReconcileControlResponse.model_validate(result)
+
+
+@router.post(
+    "/live-cancel",
+    response_model=LiveCancelControlResponse,
+    status_code=status.HTTP_200_OK,
+)
+def run_live_cancel(
+    request: LiveCancelControlRequest,
+    settings: Settings = settings_dependency,
+    session_factory: sessionmaker[Session] = session_factory_dependency,
+) -> LiveCancelControlResponse:
+    result = OperationalControlService(
+        settings,
+        session_factory=session_factory,
+    ).run_live_cancel(
+        order_id=request.order_id,
+        client_order_id=request.client_order_id,
+        exchange_order_id=request.exchange_order_id,
+        source="api.control",
+    )
+    return LiveCancelControlResponse.model_validate(result)

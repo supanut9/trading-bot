@@ -69,6 +69,12 @@ class OrderRepository:
         )
         return self._session.execute(statement).scalar_one_or_none()
 
+    def get_by_exchange_order_id(self, exchange_order_id: str) -> OrderRecord | None:
+        statement: Select[tuple[OrderRecord]] = select(OrderRecord).where(
+            OrderRecord.exchange_order_id == exchange_order_id
+        )
+        return self._session.execute(statement).scalar_one_or_none()
+
     def list_live_orders_by_status(
         self,
         *,

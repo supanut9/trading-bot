@@ -13,6 +13,7 @@ from urllib.request import Request, urlopen
 from app.infrastructure.exchanges.base import (
     ExchangeAssetBalance,
     ExchangeCandle,
+    ExchangeOrderCancellation,
     ExchangeOrderRequest,
     ExchangeOrderStatus,
     ExchangeOrderSubmission,
@@ -143,6 +144,37 @@ class BinanceSpotOrderClient(LiveOrderExchangeClient):
                 )
             )
         return balances
+
+    def cancel_order(
+        self,
+        *,
+        symbol: str,
+        client_order_id: str | None = None,
+        exchange_order_id: str | None = None,
+    ) -> ExchangeOrderCancellation:
+        if client_order_id is None and exchange_order_id is None:
+            raise ValueError("client_order_id or exchange_order_id is required")
+
+        parsed = self._signed_request(
+            method="DELETE",
+            endpoint="/api/v3/order",
+            parameters={
+                "symbol": symbol.replace("/", ""),
+                "origClientOrderId": client_order_id,
+                "orderId": exchange_order_id,
+            },
+            error_action="cancel Binance order",
+        )
+        return ExchangeOrderCancellation(
+            status=str(parsed.get("status", "")).lower(),
+            client_order_id=(
+                str(parsed.get("clientOrderId")) if parsed.get("clientOrderId") else client_order_id
+            ),
+            exchange_order_id=(
+                str(parsed.get("orderId")) if parsed.get("orderId") else exchange_order_id
+            ),
+            response_payload=parsed,
+        )
 
     def fetch_order_status(
         self,

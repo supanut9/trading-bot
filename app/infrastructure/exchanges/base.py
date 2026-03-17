@@ -45,6 +45,14 @@ class ExchangeOrderStatus:
 
 
 @dataclass(frozen=True, slots=True)
+class ExchangeOrderCancellation:
+    status: str
+    client_order_id: str | None
+    exchange_order_id: str | None
+    response_payload: dict[str, object]
+
+
+@dataclass(frozen=True, slots=True)
 class ExchangeAssetBalance:
     asset: str
     free: Decimal
@@ -69,6 +77,14 @@ class LiveOrderExchangeClient(Protocol):
     def submit_order(self, request: ExchangeOrderRequest) -> ExchangeOrderSubmission: ...
 
     def fetch_account_balances(self) -> Sequence[ExchangeAssetBalance]: ...
+
+    def cancel_order(
+        self,
+        *,
+        symbol: str,
+        client_order_id: str | None = None,
+        exchange_order_id: str | None = None,
+    ) -> ExchangeOrderCancellation: ...
 
     def fetch_order_status(
         self,

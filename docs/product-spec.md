@@ -37,6 +37,7 @@ Build a maintainable trading bot that supports research, backtesting, paper trad
 - expose exchange-side base and quote asset balances for the configured live symbol through the status surface
 - optionally run recurring live reconciliation jobs so local runtime state can catch up with exchange fills without manual control calls
 - run startup live reconciliation before new live worker execution so restarts fail closed on uncertain exchange state
+- allow bounded manual cancellation of recent live orders through the controls surface
 - emit optional notifications for worker execution, risk rejection, backtest outcomes, and market sync outcomes
 - persist bot state and logs
 - expose minimal operational API for health, status, positions, trades, candle ingestion, and bounded manual controls
