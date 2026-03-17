@@ -17,6 +17,7 @@ from app.infrastructure.exchanges.base import (
     ExchangeOrderRequest,
     ExchangeOrderStatus,
     ExchangeOrderSubmission,
+    ExchangeTickerPrice,
     LiveOrderExchangeClient,
     MarketDataExchangeClient,
 )
@@ -78,6 +79,32 @@ class BinanceMarketDataClient(MarketDataExchangeClient):
                 candles.append(candle)
 
         return candles[-limit:]
+
+    def fetch_latest_price(self, *, symbol: str) -> ExchangeTickerPrice:
+        query = urlencode({"symbol": symbol.replace("/", "")})
+        url = f"{self._base_url}/api/v3/ticker/price?{query}"
+        try:
+            with urlopen(url, timeout=self._timeout_seconds) as response:
+                payload = json.load(response)
+        except (HTTPError, URLError, TimeoutError, json.JSONDecodeError) as exc:
+            raise RuntimeError(f"failed to fetch Binance latest price: {exc}") from exc
+
+        if not isinstance(payload, dict):
+            raise ValueError("unexpected Binance latest price payload")
+
+        raw_symbol = payload.get("symbol")
+        raw_price = payload.get("price")
+        if raw_symbol is None or raw_price is None:
+            raise ValueError("unexpected Binance latest price payload")
+
+        normalized_symbol = str(raw_symbol)
+        if normalized_symbol.endswith("USDT") and "/" not in normalized_symbol:
+            normalized_symbol = f"{normalized_symbol[:-4]}/USDT"
+
+        return ExchangeTickerPrice(
+            symbol=normalized_symbol,
+            price=Decimal(str(raw_price)),
+        )
 
 
 class BinanceSpotOrderClient(LiveOrderExchangeClient):

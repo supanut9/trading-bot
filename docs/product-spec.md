@@ -53,6 +53,7 @@ Build a maintainable trading bot that supports research, backtesting, paper trad
 - provide explicit environment baselines for local development, deployed API runtime, and deployed worker runtime
 - provide bounded post-deploy smoke checks for API and worker roles without triggering execution
 - validate deployment-critical runtime settings and database connectivity during API, worker, and backtest startup
+- expose the latest read-only exchange price through status and reporting surfaces for operator visibility
 - enforce PR merge readiness with CI and resolved review feedback
 
 ## Current Risk Policy Baseline

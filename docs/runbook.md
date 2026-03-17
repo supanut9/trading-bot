@@ -182,6 +182,12 @@ Runtime startup validation:
 - `NOTIFICATION_CHANNEL=webhook` requires `NOTIFICATION_WEBHOOK_URL`
 - live worker runtimes require `STARTUP_STATE_SYNC_ENABLED=true`
 
+Latest price visibility:
+
+- `GET /status` now includes `latest_price_status` and `latest_price`
+- `GET /reports` shows the same latest read-only price in the reporting deck
+- latest price uses the public exchange market-data client and does not imply websocket or tick-stream support
+
 To run it as a polling worker instead of a single cycle:
 
 ```bash

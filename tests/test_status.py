@@ -18,6 +18,7 @@ def test_status_endpoint_returns_bootstrap_configuration() -> None:
     assert payload["paper_trading"] is True
     assert payload["live_trading_enabled"] is False
     assert payload["database_status"] in {"available", "unavailable"}
+    assert payload["latest_price_status"] in {"available", "unavailable"}
     assert payload["account_balance_status"] == "disabled"
     assert payload["account_balances"] == []
 
@@ -52,9 +53,19 @@ def test_status_endpoint_returns_live_account_balances_when_enabled(monkeypatch)
                 ),
             ]
 
+    class FakeMarketDataClient:
+        def fetch_latest_price(self, *, symbol: str):
+            from app.infrastructure.exchanges.base import ExchangeTickerPrice
+
+            return ExchangeTickerPrice(symbol=symbol, price=Decimal("104321.55"))
+
     monkeypatch.setattr(
         "app.application.services.status_service.build_live_order_exchange_client",
         lambda _settings: FakeClient(),
+    )
+    monkeypatch.setattr(
+        "app.application.services.status_service.build_market_data_exchange_client",
+        lambda _settings: FakeMarketDataClient(),
     )
     app.dependency_overrides[get_settings] = lambda: settings
 
@@ -67,6 +78,8 @@ def test_status_endpoint_returns_live_account_balances_when_enabled(monkeypatch)
     assert response.status_code == 200
     payload = response.json()
     assert payload["execution_mode"] == "live"
+    assert payload["latest_price_status"] == "available"
+    assert payload["latest_price"] == "104321.55"
     assert payload["account_balance_status"] == "available"
     assert payload["account_balances"] == [
         {"asset": "BTC", "free": "0.005", "locked": "0.001"},

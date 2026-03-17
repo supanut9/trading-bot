@@ -743,7 +743,7 @@ Main outputs:
 
 Status:
 
-- planned
+- implemented on branch
 
 Scope:
 
@@ -836,4 +836,4 @@ Main outputs:
 
 Current next feature:
 
-- `feature/live-price-status`
+- `feature/operator-paper-trading-console`

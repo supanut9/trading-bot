@@ -3,7 +3,10 @@ from sqlalchemy import text
 from app.application.services.exchange_balance_service import ExchangeBalanceService
 from app.config import Settings
 from app.infrastructure.database.session import create_engine_from_settings
-from app.infrastructure.exchanges.factory import build_live_order_exchange_client
+from app.infrastructure.exchanges.factory import (
+    build_live_order_exchange_client,
+    build_market_data_exchange_client,
+)
 
 
 class StatusService:
@@ -12,6 +15,17 @@ class StatusService:
 
     def get_status(self) -> dict[str, str | bool | list[dict[str, str]]]:
         database_status = self._get_database_status()
+        latest_price_status = "unavailable"
+        latest_price: str | None = None
+        try:
+            latest_ticker = build_market_data_exchange_client(self._settings).fetch_latest_price(
+                symbol=self._settings.default_symbol
+            )
+            latest_price_status = "available"
+            latest_price = format(latest_ticker.price, "f")
+        except Exception:
+            latest_price_status = "unavailable"
+
         balance_status = "disabled"
         account_balances: list[dict[str, str]] = []
         if self._settings.live_trading_enabled:
@@ -43,6 +57,8 @@ class StatusService:
             "timeframe": self._settings.default_timeframe,
             "database_url": self._settings.database_url,
             "database_status": database_status,
+            "latest_price_status": latest_price_status,
+            "latest_price": latest_price,
             "account_balance_status": balance_status,
             "account_balances": account_balances,
         }

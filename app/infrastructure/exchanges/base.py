@@ -17,6 +17,12 @@ class ExchangeCandle:
 
 
 @dataclass(frozen=True, slots=True)
+class ExchangeTickerPrice:
+    symbol: str
+    price: Decimal
+
+
+@dataclass(frozen=True, slots=True)
 class ExchangeOrderRequest:
     symbol: str
     side: str
@@ -69,6 +75,8 @@ class MarketDataExchangeClient(Protocol):
         timeframe: str,
         limit: int,
     ) -> Sequence[ExchangeCandle]: ...
+
+    def fetch_latest_price(self, *, symbol: str) -> ExchangeTickerPrice: ...
 
 
 class LiveOrderExchangeClient(Protocol):

@@ -106,12 +106,14 @@ def _render_dashboard(service: ReportingDashboardService) -> str:
         f"Live execution: {live_label}. "
         f"Database: {dashboard.database_status}."
     )
+    latest_price_label = dashboard.latest_price or dashboard.latest_price_status
     cards = "".join(
         [
             _render_card("Open Positions", str(dashboard.position_count)),
             _render_card("Recent Trades", str(dashboard.trade_count)),
             _render_card("Realized PnL", str(dashboard.total_realized_pnl)),
             _render_card("Unrealized PnL", str(dashboard.total_unrealized_pnl)),
+            _render_card("Latest Price", latest_price_label),
             _render_card("Stale Live Orders", str(len(dashboard.stale_live_orders))),
             _render_card("Unresolved Live Orders", str(dashboard.unresolved_live_orders)),
             _render_card("Recovery Events", str(dashboard.recovery_event_count)),

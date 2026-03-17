@@ -432,3 +432,17 @@ The system now has deployment packaging, env baselines, and smoke checks, but th
 ### Consequence
 
 Runtime startup now validates configuration and database connectivity before normal API, worker, or backtest operation continues, and startup logs include a stable runtime summary for operator troubleshooting.
+
+## 2026-03-18
+
+### Decision
+
+Add latest price visibility to status and reporting before building the broader operator console.
+
+### Reason
+
+The next UX phase needs the system to feel connected to current market context without introducing a separate UI stack or realtime streaming layer. A small read-only latest-price surface adds immediate operator value and gives the later console feature a concrete market context to build on.
+
+### Consequence
+
+Status and reporting now fetch the latest public exchange price when available, while strategy and execution behavior remain based on closed candles rather than realtime ticks.
