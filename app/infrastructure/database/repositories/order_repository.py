@@ -68,3 +68,20 @@ class OrderRepository:
             OrderRecord.client_order_id == client_order_id
         )
         return self._session.execute(statement).scalar_one_or_none()
+
+    def list_live_orders_by_status(
+        self,
+        *,
+        statuses: tuple[str, ...],
+        limit: int = 20,
+    ) -> list[OrderRecord]:
+        statement: Select[tuple[OrderRecord]] = (
+            select(OrderRecord)
+            .where(
+                OrderRecord.mode == "live",
+                OrderRecord.status.in_(statuses),
+            )
+            .order_by(OrderRecord.updated_at.desc(), OrderRecord.id.desc())
+            .limit(limit)
+        )
+        return self._session.execute(statement).scalars().all()

@@ -13,6 +13,7 @@ from urllib.request import Request, urlopen
 from app.infrastructure.exchanges.base import (
     ExchangeCandle,
     ExchangeOrderRequest,
+    ExchangeOrderStatus,
     ExchangeOrderSubmission,
     LiveOrderExchangeClient,
     MarketDataExchangeClient,
@@ -90,41 +91,25 @@ class BinanceSpotOrderClient(LiveOrderExchangeClient):
         recv_window_ms: int = 5000,
     ) -> None:
         self._api_key = api_key
-        self._api_secret = api_secret.encode("utf-8")
+        self._api_secret = api_secret.encode()
         self._base_url = base_url.rstrip("/")
         self._timeout_seconds = timeout_seconds
         self._recv_window_ms = recv_window_ms
 
     def submit_order(self, request: ExchangeOrderRequest) -> ExchangeOrderSubmission:
         endpoint = "/api/v3/order/test" if request.validate_only else "/api/v3/order"
-        payload = self._build_signed_payload(request)
-        signature = hmac.new(
-            self._api_secret,
-            payload.encode("utf-8"),
-            hashlib.sha256,
-        ).hexdigest()
-        body = f"{payload}&signature={signature}".encode()
-        http_request = Request(
-            f"{self._base_url}{endpoint}",
-            data=body,
-            headers={
-                "Content-Type": "application/x-www-form-urlencoded",
-                "X-MBX-APIKEY": self._api_key,
-            },
+        parsed = self._signed_request(
             method="POST",
+            endpoint=endpoint,
+            parameters={
+                "symbol": request.symbol.replace("/", ""),
+                "side": request.side.upper(),
+                "type": request.order_type.upper(),
+                "quantity": format(request.quantity, "f"),
+                "newClientOrderId": request.client_order_id,
+            },
+            error_action="submit Binance order",
         )
-        try:
-            with urlopen(http_request, timeout=self._timeout_seconds) as response:
-                raw = response.read().decode("utf-8") or "{}"
-        except (HTTPError, URLError, TimeoutError) as exc:
-            raise RuntimeError(f"failed to submit Binance order: {exc}") from exc
-
-        try:
-            parsed = json.loads(raw)
-        except json.JSONDecodeError as exc:
-            raise RuntimeError("failed to parse Binance order response") from exc
-        if not isinstance(parsed, dict):
-            raise ValueError("unexpected Binance order response payload")
 
         exchange_order_id = parsed.get("orderId")
         return ExchangeOrderSubmission(
@@ -133,6 +118,93 @@ class BinanceSpotOrderClient(LiveOrderExchangeClient):
             exchange_order_id=str(exchange_order_id) if exchange_order_id is not None else None,
             response_payload=parsed,
         )
+
+    def fetch_order_status(
+        self,
+        *,
+        symbol: str,
+        client_order_id: str | None = None,
+        exchange_order_id: str | None = None,
+    ) -> ExchangeOrderStatus:
+        if client_order_id is None and exchange_order_id is None:
+            raise ValueError("client_order_id or exchange_order_id is required")
+
+        parsed = self._signed_request(
+            method="GET",
+            endpoint="/api/v3/order",
+            parameters={
+                "symbol": symbol.replace("/", ""),
+                "origClientOrderId": client_order_id,
+                "orderId": exchange_order_id,
+            },
+            error_action="fetch Binance order status",
+        )
+        executed_quantity = Decimal(str(parsed.get("executedQty", "0")))
+        average_fill_price = None
+        if executed_quantity > Decimal("0"):
+            cumulative_quote = Decimal(str(parsed.get("cummulativeQuoteQty", "0")))
+            average_fill_price = cumulative_quote / executed_quantity
+        return ExchangeOrderStatus(
+            status=str(parsed.get("status", "")).lower(),
+            client_order_id=(
+                str(parsed.get("clientOrderId")) if parsed.get("clientOrderId") else client_order_id
+            ),
+            exchange_order_id=(
+                str(parsed.get("orderId")) if parsed.get("orderId") else exchange_order_id
+            ),
+            executed_quantity=executed_quantity,
+            average_fill_price=average_fill_price,
+            response_payload=parsed,
+        )
+
+    def _signed_request(
+        self,
+        *,
+        method: str,
+        endpoint: str,
+        parameters: dict[str, str | int | None],
+        error_action: str,
+    ) -> dict[str, object]:
+        filtered_parameters = {key: value for key, value in parameters.items() if value is not None}
+        filtered_parameters.update(
+            {
+                "timestamp": int(datetime.now(UTC).timestamp() * 1000),
+                "recvWindow": self._recv_window_ms,
+            }
+        )
+        payload = urlencode(filtered_parameters)
+        signature = hmac.new(
+            self._api_secret,
+            payload.encode(),
+            hashlib.sha256,
+        ).hexdigest()
+        if method == "GET":
+            url = f"{self._base_url}{endpoint}?{payload}&signature={signature}"
+            body = None
+        else:
+            url = f"{self._base_url}{endpoint}"
+            body = f"{payload}&signature={signature}".encode()
+        http_request = Request(
+            url,
+            data=body,
+            headers={
+                "Content-Type": "application/x-www-form-urlencoded",
+                "X-MBX-APIKEY": self._api_key,
+            },
+            method=method,
+        )
+        try:
+            with urlopen(http_request, timeout=self._timeout_seconds) as response:
+                raw = response.read().decode("utf-8") or "{}"
+        except (HTTPError, URLError, TimeoutError) as exc:
+            raise RuntimeError(f"failed to {error_action}: {exc}") from exc
+        try:
+            parsed = json.loads(raw)
+        except json.JSONDecodeError as exc:
+            raise RuntimeError("failed to parse Binance order response") from exc
+        if not isinstance(parsed, dict):
+            raise ValueError("unexpected Binance order response payload")
+        return parsed
 
     def _build_signed_payload(self, request: ExchangeOrderRequest) -> str:
         parameters: dict[str, str | int] = {

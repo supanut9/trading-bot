@@ -21,6 +21,12 @@ class TradeRepository:
         )
         return self._session.execute(statement).scalars().all()
 
+    def list_by_order_id(self, order_id: int) -> list[TradeRecord]:
+        statement: Select[tuple[TradeRecord]] = select(TradeRecord).where(
+            TradeRecord.order_id == order_id
+        )
+        return self._session.execute(statement).scalars().all()
+
     def create(
         self,
         *,

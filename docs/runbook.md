@@ -98,7 +98,14 @@ Live execution behavior:
 
 - explicit live mode now submits orders through the live execution service when exchange credentials are configured
 - accepted live orders are persisted locally with mode `live`, submitted status, and exchange order id when available
-- local trades and positions are not updated from live submission alone; that waits for a separate fill-reconciliation step
+- local trades and positions are not updated from live submission alone; they are updated only after explicit fill reconciliation confirms a remote filled status
+
+Live fill reconciliation:
+
+- `POST /controls/live-reconcile` checks recent open live orders against the configured exchange
+- only remote `filled` orders create local trades and update live positions
+- open, partial, or detail-incomplete exchange states are persisted locally without inventing fills
+- repeated reconciliation is idempotent for already-reconciled orders because only recent open live orders are considered
 
 To run it as a polling worker instead of a single cycle:
 

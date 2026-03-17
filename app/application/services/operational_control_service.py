@@ -7,6 +7,9 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from app.application.services.audit_service import AuditService
 from app.application.services.backtest_service import BacktestResult, BacktestService
+from app.application.services.live_fill_reconciliation_service import (
+    LiveFillReconciliationService,
+)
 from app.application.services.market_data_service import MarketDataService
 from app.application.services.market_data_sync_service import MarketDataSyncService
 from app.application.services.notification_service import (
@@ -20,7 +23,10 @@ from app.domain.strategies.base import Candle
 from app.domain.strategies.ema_crossover import EmaCrossoverStrategy
 from app.infrastructure.database.models.candle import CandleRecord
 from app.infrastructure.database.session import create_session_factory
-from app.infrastructure.exchanges.factory import build_market_data_exchange_client
+from app.infrastructure.exchanges.factory import (
+    build_live_order_exchange_client,
+    build_market_data_exchange_client,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -59,6 +65,15 @@ class MarketSyncControlResult:
     fetched_count: int
     stored_count: int
     latest_open_time: datetime | None = None
+    notified: bool = False
+
+
+@dataclass(frozen=True, slots=True)
+class LiveReconcileControlResult:
+    status: str
+    detail: str
+    reconciled_count: int
+    filled_count: int
     notified: bool = False
 
 
@@ -306,6 +321,44 @@ class OperationalControlService:
                     "winning_trades": control_result.winning_trades,
                     "losing_trades": control_result.losing_trades,
                     "notified": control_result.notified,
+                },
+            )
+        return control_result
+
+    def run_live_reconcile(
+        self,
+        *,
+        source: str = "internal",
+        audit: bool = True,
+    ) -> LiveReconcileControlResult:
+        with self._session_factory() as session:
+            results = LiveFillReconciliationService(
+                session,
+                client=build_live_order_exchange_client(self._settings),
+            ).reconcile_recent_live_orders()
+
+        reconciled_count = len(results)
+        filled_count = sum(1 for result in results if result.trade_created)
+        detail = "no live orders to reconcile"
+        if reconciled_count > 0:
+            detail = "live orders reconciled"
+        control_result = LiveReconcileControlResult(
+            status="completed",
+            detail=detail,
+            reconciled_count=reconciled_count,
+            filled_count=filled_count,
+            notified=False,
+        )
+        if audit:
+            self._audit.record_control_result(
+                control_type="live_reconcile",
+                source=source,
+                status=control_result.status,
+                detail=control_result.detail,
+                settings=self._settings,
+                payload={
+                    "reconciled_count": control_result.reconciled_count,
+                    "filled_count": control_result.filled_count,
                 },
             )
         return control_result
