@@ -256,23 +256,31 @@ class WorkerOrchestrationService:
             )
         logger.info(
             "worker_cycle_executed exchange=%s symbol=%s signal=%s "
-            "client_order_id=%s order_id=%s trade_id=%s quantity=%s",
+            "client_order_id=%s order_id=%s trade_id=%s quantity=%s mode=%s",
             self._settings.exchange_name,
             self._settings.default_symbol,
             signal.action,
             client_order_id,
             execution.order.id,
-            execution.trade.id,
+            execution.trade.id if execution.trade is not None else None,
             quantity,
+            self._trading_mode,
         )
+        detail = "signal executed in paper mode"
+        status = "executed"
+        if self._trading_mode == "live":
+            detail = "signal submitted to live exchange"
+            status = "submitted"
         return WorkerCycleResult(
-            status="executed",
-            detail="signal executed in paper mode",
+            status=status,
+            detail=detail,
             signal_action=signal.action,
             client_order_id=client_order_id,
             order_id=execution.order.id,
-            trade_id=execution.trade.id,
-            position_quantity=execution.position.quantity,
+            trade_id=execution.trade.id if execution.trade is not None else None,
+            position_quantity=(
+                execution.position.quantity if execution.position is not None else None
+            ),
         )
 
     @property

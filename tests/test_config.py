@@ -26,6 +26,19 @@ def test_rejects_non_paper_mode_without_live_enablement() -> None:
 
 
 def test_allows_explicit_live_execution_mode() -> None:
-    settings = Settings(PAPER_TRADING=False, LIVE_TRADING_ENABLED=True)
+    settings = Settings(
+        PAPER_TRADING=False,
+        LIVE_TRADING_ENABLED=True,
+        EXCHANGE_API_KEY="key",
+        EXCHANGE_API_SECRET="secret",
+    )
 
     assert settings.execution_mode == "live"
+
+
+def test_rejects_live_mode_without_exchange_credentials() -> None:
+    with pytest.raises(
+        ValueError,
+        match="EXCHANGE_API_KEY and EXCHANGE_API_SECRET are required when live trading is enabled",
+    ):
+        Settings(PAPER_TRADING=False, LIVE_TRADING_ENABLED=True)

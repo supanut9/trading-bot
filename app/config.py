@@ -75,6 +75,12 @@ class Settings(BaseSettings):
             raise ValueError("PAPER_TRADING and LIVE_TRADING_ENABLED cannot both be true")
         if not self.paper_trading and not self.live_trading_enabled:
             raise ValueError("LIVE_TRADING_ENABLED must be true when PAPER_TRADING is false")
+        if self.live_trading_enabled and (
+            not self.exchange_api_key or not self.exchange_api_secret
+        ):
+            raise ValueError(
+                "EXCHANGE_API_KEY and EXCHANGE_API_SECRET are required when live trading is enabled"
+            )
         return self
 
     @property
