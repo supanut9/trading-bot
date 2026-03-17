@@ -292,3 +292,17 @@ The manual live reconciliation path already owns the exchange lookup, local stat
 ### Consequence
 
 Worker scheduling can now run recurring live reconciliation in live mode through explicit config flags, and reconciliation failures are converted into auditable failed control results instead of escaping as uncategorized scheduler exceptions.
+
+## 2026-03-17
+
+### Decision
+
+Run a one-time startup live state sync before new live worker execution and abort startup when that sync fails.
+
+### Reason
+
+After a restart or deploy, the local database may lag the exchange state for recently submitted or filled live orders. Starting a new live worker cycle without reconciling that state first would weaken duplicate-order protection and position safety.
+
+### Consequence
+
+Live worker startup now runs the existing reconciliation workflow once before any new execution is attempted, and a failed startup sync causes the worker to stop instead of continuing with uncertain live state.

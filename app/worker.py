@@ -6,6 +6,7 @@ from app.infrastructure.database.init_db import init_database
 from app.jobs.backtest_summary_job import BacktestSummaryJob
 from app.jobs.interval_scheduler import IntervalScheduler
 from app.jobs.live_reconcile_job import LiveReconcileJob
+from app.jobs.startup_state_sync_job import StartupStateSyncJob
 from app.jobs.worker_cycle_job import WorkerCycleJob
 
 logger = get_logger(__name__)
@@ -24,6 +25,19 @@ def main() -> None:
     )
     tables = init_database(settings)
     logger.info("worker_database_initialized tables=%s", ",".join(tables))
+
+    if settings.live_trading_enabled and settings.startup_state_sync_enabled:
+        startup_sync = StartupStateSyncJob(settings).run()
+        if startup_sync.status != "completed":
+            logger.warning(
+                "worker_startup_aborted reason=startup_state_sync_failed detail=%s "
+                "reconciled_count=%s filled_count=%s",
+                startup_sync.detail,
+                startup_sync.reconciled_count,
+                startup_sync.filled_count,
+            )
+            return
+
     worker_job = WorkerCycleJob(settings)
 
     try:

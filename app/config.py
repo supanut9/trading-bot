@@ -60,6 +60,10 @@ class Settings(BaseSettings):
         default=300,
         alias="LIVE_RECONCILE_SCHEDULE_INTERVAL_SECONDS",
     )
+    startup_state_sync_enabled: bool = Field(
+        default=True,
+        alias="STARTUP_STATE_SYNC_ENABLED",
+    )
     notification_channel: Literal["none", "log", "webhook"] = Field(
         default="none",
         alias="NOTIFICATION_CHANNEL",

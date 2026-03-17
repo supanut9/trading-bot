@@ -503,11 +503,11 @@ Main outputs:
 
 ## Next Recommended Feature
 
-`feature/startup-state-sync`
+`feature/live-order-cancel-control`
 
 Reason:
 
-- scheduled live reconciliation is now the next implemented step, and the next operational gap is syncing recent live state before new execution after restarts
+- startup state sync is now the next implemented step, and the next operational gap is giving operators a bounded way to cancel live orders
 
 ## Next Expansion Slice
 
@@ -553,7 +553,7 @@ Main outputs:
 
 Status:
 
-- planned
+- implemented on branch
 
 Scope:
 
