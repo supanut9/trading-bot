@@ -404,3 +404,17 @@ The repository now has a shared deployable image, but API and worker roles still
 ### Consequence
 
 The repository now ships role-specific deployment env examples, local development keeps its own template, and future smoke-check or deployment automation can assume clearer per-role configuration inputs.
+
+## 2026-03-18
+
+### Decision
+
+Implement post-deploy verification as a bounded smoke-check script that inspects health, status, and configuration without triggering execution workflows.
+
+### Reason
+
+Deployment verification needs to confirm that API and worker roles are reachable and correctly configured, but using worker-cycle or reconciliation controls as a smoke check would widen the verification path into real operational mutations.
+
+### Consequence
+
+The repository now provides role-aware smoke checks for deployed API and worker runtimes, and the verification path stays read-only so deploy and rollback validation can happen before any manual controls or scheduled jobs are trusted.

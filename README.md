@@ -63,6 +63,8 @@ Use the `Makefile` once dependencies are installed:
 - `make docker-build`
 - `make docker-run-api`
 - `make docker-run-worker`
+- `make smoke-check-api`
+- `make smoke-check-worker`
 
 ## Operational API
 
@@ -171,3 +173,12 @@ Deployment guidance:
 - keep API and worker env files separate
 - keep secrets out of the example files and inject them at deploy time
 - keep live trading disabled unless the live readiness checklist in `docs/runbook.md` has been completed
+
+## Post-Deploy Smoke Check
+
+Use the bounded smoke checks after deploy or rollback:
+
+- `make smoke-check-api`
+- `make smoke-check-worker`
+
+These checks are non-destructive. They verify health, status, database reachability, and configuration alignment without triggering a worker cycle.
