@@ -25,6 +25,7 @@ Operational endpoints:
 - `GET /positions`
 - `GET /trades`
 - `POST /market-data/candles`
+- `POST /market-data/demo-scenarios/{scenario_name}`
 - `POST /controls/worker-cycle`
 - `POST /controls/backtest`
 - `GET /reports`
@@ -58,6 +59,24 @@ Request behavior:
 - uses configured defaults for `exchange`, `symbol`, and `timeframe` when omitted
 - stores closed candle batches through the existing market data service
 - upserts by `exchange + symbol + timeframe + open_time`
+
+Load a preset demo scenario instead of hand-writing candle JSON:
+
+```bash
+curl -X POST http://127.0.0.1:8000/market-data/demo-scenarios/buy-crossover
+```
+
+Available demo scenarios:
+
+- `buy-crossover`
+- `sell-crossover`
+- `no-action`
+
+Demo scenario behavior:
+
+- loads a deterministic nine-candle sequence anchored to a fixed local demo window
+- overwrites the same candle window on repeated loads so the scenario is repeatable
+- returns the expected strategy signal shape for quick operator verification
 
 Manual controls:
 

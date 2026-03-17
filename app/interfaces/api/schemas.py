@@ -86,6 +86,18 @@ class CandleBatchIngestionResponse(BaseModel):
     latest_open_time: datetime
 
 
+class DemoScenarioLoadResponse(BaseModel):
+    scenario: str
+    detail: str
+    exchange: str
+    symbol: str
+    timeframe: str
+    candle_count: int
+    stored_count: int
+    latest_open_time: datetime
+    expected_signal_action: str | None = None
+
+
 class WorkerControlResponse(BaseModel):
     status: str
     detail: str

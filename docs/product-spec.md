@@ -45,6 +45,7 @@ Build a maintainable trading bot that supports research, backtesting, paper trad
 - emit optional notifications for worker execution, risk rejection, backtest outcomes, and market sync outcomes
 - persist bot state and logs
 - expose minimal operational API for health, status, positions, trades, candle ingestion, and bounded manual controls
+- load deterministic local demo candle scenarios for no-action, buy-crossover, and sell-crossover operator workflows
 - export operational and backtest summary data as CSV for review and offline inspection
 - render an operator-facing reporting page over positions, trades, backtest summary data, and recent audit events
 - render a bounded operator console page for paper-trading workflows with one-click market sync, worker-cycle, and backtest actions
