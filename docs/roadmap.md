@@ -71,7 +71,7 @@ Current repo baseline:
 
 Recommended next feature queue:
 
-1. `feature/production-readiness-boundary`
+1. `feature/interactive-backtest-console`
 
 ## Phase 1
 

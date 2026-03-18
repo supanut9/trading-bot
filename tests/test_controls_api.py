@@ -27,6 +27,7 @@ def build_client(tmp_path: Path) -> tuple[TestClient, Settings]:
         DATABASE_URL=f"sqlite:///{tmp_path / 'controls_api.db'}",
         STRATEGY_FAST_PERIOD=3,
         STRATEGY_SLOW_PERIOD=5,
+        MARKET_DATA_SYNC_ENABLED=False,
         NOTIFICATION_CHANNEL="none",
     )
     engine = create_engine_from_settings(settings)
@@ -147,6 +148,79 @@ def test_backtest_control_returns_summary_for_completed_run(tmp_path: Path) -> N
         assert payload["required_candles"] == 6
         assert payload["total_trades"] == 2
         assert payload["ending_equity"] == "10000.00000000"
+        assert payload["strategy_name"] == "ema_crossover"
+        assert payload["symbol"] == settings.default_symbol
+        assert payload["timeframe"] == settings.default_timeframe
+    finally:
+        teardown_client()
+
+
+def test_backtest_control_accepts_explicit_run_options(tmp_path: Path) -> None:
+    client, settings = build_client(tmp_path)
+    try:
+        session = create_session_factory(settings)()
+        try:
+            start = datetime(2026, 1, 1, tzinfo=UTC)
+            MarketDataService(session).store_candles(
+                exchange=settings.exchange_name,
+                symbol="ETH/USDT",
+                timeframe="4h",
+                candles=[
+                    CandleInput(
+                        open_time=start + timedelta(hours=index * 4),
+                        close_time=start + timedelta(hours=(index * 4) + 4),
+                        open_price=Decimal(close),
+                        high_price=Decimal(close),
+                        low_price=Decimal(close),
+                        close_price=Decimal(close),
+                        volume=Decimal("1"),
+                    )
+                    for index, close in enumerate([10, 10, 10, 10, 10, 9, 9, 9, 20])
+                ],
+            )
+        finally:
+            session.close()
+
+        response = client.post(
+            "/controls/backtest",
+            json={
+                "strategy_name": "ema_crossover",
+                "symbol": "ETH/USDT",
+                "timeframe": "4h",
+                "fast_period": 3,
+                "slow_period": 5,
+                "starting_equity": "15000",
+            },
+        )
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["status"] == "completed"
+        assert payload["symbol"] == "ETH/USDT"
+        assert payload["timeframe"] == "4h"
+        assert payload["fast_period"] == 3
+        assert payload["slow_period"] == 5
+        assert payload["starting_equity_input"] == "15000.00000000"
+        assert payload["starting_equity"] == "15000.00000000"
+    finally:
+        teardown_client()
+
+
+def test_backtest_control_returns_failed_for_invalid_period_selection(tmp_path: Path) -> None:
+    client, settings = build_client(tmp_path)
+    try:
+        response = client.post(
+            "/controls/backtest",
+            json={
+                "fast_period": 5,
+                "slow_period": 5,
+            },
+        )
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["status"] == "failed"
+        assert payload["detail"] == "fast period must be smaller than slow period"
     finally:
         teardown_client()
 

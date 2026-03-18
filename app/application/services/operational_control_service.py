@@ -35,6 +35,28 @@ from app.infrastructure.exchanges.factory import (
     build_market_data_exchange_client,
 )
 
+BACKTEST_STRATEGY_EMA_CROSSOVER = "ema_crossover"
+
+
+@dataclass(frozen=True, slots=True)
+class BacktestRunOptions:
+    strategy_name: str = BACKTEST_STRATEGY_EMA_CROSSOVER
+    exchange: str | None = None
+    symbol: str | None = None
+    timeframe: str | None = None
+    fast_period: int | None = None
+    slow_period: int | None = None
+    starting_equity: Decimal | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class BacktestExecutionResult:
+    action: str
+    price: Decimal
+    quantity: Decimal
+    realized_pnl: Decimal
+    reason: str
+
 
 @dataclass(frozen=True, slots=True)
 class WorkerControlResult:
@@ -53,6 +75,13 @@ class BacktestControlResult:
     status: str
     detail: str
     notified: bool
+    strategy_name: str
+    exchange: str
+    symbol: str
+    timeframe: str
+    fast_period: int
+    slow_period: int
+    starting_equity_input: Decimal
     candle_count: int
     required_candles: int
     starting_equity: Decimal | None = None
@@ -63,6 +92,7 @@ class BacktestControlResult:
     total_trades: int | None = None
     winning_trades: int | None = None
     losing_trades: int | None = None
+    executions: tuple[BacktestExecutionResult, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -252,18 +282,59 @@ class OperationalControlService:
     def run_backtest(
         self,
         *,
+        options: BacktestRunOptions | None = None,
         notify: bool = True,
         source: str = "internal",
         audit: bool = True,
     ) -> BacktestControlResult:
+        try:
+            resolved = self._resolve_backtest_options(options)
+        except ValueError as exc:
+            preview = self._preview_backtest_options(options)
+            control_result = BacktestControlResult(
+                status="failed",
+                detail=str(exc),
+                notified=False,
+                strategy_name=preview.strategy_name,
+                exchange=preview.exchange,
+                symbol=preview.symbol,
+                timeframe=preview.timeframe,
+                fast_period=preview.fast_period,
+                slow_period=preview.slow_period,
+                starting_equity_input=self._quantize_decimal(preview.starting_equity)
+                or Decimal("0"),
+                candle_count=0,
+                required_candles=max(preview.slow_period + 1, 0),
+            )
+            if audit:
+                self._audit.record_control_result(
+                    control_type="backtest",
+                    source=source,
+                    status=control_result.status,
+                    detail=control_result.detail,
+                    settings=self._settings,
+                    payload={
+                        "strategy_name": control_result.strategy_name,
+                        "exchange": control_result.exchange,
+                        "symbol": control_result.symbol,
+                        "timeframe": control_result.timeframe,
+                        "fast_period": control_result.fast_period,
+                        "slow_period": control_result.slow_period,
+                        "starting_equity_input": control_result.starting_equity_input,
+                        "candle_count": control_result.candle_count,
+                        "required_candles": control_result.required_candles,
+                        "notified": control_result.notified,
+                    },
+                )
+            return control_result
         with self._session_factory() as session:
             records = MarketDataService(session).list_historical_candles(
-                exchange=self._settings.exchange_name,
-                symbol=self._settings.default_symbol,
-                timeframe=self._settings.default_timeframe,
+                exchange=resolved.exchange,
+                symbol=resolved.symbol,
+                timeframe=resolved.timeframe,
             )
             candle_count = len(records)
-            required_candles = self._settings.strategy_slow_period + 1
+            required_candles = resolved.slow_period + 1
 
             if not records:
                 backtest_result = None
@@ -274,7 +345,7 @@ class OperationalControlService:
                 status = "skipped"
                 detail = "not_enough_candles"
             else:
-                backtest_result = self._run_backtest_from_records(records)
+                backtest_result = self._run_backtest_from_records(records, options=resolved)
                 status = "completed"
                 detail = "backtest completed"
 
@@ -291,6 +362,14 @@ class OperationalControlService:
                 status=status,
                 detail=detail,
                 notified=notified,
+                strategy_name=resolved.strategy_name,
+                exchange=resolved.exchange,
+                symbol=resolved.symbol,
+                timeframe=resolved.timeframe,
+                fast_period=resolved.fast_period,
+                slow_period=resolved.slow_period,
+                starting_equity_input=self._quantize_decimal(resolved.starting_equity)
+                or Decimal("0"),
                 candle_count=candle_count,
                 required_candles=required_candles,
             )
@@ -302,6 +381,13 @@ class OperationalControlService:
                     detail=control_result.detail,
                     settings=self._settings,
                     payload={
+                        "strategy_name": control_result.strategy_name,
+                        "exchange": control_result.exchange,
+                        "symbol": control_result.symbol,
+                        "timeframe": control_result.timeframe,
+                        "fast_period": control_result.fast_period,
+                        "slow_period": control_result.slow_period,
+                        "starting_equity_input": control_result.starting_equity_input,
                         "candle_count": control_result.candle_count,
                         "required_candles": control_result.required_candles,
                         "notified": control_result.notified,
@@ -319,6 +405,13 @@ class OperationalControlService:
             status=status,
             detail=detail,
             notified=notified,
+            strategy_name=resolved.strategy_name,
+            exchange=resolved.exchange,
+            symbol=resolved.symbol,
+            timeframe=resolved.timeframe,
+            fast_period=resolved.fast_period,
+            slow_period=resolved.slow_period,
+            starting_equity_input=self._quantize_decimal(resolved.starting_equity) or Decimal("0"),
             candle_count=candle_count,
             required_candles=required_candles,
             starting_equity=self._quantize_decimal(backtest_result.starting_equity),
@@ -329,6 +422,16 @@ class OperationalControlService:
             total_trades=backtest_result.total_trades,
             winning_trades=backtest_result.winning_trades,
             losing_trades=backtest_result.losing_trades,
+            executions=tuple(
+                BacktestExecutionResult(
+                    action=execution.action,
+                    price=self._quantize_decimal(execution.price) or Decimal("0"),
+                    quantity=self._quantize_decimal(execution.quantity) or Decimal("0"),
+                    realized_pnl=self._quantize_decimal(execution.realized_pnl) or Decimal("0"),
+                    reason=execution.reason,
+                )
+                for execution in backtest_result.executions
+            ),
         )
         if audit:
             self._audit.record_control_result(
@@ -338,6 +441,13 @@ class OperationalControlService:
                 detail=control_result.detail,
                 settings=self._settings,
                 payload={
+                    "strategy_name": control_result.strategy_name,
+                    "exchange": control_result.exchange,
+                    "symbol": control_result.symbol,
+                    "timeframe": control_result.timeframe,
+                    "fast_period": control_result.fast_period,
+                    "slow_period": control_result.slow_period,
+                    "starting_equity_input": control_result.starting_equity_input,
                     "candle_count": control_result.candle_count,
                     "required_candles": control_result.required_candles,
                     "starting_equity": control_result.starting_equity,
@@ -348,6 +458,7 @@ class OperationalControlService:
                     "total_trades": control_result.total_trades,
                     "winning_trades": control_result.winning_trades,
                     "losing_trades": control_result.losing_trades,
+                    "execution_count": len(control_result.executions),
                     "notified": control_result.notified,
                 },
             )
@@ -574,14 +685,16 @@ class OperationalControlService:
             )
         return control_result
 
-    def _run_backtest_from_records(self, records: Sequence[CandleRecord]) -> BacktestResult:
+    def _run_backtest_from_records(
+        self,
+        records: Sequence[CandleRecord],
+        *,
+        options: BacktestRunOptions,
+    ) -> BacktestResult:
         return BacktestService(
-            strategy=EmaCrossoverStrategy(
-                fast_period=self._settings.strategy_fast_period,
-                slow_period=self._settings.strategy_slow_period,
-            ),
+            strategy=self._build_backtest_strategy(options),
             risk_service=self._build_risk_service(),
-            starting_equity=Decimal(str(self._settings.paper_account_equity)),
+            starting_equity=options.starting_equity,
         ).run(
             [
                 Candle(
@@ -595,6 +708,66 @@ class OperationalControlService:
                 )
                 for record in records
             ]
+        )
+
+    def _resolve_backtest_options(
+        self,
+        options: BacktestRunOptions | None,
+    ) -> BacktestRunOptions:
+        active = options or BacktestRunOptions()
+        strategy_name = active.strategy_name.strip().lower()
+        if strategy_name != BACKTEST_STRATEGY_EMA_CROSSOVER:
+            raise ValueError(f"unsupported backtest strategy: {active.strategy_name}")
+        exchange = (active.exchange or self._settings.exchange_name).strip()
+        symbol = (active.symbol or self._settings.default_symbol).strip()
+        timeframe = (active.timeframe or self._settings.default_timeframe).strip()
+        fast_period = active.fast_period or self._settings.strategy_fast_period
+        slow_period = active.slow_period or self._settings.strategy_slow_period
+        starting_equity = active.starting_equity or Decimal(
+            str(self._settings.paper_account_equity)
+        )
+        if not exchange or not symbol or not timeframe:
+            raise ValueError("exchange, symbol, and timeframe are required for backtest")
+        if fast_period <= 0 or slow_period <= 0:
+            raise ValueError("backtest periods must be positive")
+        if fast_period >= slow_period:
+            raise ValueError("fast period must be smaller than slow period")
+        if starting_equity <= Decimal("0"):
+            raise ValueError("starting equity must be positive")
+        return BacktestRunOptions(
+            strategy_name=strategy_name,
+            exchange=exchange,
+            symbol=symbol,
+            timeframe=timeframe,
+            fast_period=fast_period,
+            slow_period=slow_period,
+            starting_equity=starting_equity,
+        )
+
+    def _preview_backtest_options(
+        self,
+        options: BacktestRunOptions | None,
+    ) -> BacktestRunOptions:
+        active = options or BacktestRunOptions()
+        return BacktestRunOptions(
+            strategy_name=(active.strategy_name or BACKTEST_STRATEGY_EMA_CROSSOVER).strip().lower(),
+            exchange=(active.exchange or self._settings.exchange_name).strip(),
+            symbol=(active.symbol or self._settings.default_symbol).strip(),
+            timeframe=(active.timeframe or self._settings.default_timeframe).strip(),
+            fast_period=int(active.fast_period or self._settings.strategy_fast_period),
+            slow_period=int(active.slow_period or self._settings.strategy_slow_period),
+            starting_equity=Decimal(
+                str(active.starting_equity or self._settings.paper_account_equity)
+            ),
+        )
+
+    @staticmethod
+    def _build_backtest_strategy(options: BacktestRunOptions) -> EmaCrossoverStrategy:
+        if options.strategy_name != BACKTEST_STRATEGY_EMA_CROSSOVER:
+            raise ValueError(f"unsupported backtest strategy: {options.strategy_name}")
+        return EmaCrossoverStrategy(
+            fast_period=options.fast_period or 0,
+            slow_period=options.slow_period or 0,
         )
 
     def _build_risk_service(self) -> RiskService:

@@ -36,7 +36,7 @@ Current production boundary:
 
 Next implementation queue:
 
-1. `feature/production-readiness-boundary`
+1. `feature/interactive-backtest-console`
 
 ## Initial Market And Strategy
 
@@ -84,6 +84,7 @@ Next implementation queue:
 - export operational and backtest summary data as CSV for review and offline inspection
 - render an operator-facing reporting page over positions, trades, backtest summary data, and recent audit events
 - render a bounded operator console page for paper-trading workflows with one-click market sync, worker-cycle, and backtest actions
+- let operators run parameterized console backtests by choosing symbol, timeframe, EMA periods, and starting equity
 - extend the operator console with explicit live reconcile and live cancel controls while keeping all actions operator-initiated
 - render a compact reporting summary over the latest worker outcome, PnL, trade count, positions, and stale live state
 - derive durable operator-facing performance analytics from persisted trades and positions without adding a dedicated summary table first

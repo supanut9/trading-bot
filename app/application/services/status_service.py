@@ -100,6 +100,7 @@ class StatusService:
                 .halted
             )
         except SQLAlchemyError:
+            self._session.rollback()
             return self._settings.live_trading_halted
 
     def _get_database_status(self) -> str:

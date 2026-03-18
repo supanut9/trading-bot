@@ -1,10 +1,16 @@
-from fastapi import APIRouter, Depends, status
+from typing import Annotated
+
+from fastapi import APIRouter, Body, Depends, status
 from sqlalchemy.orm import Session, sessionmaker
 
-from app.application.services.operational_control_service import OperationalControlService
+from app.application.services.operational_control_service import (
+    BacktestRunOptions,
+    OperationalControlService,
+)
 from app.config import Settings, get_settings
 from app.infrastructure.database.session import get_session_factory_dependency
 from app.interfaces.api.schemas import (
+    BacktestControlRequest,
     BacktestControlResponse,
     LiveCancelControlRequest,
     LiveCancelControlResponse,
@@ -42,13 +48,26 @@ def run_worker_cycle(
     status_code=status.HTTP_200_OK,
 )
 def run_backtest(
+    request: Annotated[BacktestControlRequest | None, Body()] = None,
     settings: Settings = settings_dependency,
     session_factory: sessionmaker[Session] = session_factory_dependency,
 ) -> BacktestControlResponse:
+    payload = request or BacktestControlRequest()
     result = OperationalControlService(
         settings,
         session_factory=session_factory,
-    ).run_backtest(source="api.control")
+    ).run_backtest(
+        options=BacktestRunOptions(
+            strategy_name=payload.strategy_name,
+            exchange=payload.exchange,
+            symbol=payload.symbol,
+            timeframe=payload.timeframe,
+            fast_period=payload.fast_period,
+            slow_period=payload.slow_period,
+            starting_equity=payload.starting_equity,
+        ),
+        source="api.control",
+    )
     return BacktestControlResponse.model_validate(result)
 
 

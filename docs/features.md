@@ -800,12 +800,30 @@ Main outputs:
 - an explicit live-trading non-readiness statement and gap list
 - aligned roadmap and product-spec language for the current production boundary
 
+### 44. `feature/interactive-backtest-console`
+
+Status:
+
+- implemented on branch
+
+Scope:
+
+- turn console backtests from a fixed one-click action into a parameterized operator workflow
+- let operators choose market and strategy inputs that already fit the current single-strategy architecture
+- make the backtest result easier to understand without building a separate frontend stack or strategy-management subsystem
+
+Main outputs:
+
+- `/console` backtest form fields for symbol, timeframe, strategy, and EMA parameters
+- clearer backtest result rendering with explicit run inputs and outcome summary
+- bounded API-facing backtest options that reuse the existing service layer
+
 ## Current Recommended Queue
 
 These are the next bounded features after the current `main` baseline:
 
-1. `feature/production-readiness-boundary`
+1. `feature/interactive-backtest-console`
 
 Current next feature:
 
-- `feature/production-readiness-boundary`
+- `feature/interactive-backtest-console`
