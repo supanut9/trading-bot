@@ -4,7 +4,11 @@ from decimal import Decimal
 
 from sqlalchemy.orm import Session, sessionmaker
 
-from app.application.services.audit_service import AuditEventView, AuditService
+from app.application.services.audit_service import (
+    AuditEventFilters,
+    AuditEventView,
+    AuditService,
+)
 from app.application.services.live_order_recovery_report_service import (
     LiveOrderRecoveryReportService,
     RecoveryEventView,
@@ -64,6 +68,13 @@ class ReportingDashboard:
     latest_worker_event_detail: str | None
     latest_worker_signal_action: str | None
     latest_worker_client_order_id: str | None
+    notification_delivery_count: int
+    notification_delivery_failed_count: int
+    latest_notification_delivery_at: str | None
+    latest_notification_delivery_status: str | None
+    latest_notification_delivery_channel: str | None
+    latest_notification_related_event_type: str | None
+    notification_delivery_events: list[AuditEventView]
     performance_summaries: list[PerformanceSummary]
     performance_equity_curve: list[EquityCurvePoint]
     performance_daily_rows: list[DailyPerformanceRow]
@@ -114,6 +125,10 @@ class ReportingDashboardService:
             session_factory=self._session_factory,
         ).run_backtest(notify=False, audit=False, source="reporting.snapshot")
         audit_events = self._audit.list_recent(limit=10)
+        notification_delivery_events = self._audit.list_recent(
+            limit=10,
+            filters=AuditEventFilters(event_type="notification_delivery"),
+        )
         analytics = self._performance.build()
         (
             latest_worker_event_at,
@@ -122,6 +137,12 @@ class ReportingDashboardService:
             latest_worker_signal_action,
             latest_worker_client_order_id,
         ) = self._latest_worker_summary(audit_events)
+        (
+            latest_notification_delivery_at,
+            latest_notification_delivery_status,
+            latest_notification_delivery_channel,
+            latest_notification_related_event_type,
+        ) = self._latest_notification_delivery_summary(notification_delivery_events)
 
         return ReportingDashboard(
             app_name=str(status["app"]),
@@ -166,6 +187,15 @@ class ReportingDashboardService:
             latest_worker_event_detail=latest_worker_event_detail,
             latest_worker_signal_action=latest_worker_signal_action,
             latest_worker_client_order_id=latest_worker_client_order_id,
+            notification_delivery_count=len(notification_delivery_events),
+            notification_delivery_failed_count=sum(
+                1 for event in notification_delivery_events if event.status == "failed"
+            ),
+            latest_notification_delivery_at=latest_notification_delivery_at,
+            latest_notification_delivery_status=latest_notification_delivery_status,
+            latest_notification_delivery_channel=latest_notification_delivery_channel,
+            latest_notification_related_event_type=latest_notification_related_event_type,
+            notification_delivery_events=notification_delivery_events,
             performance_summaries=analytics.summaries,
             performance_equity_curve=analytics.equity_curve,
             performance_daily_rows=analytics.daily_rows[:7],
@@ -193,3 +223,17 @@ class ReportingDashboardService:
                 str(client_order_id) if client_order_id is not None else None,
             )
         return (None, None, None, None, None)
+
+    @staticmethod
+    def _latest_notification_delivery_summary(
+        audit_events: list[AuditEventView],
+    ) -> tuple[str | None, str | None, str | None, str | None]:
+        if not audit_events:
+            return (None, None, None, None)
+        event = audit_events[0]
+        return (
+            event.created_at.isoformat(),
+            event.status,
+            event.channel,
+            event.related_event_type,
+        )

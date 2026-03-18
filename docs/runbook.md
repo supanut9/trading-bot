@@ -189,6 +189,12 @@ Runtime log correlation:
 - scheduled worker-cycle, backtest, live-reconcile, and startup-sync runs generate one runtime correlation id per run so related log entries can be grouped quickly
 - notifications emitted during those correlated runs now include the same `correlation_id` in the payload and notification-delivery audit trail
 
+Notification delivery reporting:
+
+- `GET /reports` now includes notification-delivery summary cards and a recent delivery table
+- `GET /reports/notification-delivery.csv` exports notification-delivery audit rows
+- the notification-delivery CSV export supports filtering by `notification_status`, `notification_channel`, and `notification_related_event_type`
+
 Reconciliation alerting:
 
 - failed startup sync emits a `startup_state_sync.failed` notification when notifications are enabled

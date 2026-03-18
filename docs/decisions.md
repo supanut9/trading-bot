@@ -670,3 +670,17 @@ Runtime log correlation improved traceability inside the process, but alerts and
 ### Consequence
 
 `NotificationEvent` now carries an optional top-level `correlation_id`. When notifications are emitted inside a correlated API request or scheduled job, the payload and notification-delivery audit record include that id; when they are emitted without an active runtime context, the field stays empty rather than inventing a synthetic value.
+
+## 2026-03-18
+
+### Decision
+
+Promote notification-delivery audit rows into an explicit reporting slice before adding heavier delivery analytics.
+
+### Reason
+
+The system already stored notification-delivery audit events, but operators still had to inspect the generic audit table or raw CSV to understand whether alerts were being sent successfully. The next useful step was a read-only reporting slice over the existing audit data, not new delivery mechanics.
+
+### Consequence
+
+`/reports` now includes notification-delivery summary cards and a recent delivery table, and `/reports/notification-delivery.csv` exports only notification-delivery audit rows with optional filtering by status, channel, and related event type.

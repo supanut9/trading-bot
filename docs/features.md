@@ -710,12 +710,30 @@ Main outputs:
 - webhook and log notification senders that emit the same correlation id already present in runtime logs
 - tests covering correlated and non-correlated notification delivery paths
 
+### 39. `feature/notification-delivery-reporting`
+
+Status:
+
+- implemented on branch
+
+Scope:
+
+- expose recent notification-delivery audit rows in the reporting deck
+- add a dedicated notification-delivery CSV export without changing notification write behavior
+- keep the feature read-only and limited to existing audit data
+
+Main outputs:
+
+- notification-delivery summary cards and recent-deliveries table in `/reports`
+- `GET /reports/notification-delivery.csv`
+- export filtering by delivery status, channel, and related event type
+
 ## Current Recommended Queue
 
 These are the next bounded features after the current `main` baseline:
 
-1. `feature/notification-delivery-reporting`
+1. `feature/notification-delivery-filters`
 
 Current next feature:
 
-- `feature/notification-delivery-reporting`
+- `feature/notification-delivery-filters`

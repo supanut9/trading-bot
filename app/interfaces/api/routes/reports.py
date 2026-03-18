@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, Query
 from fastapi.responses import HTMLResponse, Response
 from sqlalchemy.orm import Session, sessionmaker
 
+from app.application.services.audit_service import AuditEventFilters
 from app.application.services.live_order_recovery_report_service import RecoveryReportFilters
 from app.application.services.performance_analytics_service import EquityCurvePoint
 from app.application.services.reporting_dashboard_service import (
@@ -66,6 +67,37 @@ def _recovery_query_string(filters: RecoveryReportFilters) -> str:
         query["recovery_event_type"] = filters.event_type
     if filters.search is not None:
         query["recovery_search"] = filters.search
+    if not query:
+        return ""
+    return f"?{urlencode(query)}"
+
+
+def _build_notification_filters(
+    *,
+    status: str | None,
+    channel: str | None,
+    related_event_type: str | None,
+) -> AuditEventFilters:
+    return AuditEventFilters(
+        event_type="notification_delivery",
+        status=status.strip() if status and status.strip() else None,
+        channel=channel.strip() if channel and channel.strip() else None,
+        related_event_type=(
+            related_event_type.strip()
+            if related_event_type and related_event_type.strip()
+            else None
+        ),
+    )
+
+
+def _notification_query_string(filters: AuditEventFilters) -> str:
+    query: dict[str, str] = {}
+    if filters.status is not None:
+        query["notification_status"] = filters.status
+    if filters.channel is not None:
+        query["notification_channel"] = filters.channel
+    if filters.related_event_type is not None:
+        query["notification_related_event_type"] = filters.related_event_type
     if not query:
         return ""
     return f"?{urlencode(query)}"
@@ -133,6 +165,12 @@ def _render_equity_curve_panels(dashboard: ReportingDashboard) -> str:
 def _render_dashboard(service: ReportingDashboardService) -> str:
     dashboard = service.build_dashboard()
     recovery_query = _recovery_query_string(dashboard.recovery_filters)
+    notification_filters = _build_notification_filters(
+        status=None,
+        channel=None,
+        related_event_type=None,
+    )
+    notification_query = _notification_query_string(notification_filters)
     selected_requires_review = ""
     if dashboard.recovery_filters.requires_review is True:
         selected_requires_review = "review-only"
@@ -276,6 +314,21 @@ def _render_dashboard(service: ReportingDashboardService) -> str:
         )
         or '<tr><td colspan="5">No audit events recorded.</td></tr>'
     )
+    notification_delivery_rows = (
+        "".join(
+            (
+                "<tr>"
+                f"<td>{event.created_at.isoformat()}</td>"
+                f"<td>{event.status}</td>"
+                f"<td>{event.channel or '-'}</td>"
+                f"<td>{event.related_event_type or '-'}</td>"
+                f"<td>{event.detail}</td>"
+                "</tr>"
+            )
+            for event in dashboard.notification_delivery_events
+        )
+        or '<tr><td colspan="5">No notification deliveries recorded.</td></tr>'
+    )
 
     mode_label = "Paper" if dashboard.paper_trading else "Live"
     live_label = "enabled" if dashboard.live_trading_enabled else "disabled"
@@ -317,6 +370,14 @@ def _render_dashboard(service: ReportingDashboardService) -> str:
         )
     latest_worker_signal = dashboard.latest_worker_signal_action or "-"
     latest_worker_order = dashboard.latest_worker_client_order_id or "-"
+    latest_notification_delivery_summary = "Latest notification delivery: none."
+    if dashboard.latest_notification_delivery_at is not None:
+        latest_notification_delivery_summary = (
+            f"Latest notification delivery: {dashboard.latest_notification_delivery_status} "
+            f"via {dashboard.latest_notification_delivery_channel or '-'} "
+            f"for {dashboard.latest_notification_related_event_type or '-'} "
+            f"at {dashboard.latest_notification_delivery_at}."
+        )
     summary_cards = "".join(
         [
             _render_card(
@@ -333,6 +394,14 @@ def _render_dashboard(service: ReportingDashboardService) -> str:
             _render_card("Recent Trades", str(dashboard.trade_count)),
             _render_card("Stale Live Orders", str(len(dashboard.stale_live_orders))),
             _render_card("Unresolved Live Orders", str(dashboard.unresolved_live_orders)),
+            _render_card(
+                "Notification Deliveries",
+                str(dashboard.notification_delivery_count),
+            ),
+            _render_card(
+                "Notification Failures",
+                str(dashboard.notification_delivery_failed_count),
+            ),
         ]
     )
     net_pnl = dashboard.total_realized_pnl + dashboard.total_unrealized_pnl
@@ -572,11 +641,15 @@ def _render_dashboard(service: ReportingDashboardService) -> str:
         <div class="sub">{subheadline}</div>
         <div class="sub">{latest_recovery_summary}</div>
         <div class="sub">{latest_worker_summary}</div>
+        <div class="sub">{latest_notification_delivery_summary}</div>
         <div class="exports">
           <a href="/reports/positions.csv">Download positions CSV</a>
           <a href="/reports/trades.csv">Download trades CSV</a>
           <a href="/reports/backtest-summary.csv">Download backtest CSV</a>
           <a href="/reports/audit.csv">Download audit CSV</a>
+          <a href="/reports/notification-delivery.csv{notification_query}">
+            Download notification delivery CSV
+          </a>
           <a href="/reports/live-recovery.csv{recovery_query}">Download live recovery CSV</a>
           <a href="/performance/daily.csv">Download daily performance CSV</a>
           <a href="/performance/equity.csv">Download equity curve CSV</a>
@@ -745,6 +818,21 @@ def _render_dashboard(service: ReportingDashboardService) -> str:
           </table>
         </div>
         <div class="panel">
+          <h2>Notification Delivery</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>When</th>
+                <th>Status</th>
+                <th>Channel</th>
+                <th>Related Event</th>
+                <th>Detail</th>
+              </tr>
+            </thead>
+            <tbody>{notification_delivery_rows}</tbody>
+          </table>
+        </div>
+        <div class="panel">
           <h2>Recent Audit Events</h2>
           <table>
             <thead>
@@ -868,6 +956,29 @@ def export_audit_events(
         session_factory=session_factory,
     ).export_audit_events_csv(limit=limit)
     return _csv_response("audit.csv", content)
+
+
+@router.get("/notification-delivery.csv")
+def export_notification_delivery(
+    session: Session = session_dependency,
+    settings: Settings = settings_dependency,
+    session_factory: sessionmaker[Session] = session_factory_dependency,
+    limit: Annotated[int, Query(ge=1, le=500)] = 100,
+    notification_status: str | None = None,
+    notification_channel: str | None = None,
+    notification_related_event_type: str | None = None,
+) -> Response:
+    filters = _build_notification_filters(
+        status=notification_status,
+        channel=notification_channel,
+        related_event_type=notification_related_event_type,
+    )
+    content = ReportingExportService(
+        session,
+        settings,
+        session_factory=session_factory,
+    ).export_notification_delivery_csv(limit=limit, filters=filters)
+    return _csv_response("notification-delivery.csv", content)
 
 
 @router.get("/live-recovery.csv")
