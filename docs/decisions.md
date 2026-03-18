@@ -614,3 +614,17 @@ The reporting deck already showed a recovery timeline, but operators still had t
 ### Consequence
 
 `/reports` now shows a recovery timeline context column derived from audit payloads, and `/reports/live-recovery.csv` includes the latest recovery event context alongside the existing type and status fields. Reconcile events surface count summaries, while cancel events surface the most relevant identifiers.
+
+## 2026-03-18
+
+### Decision
+
+Reject new live submissions when an unresolved same-side live order already exists for the same market.
+
+### Reason
+
+Paper execution already used candle-derived `client_order_id` values to avoid duplicate signals, but live submission still allowed a second same-side order to be sent while the first one remained unresolved. That weakened the live safety posture during retries, operator-triggered reruns, or overlapping worker cycles.
+
+### Consequence
+
+Live execution now checks for unresolved same-side live orders before submitting to the exchange. When one exists, worker and controls surfaces return `duplicate_live_order` and skip the external submission entirely, leaving reconciliation and cancel workflows to resolve the existing order first.

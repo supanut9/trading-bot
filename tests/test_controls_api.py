@@ -357,6 +357,46 @@ def test_worker_cycle_control_uses_runtime_halt_override(tmp_path: Path) -> None
         teardown_client()
 
 
+def test_worker_cycle_control_rejects_duplicate_live_order(tmp_path: Path) -> None:
+    client, settings = build_client(tmp_path)
+    try:
+        settings.paper_trading = False
+        settings.live_trading_enabled = True
+        settings.exchange_api_key = "key"
+        settings.exchange_api_secret = "secret"
+        store_closes(settings, [10, 10, 10, 10, 10, 9, 9, 9, 20])
+
+        session = create_session_factory(settings)()
+        try:
+            session.add(
+                OrderRecord(
+                    exchange=settings.exchange_name,
+                    symbol=settings.default_symbol,
+                    side="buy",
+                    order_type="market",
+                    status="submitted",
+                    mode="live",
+                    quantity=Decimal("0.002"),
+                    price=Decimal("50000"),
+                    client_order_id="existing-live-order-1",
+                    exchange_order_id="existing-exchange-1",
+                )
+            )
+            session.commit()
+        finally:
+            session.close()
+
+        response = client.post("/controls/worker-cycle")
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["status"] == "duplicate_live_order"
+        assert payload["detail"] == "active live order already exists for the same market side"
+        assert payload["signal_action"] == "buy"
+    finally:
+        teardown_client()
+
+
 def test_live_reconcile_control_returns_completed_summary(tmp_path: Path) -> None:
     client, settings = build_client(tmp_path)
     try:

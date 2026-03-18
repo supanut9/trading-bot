@@ -4,6 +4,7 @@ from sqlalchemy import Select, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.application.services.live_order_state import ACTIVE_LIVE_ORDER_STATUSES
 from app.infrastructure.database.models.order import OrderRecord
 
 
@@ -91,3 +92,23 @@ class OrderRepository:
             .limit(limit)
         )
         return self._session.execute(statement).scalars().all()
+
+    def has_active_live_order(
+        self,
+        *,
+        exchange: str,
+        symbol: str,
+        side: str,
+    ) -> bool:
+        statement: Select[tuple[OrderRecord]] = (
+            select(OrderRecord)
+            .where(
+                OrderRecord.exchange == exchange,
+                OrderRecord.symbol == symbol,
+                OrderRecord.side == side,
+                OrderRecord.mode == "live",
+                OrderRecord.status.in_(ACTIVE_LIVE_ORDER_STATUSES),
+            )
+            .limit(1)
+        )
+        return self._session.execute(statement).scalar_one_or_none() is not None
