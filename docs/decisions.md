@@ -754,3 +754,17 @@ The generic audit table already persisted market, delivery, and payload metadata
 ### Consequence
 
 The recent-audit table now shows exchange, symbol, timeframe, channel, related event type, and correlation id columns, and `/reports/audit.csv` exports `correlation_id` as a first-class field alongside the existing audit metadata.
+
+## 2026-03-19
+
+### Decision
+
+Persist paper-runtime operator defaults for market and strategy selection instead of requiring those choices to live only in startup env.
+
+### Reason
+
+The console had become capable of running richer backtests, but the worker cycle, market sync, and status surfaces still depended on env defaults for symbol, timeframe, and EMA periods. That made the product feel static and forced operators to restart or edit env files for ordinary paper-trading adjustments.
+
+### Consequence
+
+The runtime now stores bounded paper defaults for strategy, symbol, timeframe, and EMA periods in the database. `/controls/operator-config` and the console runtime-defaults form update the same persisted values, and worker cycle, market sync, status, reporting, and default backtest behavior resolve those effective runtime values before falling back to env settings.

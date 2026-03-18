@@ -9,6 +9,7 @@ from app.application.services.live_execution_service import DuplicateLiveOrderEr
 from app.application.services.live_operator_control_service import LiveOperatorControlService
 from app.application.services.market_data_service import MarketDataService
 from app.application.services.market_data_sync_service import MarketDataSyncService
+from app.application.services.operator_runtime_config_service import OperatorRuntimeConfig
 from app.application.services.paper_execution_service import PaperExecutionRequest
 from app.config import Settings
 from app.core.logger import get_logger
@@ -48,17 +49,19 @@ class WorkerOrchestrationService:
         risk_service: RiskService | None = None,
         market_sync: MarketDataSyncService | None = None,
         execution_service: ExecutionService | None = None,
+        operator_config: OperatorRuntimeConfig | None = None,
     ) -> None:
         self._session = session
         self._settings = settings
+        self._operator_config = operator_config
         self._market_data = MarketDataService(session)
         self._execution = execution_service or build_execution_service(session, settings)
         self._positions = PositionRepository(session)
         self._orders = OrderRepository(session)
         self._market_sync = market_sync
         self._strategy = strategy or EmaCrossoverStrategy(
-            fast_period=settings.strategy_fast_period,
-            slow_period=settings.strategy_slow_period,
+            fast_period=self._fast_period,
+            slow_period=self._slow_period,
         )
         live_halt_state = LiveOperatorControlService(
             session, settings
@@ -77,15 +80,15 @@ class WorkerOrchestrationService:
 
     def run_cycle(self) -> WorkerCycleResult:
         candle_limit = max(
-            self._settings.strategy_slow_period + 1,
+            self._slow_period + 1,
             self._settings.market_data_sync_limit,
         )
         if self._settings.market_data_sync_enabled:
             try:
                 self._get_market_sync().sync_recent_closed_candles(
                     exchange=self._settings.exchange_name,
-                    symbol=self._settings.default_symbol,
-                    timeframe=self._settings.default_timeframe,
+                    symbol=self._symbol,
+                    timeframe=self._timeframe,
                     limit=candle_limit,
                 )
             except Exception as exc:
@@ -93,8 +96,8 @@ class WorkerOrchestrationService:
                     "worker_cycle_skipped reason=market_data_sync_failed "
                     "exchange=%s symbol=%s timeframe=%s error=%s",
                     self._settings.exchange_name,
-                    self._settings.default_symbol,
-                    self._settings.default_timeframe,
+                    self._symbol,
+                    self._timeframe,
                     exc,
                 )
                 return WorkerCycleResult(
@@ -104,19 +107,19 @@ class WorkerOrchestrationService:
 
         candles = self._market_data.list_recent_candles(
             exchange=self._settings.exchange_name,
-            symbol=self._settings.default_symbol,
-            timeframe=self._settings.default_timeframe,
+            symbol=self._symbol,
+            timeframe=self._timeframe,
             limit=candle_limit,
         )
-        if len(candles) < self._settings.strategy_slow_period + 1:
+        if len(candles) < self._slow_period + 1:
             logger.info(
                 "worker_cycle_skipped reason=not_enough_candles "
                 "exchange=%s symbol=%s timeframe=%s count=%s required=%s",
                 self._settings.exchange_name,
-                self._settings.default_symbol,
-                self._settings.default_timeframe,
+                self._symbol,
+                self._timeframe,
                 len(candles),
-                self._settings.strategy_slow_period + 1,
+                self._slow_period + 1,
             )
             return WorkerCycleResult(status="no_candles", detail="not enough candles")
 
@@ -137,14 +140,14 @@ class WorkerOrchestrationService:
             logger.info(
                 "worker_cycle_skipped reason=no_signal exchange=%s symbol=%s timeframe=%s",
                 self._settings.exchange_name,
-                self._settings.default_symbol,
-                self._settings.default_timeframe,
+                self._symbol,
+                self._timeframe,
             )
             return WorkerCycleResult(status="no_signal", detail="strategy produced no signal")
 
         current_position = self._positions.get(
             exchange=self._settings.exchange_name,
-            symbol=self._settings.default_symbol,
+            symbol=self._symbol,
             mode=self._trading_mode,
         )
         latest_candle = max(candles, key=lambda candle: candle.open_time)
@@ -154,7 +157,7 @@ class WorkerOrchestrationService:
                 "worker_cycle_skipped reason=duplicate_signal "
                 "exchange=%s symbol=%s signal=%s client_order_id=%s",
                 self._settings.exchange_name,
-                self._settings.default_symbol,
+                self._symbol,
                 signal.action,
                 client_order_id,
             )
@@ -170,7 +173,7 @@ class WorkerOrchestrationService:
                 "worker_cycle_skipped reason=position_already_open "
                 "exchange=%s symbol=%s signal=%s quantity=%s",
                 self._settings.exchange_name,
-                self._settings.default_symbol,
+                self._symbol,
                 signal.action,
                 current_position.quantity if current_position else Decimal("0"),
             )
@@ -184,7 +187,7 @@ class WorkerOrchestrationService:
             logger.info(
                 "worker_cycle_skipped reason=no_open_position exchange=%s symbol=%s signal=%s",
                 self._settings.exchange_name,
-                self._settings.default_symbol,
+                self._symbol,
                 signal.action,
             )
             return WorkerCycleResult(
@@ -202,7 +205,7 @@ class WorkerOrchestrationService:
             logger.warning(
                 "worker_cycle_rejected exchange=%s symbol=%s signal=%s reason=%s",
                 self._settings.exchange_name,
-                self._settings.default_symbol,
+                self._symbol,
                 signal.action,
                 risk_decision.reason,
             )
@@ -222,7 +225,7 @@ class WorkerOrchestrationService:
             execution = self._execution.execute(
                 PaperExecutionRequest(
                     exchange=self._settings.exchange_name,
-                    symbol=self._settings.default_symbol,
+                    symbol=self._symbol,
                     side=signal.action,
                     quantity=quantity,
                     price=latest_price,
@@ -236,7 +239,7 @@ class WorkerOrchestrationService:
                 "worker_cycle_rejected reason=execution_unavailable "
                 "exchange=%s symbol=%s signal=%s client_order_id=%s detail=%s",
                 self._settings.exchange_name,
-                self._settings.default_symbol,
+                self._symbol,
                 signal.action,
                 client_order_id,
                 exc,
@@ -252,7 +255,7 @@ class WorkerOrchestrationService:
                 "worker_cycle_skipped reason=duplicate_signal_race "
                 "exchange=%s symbol=%s signal=%s client_order_id=%s",
                 self._settings.exchange_name,
-                self._settings.default_symbol,
+                self._symbol,
                 signal.action,
                 client_order_id,
             )
@@ -267,7 +270,7 @@ class WorkerOrchestrationService:
                 "worker_cycle_rejected reason=duplicate_live_order "
                 "exchange=%s symbol=%s signal=%s client_order_id=%s detail=%s",
                 self._settings.exchange_name,
-                self._settings.default_symbol,
+                self._symbol,
                 signal.action,
                 client_order_id,
                 exc,
@@ -282,7 +285,7 @@ class WorkerOrchestrationService:
             "worker_cycle_executed exchange=%s symbol=%s signal=%s "
             "client_order_id=%s order_id=%s trade_id=%s quantity=%s mode=%s",
             self._settings.exchange_name,
-            self._settings.default_symbol,
+            self._symbol,
             signal.action,
             client_order_id,
             execution.order.id,
@@ -337,11 +340,11 @@ class WorkerOrchestrationService:
         return position is not None and position.quantity > Decimal("0")
 
     def _build_client_order_id(self, signal: Signal, close_time: datetime) -> str:
-        symbol_token = self._settings.default_symbol.replace("/", "-").lower()
+        symbol_token = self._symbol.replace("/", "-").lower()
         candle_token = close_time.strftime("%Y%m%d%H%M%S")
         return (
             f"{self._trading_mode}-{self._settings.exchange_name}-"
-            f"{symbol_token}-{self._settings.default_timeframe}-{signal.action}-{candle_token}"
+            f"{symbol_token}-{self._timeframe}-{signal.action}-{candle_token}"
         )
 
     def _get_market_sync(self) -> MarketDataSyncService:
@@ -351,3 +354,27 @@ class WorkerOrchestrationService:
                 build_market_data_exchange_client(self._settings),
             )
         return self._market_sync
+
+    @property
+    def _symbol(self) -> str:
+        if self._operator_config is not None:
+            return self._operator_config.symbol
+        return self._settings.default_symbol
+
+    @property
+    def _timeframe(self) -> str:
+        if self._operator_config is not None:
+            return self._operator_config.timeframe
+        return self._settings.default_timeframe
+
+    @property
+    def _fast_period(self) -> int:
+        if self._operator_config is not None:
+            return self._operator_config.fast_period
+        return self._settings.strategy_fast_period
+
+    @property
+    def _slow_period(self) -> int:
+        if self._operator_config is not None:
+            return self._operator_config.slow_period
+        return self._settings.strategy_slow_period

@@ -60,9 +60,16 @@ def test_worker_control_notifies_after_session_scope_exits(monkeypatch) -> None:
     audit = RecordingAudit()
 
     class FakeOrchestrationService:
-        def __init__(self, session: FakeSession, active_settings: Settings) -> None:
+        def __init__(
+            self,
+            session: FakeSession,
+            active_settings: Settings,
+            *,
+            operator_config=None,
+        ) -> None:
             assert session._state is session_state
             assert active_settings is settings
+            assert operator_config is not None
 
         def run_cycle(self) -> WorkerCycleResult:
             return WorkerCycleResult(status="executed", detail="signal executed in paper mode")
@@ -138,6 +145,8 @@ def test_market_sync_control_returns_completed_result(monkeypatch) -> None:
     assert result == MarketSyncControlResult(
         status="completed",
         detail="market data sync completed",
+        symbol=settings.default_symbol,
+        timeframe=settings.default_timeframe,
         fetched_count=4,
         stored_count=2,
         latest_open_time=datetime(2026, 1, 1, 3, tzinfo=UTC),

@@ -36,7 +36,7 @@ Current production boundary:
 
 Next implementation queue:
 
-1. `feature/interactive-backtest-console`
+1. `feature/runtime-operator-config`
 
 ## Initial Market And Strategy
 
@@ -85,6 +85,7 @@ Next implementation queue:
 - render an operator-facing reporting page over positions, trades, backtest summary data, and recent audit events
 - render a bounded operator console page for paper-trading workflows with one-click market sync, worker-cycle, and backtest actions
 - let operators run parameterized console backtests by choosing symbol, timeframe, EMA periods, and starting equity
+- persist paper-runtime operator defaults for symbol, timeframe, and EMA periods so console actions do not depend only on startup env
 - extend the operator console with explicit live reconcile and live cancel controls while keeping all actions operator-initiated
 - render a compact reporting summary over the latest worker outcome, PnL, trade count, positions, and stale live state
 - derive durable operator-facing performance analytics from persisted trades and positions without adding a dedicated summary table first

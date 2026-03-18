@@ -18,6 +18,8 @@ from app.interfaces.api.schemas import (
     LiveHaltControlResponse,
     LiveReconcileControlResponse,
     MarketSyncControlResponse,
+    OperatorConfigRequest,
+    OperatorConfigResponse,
     WorkerControlResponse,
 )
 
@@ -40,6 +42,46 @@ def run_worker_cycle(
         session_factory=session_factory,
     ).run_worker_cycle(source="api.control")
     return WorkerControlResponse.model_validate(result)
+
+
+@router.get(
+    "/operator-config",
+    response_model=OperatorConfigResponse,
+    status_code=status.HTTP_200_OK,
+)
+def get_operator_config(
+    settings: Settings = settings_dependency,
+    session_factory: sessionmaker[Session] = session_factory_dependency,
+) -> OperatorConfigResponse:
+    result = OperationalControlService(
+        settings,
+        session_factory=session_factory,
+    ).get_operator_config()
+    return OperatorConfigResponse.model_validate(result)
+
+
+@router.post(
+    "/operator-config",
+    response_model=OperatorConfigResponse,
+    status_code=status.HTTP_200_OK,
+)
+def update_operator_config(
+    request: OperatorConfigRequest,
+    settings: Settings = settings_dependency,
+    session_factory: sessionmaker[Session] = session_factory_dependency,
+) -> OperatorConfigResponse:
+    result = OperationalControlService(
+        settings,
+        session_factory=session_factory,
+    ).run_update_operator_config(
+        strategy_name=request.strategy_name,
+        symbol=request.symbol,
+        timeframe=request.timeframe,
+        fast_period=request.fast_period,
+        slow_period=request.slow_period,
+        source="api.control",
+    )
+    return OperatorConfigResponse.model_validate(result)
 
 
 @router.post(

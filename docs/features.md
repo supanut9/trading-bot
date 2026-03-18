@@ -804,7 +804,7 @@ Main outputs:
 
 Status:
 
-- implemented on branch
+- merged to `main`
 
 Scope:
 
@@ -818,12 +818,30 @@ Main outputs:
 - clearer backtest result rendering with explicit run inputs and outcome summary
 - bounded API-facing backtest options that reuse the existing service layer
 
+### 45. `feature/runtime-operator-config`
+
+Status:
+
+- in progress
+
+Scope:
+
+- move paper-runtime market and strategy defaults out of env-only control and into bounded persisted operator controls
+- let operators update the active symbol, timeframe, and EMA periods from the FastAPI console and control API
+- make worker cycle, market sync, status, and default backtest behavior resolve the same effective runtime config
+
+Main outputs:
+
+- persisted operator-runtime defaults for strategy, symbol, timeframe, and EMA periods
+- `/controls/operator-config` read and write endpoints
+- `/console` runtime-defaults form plus shared use of those defaults across paper actions
+
 ## Current Recommended Queue
 
 These are the next bounded features after the current `main` baseline:
 
-1. `feature/interactive-backtest-console`
+1. `feature/runtime-operator-config`
 
 Current next feature:
 
-- `feature/interactive-backtest-console`
+- `feature/runtime-operator-config`

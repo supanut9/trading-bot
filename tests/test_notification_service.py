@@ -159,6 +159,8 @@ def test_notifies_market_sync_completion_event() -> None:
         MarketSyncControlResult(
             status="completed",
             detail="market data sync completed",
+            symbol=settings.default_symbol,
+            timeframe=settings.default_timeframe,
             fetched_count=4,
             stored_count=2,
         ),
@@ -181,6 +183,8 @@ def test_notifies_market_sync_failure_event() -> None:
         MarketSyncControlResult(
             status="failed",
             detail="market data sync failed",
+            symbol=settings.default_symbol,
+            timeframe=settings.default_timeframe,
             fetched_count=0,
             stored_count=0,
         ),

@@ -104,6 +104,42 @@ def store_closes(settings: Settings, closes: list[int]) -> None:
         session.close()
 
 
+def store_market_closes(
+    settings: Settings,
+    *,
+    symbol: str,
+    timeframe: str,
+    closes: list[int],
+) -> None:
+    session = create_session_factory(settings)()
+    try:
+        service = MarketDataService(session)
+        start = datetime(2026, 1, 1, tzinfo=UTC)
+        candles = []
+        for index, close in enumerate(closes):
+            open_time = start + timedelta(hours=index)
+            candles.append(
+                CandleInput(
+                    open_time=open_time,
+                    close_time=open_time + timedelta(hours=1),
+                    open_price=Decimal(close),
+                    high_price=Decimal(close),
+                    low_price=Decimal(close),
+                    close_price=Decimal(close),
+                    volume=Decimal("1"),
+                )
+            )
+
+        service.store_candles(
+            exchange=settings.exchange_name,
+            symbol=symbol,
+            timeframe=timeframe,
+            candles=candles,
+        )
+    finally:
+        session.close()
+
+
 def test_console_renders_operator_snapshot(tmp_path: Path) -> None:
     client, settings = build_client(tmp_path)
     try:
@@ -116,6 +152,7 @@ def test_console_renders_operator_snapshot(tmp_path: Path) -> None:
         assert response.headers["content-type"].startswith("text/html")
         assert "Operator Console" in response.text
         assert "Paper Trading Actions" in response.text
+        assert "Save Runtime Defaults" in response.text
         assert "Run Worker Cycle" in response.text
         assert "Run Backtest" in response.text
         assert 'name="strategy_name"' in response.text
@@ -130,10 +167,35 @@ def test_console_renders_operator_snapshot(tmp_path: Path) -> None:
         assert "Cancel Live Order" in response.text
         assert "Live Entry Halt" in response.text
         assert "Latest Price" in response.text
+        assert "Runtime Config" in response.text
         assert "Open Positions" in response.text
         assert "Recent Trades" in response.text
         assert "Recent Audit Events" in response.text
         assert "BTC/USDT" in response.text
+    finally:
+        teardown_client()
+
+
+def test_console_operator_config_action_renders_updated_defaults(tmp_path: Path) -> None:
+    client, settings = build_client(tmp_path)
+    try:
+        response = client.post(
+            "/console/actions/operator-config",
+            data={
+                "strategy_name": "ema_crossover",
+                "symbol": "ETH/USDT",
+                "timeframe": "4h",
+                "fast_period": 3,
+                "slow_period": 5,
+            },
+        )
+
+        assert response.status_code == 200
+        assert "Runtime Defaults" in response.text
+        assert "operator runtime config updated" in response.text
+        assert "ETH/USDT" in response.text
+        assert 'value="ETH/USDT"' in response.text
+        assert 'value="4h"' in response.text
     finally:
         teardown_client()
 
@@ -269,6 +331,60 @@ def test_console_market_sync_action_renders_summary(tmp_path: Path) -> None:
 
         assert audit_events[0].event_type == "market_sync"
         assert audit_events[0].source == "api.console"
+    finally:
+        teardown_client()
+
+
+def test_console_market_sync_action_uses_runtime_defaults(tmp_path: Path) -> None:
+    client, settings = build_client(tmp_path)
+    try:
+        client.post(
+            "/console/actions/operator-config",
+            data={
+                "strategy_name": "ema_crossover",
+                "symbol": "ETH/USDT",
+                "timeframe": "4h",
+                "fast_period": 3,
+                "slow_period": 5,
+            },
+        )
+        from app.application.services import operational_control_service as controls_module
+
+        class SyncStub:
+            def sync_recent_closed_candles(
+                self,
+                *,
+                exchange: str,
+                symbol: str,
+                timeframe: str,
+                limit: int,
+            ):
+                assert exchange == settings.exchange_name
+                assert symbol == "ETH/USDT"
+                assert timeframe == "4h"
+                assert limit == settings.market_data_sync_limit
+                store_market_closes(
+                    settings,
+                    symbol="ETH/USDT",
+                    timeframe="4h",
+                    closes=[10, 11, 12],
+                )
+                return MarketDataSyncResult(
+                    fetched_count=3,
+                    stored_count=3,
+                    latest_open_time=datetime(2026, 1, 1, 2, tzinfo=UTC),
+                )
+
+        original = controls_module.MarketDataSyncService
+        controls_module.MarketDataSyncService = lambda session, client: SyncStub()
+        try:
+            response = client.post("/console/actions/market-sync")
+        finally:
+            controls_module.MarketDataSyncService = original
+
+        assert response.status_code == 200
+        assert "ETH/USDT" in response.text
+        assert "4h" in response.text
     finally:
         teardown_client()
 

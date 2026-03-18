@@ -82,6 +82,42 @@ def store_closes(settings: Settings, closes: list[int]) -> None:
         session.close()
 
 
+def store_market_closes(
+    settings: Settings,
+    *,
+    symbol: str,
+    timeframe: str,
+    closes: list[int],
+) -> None:
+    session = create_session_factory(settings)()
+    try:
+        service = MarketDataService(session)
+        start = datetime(2026, 1, 1, tzinfo=UTC)
+        candles = []
+        for index, close in enumerate(closes):
+            open_time = start + timedelta(hours=index)
+            candles.append(
+                CandleInput(
+                    open_time=open_time,
+                    close_time=open_time + timedelta(hours=1),
+                    open_price=Decimal(close),
+                    high_price=Decimal(close),
+                    low_price=Decimal(close),
+                    close_price=Decimal(close),
+                    volume=Decimal("1"),
+                )
+            )
+
+        service.store_candles(
+            exchange=settings.exchange_name,
+            symbol=symbol,
+            timeframe=timeframe,
+            candles=candles,
+        )
+    finally:
+        session.close()
+
+
 def test_worker_cycle_control_executes_and_persists_trade(tmp_path: Path) -> None:
     client, settings = build_client(tmp_path)
     try:
@@ -246,6 +282,86 @@ def test_controls_use_injected_shared_session_factory(tmp_path: Path) -> None:
         teardown_client()
 
 
+def test_operator_config_control_returns_current_defaults(tmp_path: Path) -> None:
+    client, settings = build_client(tmp_path)
+    try:
+        response = client.get("/controls/operator-config")
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["status"] == "completed"
+        assert payload["strategy_name"] == "ema_crossover"
+        assert payload["symbol"] == settings.default_symbol
+        assert payload["timeframe"] == settings.default_timeframe
+        assert payload["source"] == "settings"
+    finally:
+        teardown_client()
+
+
+def test_operator_config_control_persists_runtime_defaults(tmp_path: Path) -> None:
+    client, _settings = build_client(tmp_path)
+    try:
+        response = client.post(
+            "/controls/operator-config",
+            json={
+                "strategy_name": "ema_crossover",
+                "symbol": "ETH/USDT",
+                "timeframe": "4h",
+                "fast_period": 3,
+                "slow_period": 5,
+            },
+        )
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["status"] == "completed"
+        assert payload["detail"] == "operator runtime config updated"
+        assert payload["symbol"] == "ETH/USDT"
+        assert payload["timeframe"] == "4h"
+        assert payload["source"] == "runtime_config"
+        assert payload["changed"] is True
+    finally:
+        teardown_client()
+
+
+def test_worker_cycle_control_uses_runtime_operator_config(tmp_path: Path) -> None:
+    client, settings = build_client(tmp_path)
+    try:
+        client.post(
+            "/controls/operator-config",
+            json={
+                "strategy_name": "ema_crossover",
+                "symbol": "ETH/USDT",
+                "timeframe": "4h",
+                "fast_period": 3,
+                "slow_period": 5,
+            },
+        )
+        store_market_closes(
+            settings,
+            symbol="ETH/USDT",
+            timeframe="4h",
+            closes=[10, 10, 10, 10, 10, 9, 9, 9, 20],
+        )
+
+        response = client.post("/controls/worker-cycle")
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["status"] == "executed"
+
+        session = create_session_factory(settings)()
+        try:
+            order = session.scalars(select(OrderRecord).order_by(OrderRecord.id.desc())).first()
+        finally:
+            session.close()
+
+        assert order is not None
+        assert order.symbol == "ETH/USDT"
+    finally:
+        teardown_client()
+
+
 def test_market_sync_control_returns_completed_summary(tmp_path: Path) -> None:
     client, settings = build_client(tmp_path)
     try:
@@ -301,6 +417,68 @@ def test_market_sync_control_returns_completed_summary(tmp_path: Path) -> None:
         assert event.event_type == "market_sync"
         assert event.status == "completed"
         assert event.source == "api.control"
+    finally:
+        teardown_client()
+
+
+def test_market_sync_control_uses_runtime_operator_config(tmp_path: Path) -> None:
+    client, settings = build_client(tmp_path)
+    try:
+        client.post(
+            "/controls/operator-config",
+            json={
+                "strategy_name": "ema_crossover",
+                "symbol": "ETH/USDT",
+                "timeframe": "4h",
+                "fast_period": 3,
+                "slow_period": 5,
+            },
+        )
+        session_factory = create_session_factory(settings)
+
+        class SyncStub:
+            def sync_recent_closed_candles(
+                self,
+                *,
+                exchange: str,
+                symbol: str,
+                timeframe: str,
+                limit: int,
+            ) -> MarketDataSyncResult:
+                assert exchange == settings.exchange_name
+                assert symbol == "ETH/USDT"
+                assert timeframe == "4h"
+                assert limit == settings.market_data_sync_limit
+                session = session_factory()
+                try:
+                    store_market_closes(
+                        settings,
+                        symbol="ETH/USDT",
+                        timeframe="4h",
+                        closes=[10, 11, 12],
+                    )
+                finally:
+                    session.close()
+                return MarketDataSyncResult(
+                    fetched_count=3,
+                    stored_count=3,
+                    latest_open_time=datetime(2026, 1, 1, 2, tzinfo=UTC),
+                )
+
+        from app.application.services import operational_control_service as controls_module
+
+        original = controls_module.MarketDataSyncService
+        controls_module.MarketDataSyncService = lambda session, client: SyncStub()
+        try:
+            response = client.post("/controls/market-sync")
+        finally:
+            controls_module.MarketDataSyncService = original
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["status"] == "completed"
+        assert payload["symbol"] == "ETH/USDT"
+        assert payload["timeframe"] == "4h"
     finally:
         teardown_client()
 
