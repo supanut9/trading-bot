@@ -39,8 +39,12 @@ class ReportingDashboard:
     app_name: str
     environment: str
     exchange: str
+    strategy_name: str
     symbol: str
     timeframe: str
+    fast_period: int
+    slow_period: int
+    operator_config_source: str
     paper_trading: bool
     live_trading_enabled: bool
     live_trading_halted: bool
@@ -156,8 +160,12 @@ class ReportingDashboardService:
             app_name=str(status["app"]),
             environment=str(status["environment"]),
             exchange=str(status["exchange"]),
+            strategy_name=str(status["strategy_name"]),
             symbol=str(status["symbol"]),
             timeframe=str(status["timeframe"]),
+            fast_period=int(status["fast_period"]),
+            slow_period=int(status["slow_period"]),
+            operator_config_source=str(status["operator_config_source"]),
             paper_trading=bool(status["paper_trading"]),
             live_trading_enabled=bool(status["live_trading_enabled"]),
             live_trading_halted=bool(status["live_trading_halted"]),

@@ -21,8 +21,12 @@ class StatusResponse(BaseModel):
     live_max_order_notional: Decimal | None = None
     live_max_position_quantity: Decimal | None = None
     exchange: str
+    strategy_name: str
     symbol: str
     timeframe: str
+    fast_period: int
+    slow_period: int
+    operator_config_source: str
     database_url: str
     database_status: str
     latest_price_status: str
@@ -213,9 +217,35 @@ class BacktestControlRequest(BaseModel):
     starting_equity: Decimal | None = None
 
 
+class OperatorConfigResponse(BaseModel):
+    status: str
+    detail: str
+    strategy_name: str
+    exchange: str
+    symbol: str
+    timeframe: str
+    fast_period: int
+    slow_period: int
+    source: str
+    changed: bool = False
+    notified: bool = False
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class OperatorConfigRequest(BaseModel):
+    strategy_name: str = "ema_crossover"
+    symbol: str
+    timeframe: str
+    fast_period: int
+    slow_period: int
+
+
 class MarketSyncControlResponse(BaseModel):
     status: str
     detail: str
+    symbol: str
+    timeframe: str
     fetched_count: int
     stored_count: int
     latest_open_time: datetime | None = None

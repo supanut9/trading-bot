@@ -14,6 +14,7 @@ from app.application.services.operational_control_service import (
     LiveReconcileControlResult,
     MarketSyncControlResult,
     OperationalControlService,
+    OperatorConfigControlResult,
     WorkerControlResult,
 )
 from app.application.services.reporting_dashboard_service import (
@@ -64,17 +65,15 @@ def _render_action_form(action: str, label: str, note: str) -> str:
 
 
 def _render_backtest_form(
-    settings: Settings,
+    dashboard: ReportingDashboard,
     result: BacktestControlResult | None = None,
 ) -> str:
-    strategy_name = result.strategy_name if result is not None else "ema_crossover"
-    symbol = result.symbol if result is not None else settings.default_symbol
-    timeframe = result.timeframe if result is not None else settings.default_timeframe
-    fast_period = str(result.fast_period if result is not None else settings.strategy_fast_period)
-    slow_period = str(result.slow_period if result is not None else settings.strategy_slow_period)
-    starting_equity = str(
-        result.starting_equity_input if result is not None else settings.paper_account_equity
-    )
+    strategy_name = result.strategy_name if result is not None else dashboard.strategy_name
+    symbol = result.symbol if result is not None else dashboard.symbol
+    timeframe = result.timeframe if result is not None else dashboard.timeframe
+    fast_period = str(result.fast_period if result is not None else dashboard.fast_period)
+    slow_period = str(result.slow_period if result is not None else dashboard.slow_period)
+    starting_equity = str(result.starting_equity_input if result is not None else "10000")
     return f"""
         <form method="post" action="/console/actions/backtest" class="action-form">
           <button type="submit">Run Backtest</button>
@@ -132,6 +131,63 @@ def _render_backtest_form(
     """
 
 
+def _render_operator_config_form(
+    dashboard: ReportingDashboard,
+    result: OperatorConfigControlResult | None = None,
+) -> str:
+    strategy_name = result.strategy_name if result is not None else dashboard.strategy_name
+    symbol = result.symbol if result is not None else dashboard.symbol
+    timeframe = result.timeframe if result is not None else dashboard.timeframe
+    fast_period = str(result.fast_period if result is not None else dashboard.fast_period)
+    slow_period = str(result.slow_period if result is not None else dashboard.slow_period)
+    return f"""
+        <form method="post" action="/console/actions/operator-config" class="action-form">
+          <button type="submit">Save Runtime Defaults</button>
+          <p>
+            Update the paper-runtime market and strategy defaults used by worker cycle,
+            market sync, status, and the backtest form.
+          </p>
+          <label class="field">
+            <span>Strategy</span>
+            <select name="strategy_name">
+              <option
+                value="ema_crossover"
+                {" selected" if strategy_name == "ema_crossover" else ""}
+              >
+                EMA Crossover
+              </option>
+            </select>
+          </label>
+          <label class="field">
+            <span>Symbol</span>
+            <input type="text" name="symbol" value="{escape(symbol)}" />
+          </label>
+          <label class="field">
+            <span>Timeframe</span>
+            <input type="text" name="timeframe" value="{escape(timeframe)}" />
+          </label>
+          <label class="field">
+            <span>Fast Period</span>
+            <input
+              type="text"
+              name="fast_period"
+              inputmode="numeric"
+              value="{escape(fast_period)}"
+            />
+          </label>
+          <label class="field">
+            <span>Slow Period</span>
+            <input
+              type="text"
+              name="slow_period"
+              inputmode="numeric"
+              value="{escape(slow_period)}"
+            />
+          </label>
+        </form>
+    """
+
+
 def _render_live_toggle_form(action: str, label: str, note: str) -> str:
     return _render_action_form(action, label, note)
 
@@ -166,6 +222,7 @@ def _render_action_result(
         | LiveReconcileControlResult
         | LiveHaltControlResult
         | LiveCancelControlResult
+        | OperatorConfigControlResult
     ),
 ) -> str:
     rows: list[tuple[str, str]] = [
@@ -227,6 +284,19 @@ def _render_action_result(
         rows.extend(
             [
                 ("Live Trading Halted", "yes" if result.live_trading_halted else "no"),
+                ("Changed", "yes" if result.changed else "no"),
+            ]
+        )
+    elif isinstance(result, OperatorConfigControlResult):
+        rows.extend(
+            [
+                ("Strategy", result.strategy_name),
+                ("Exchange", result.exchange),
+                ("Symbol", result.symbol),
+                ("Timeframe", result.timeframe),
+                ("Fast Period", str(result.fast_period)),
+                ("Slow Period", str(result.slow_period)),
+                ("Source", result.source),
                 ("Changed", "yes" if result.changed else "no"),
             ]
         )
@@ -345,6 +415,7 @@ def _render_console_page(
         | LiveReconcileControlResult
         | LiveHaltControlResult
         | LiveCancelControlResult
+        | OperatorConfigControlResult
         | None
     ) = None,
 ) -> str:
@@ -353,6 +424,8 @@ def _render_console_page(
     cards = "".join(
         [
             _render_metric_card("Execution Mode", mode_label, accent=True),
+            _render_metric_card("Strategy", dashboard.strategy_name),
+            _render_metric_card("Runtime Config", dashboard.operator_config_source),
             _render_metric_card(
                 "Live Entry Halt",
                 "halted" if dashboard.live_trading_halted else "active",
@@ -389,6 +462,10 @@ def _render_console_page(
     )
     action_forms = "".join(
         [
+            _render_operator_config_form(
+                dashboard,
+                action_result if isinstance(action_result, OperatorConfigControlResult) else None,
+            ),
             _render_live_toggle_form(
                 "live-halt",
                 "Halt Live Entry",
@@ -412,7 +489,7 @@ def _render_console_page(
                 "with current mode.",
             ),
             _render_backtest_form(
-                settings,
+                dashboard,
                 action_result if isinstance(action_result, BacktestControlResult) else None,
             ),
             _render_action_form(
@@ -780,6 +857,38 @@ def run_console_live_halt(
             settings,
             dashboard,
             action_name="Live Halt",
+            action_result=result,
+        )
+    )
+
+
+@router.post("/actions/operator-config", response_class=HTMLResponse)
+def run_console_operator_config(
+    strategy_name: Annotated[str, Form()] = "ema_crossover",
+    symbol: Annotated[str, Form()] = "",
+    timeframe: Annotated[str, Form()] = "",
+    fast_period: Annotated[int, Form()] = 0,
+    slow_period: Annotated[int, Form()] = 0,
+    settings: Settings = settings_dependency,
+    session_factory: sessionmaker[Session] = session_factory_dependency,
+) -> HTMLResponse:
+    result = OperationalControlService(
+        settings,
+        session_factory=session_factory,
+    ).run_update_operator_config(
+        strategy_name=strategy_name,
+        symbol=symbol,
+        timeframe=timeframe,
+        fast_period=fast_period,
+        slow_period=slow_period,
+        source="api.console",
+    )
+    dashboard = _build_dashboard(settings, session_factory)
+    return _html_response(
+        _render_console_page(
+            settings,
+            dashboard,
+            action_name="Runtime Defaults",
             action_result=result,
         )
     )

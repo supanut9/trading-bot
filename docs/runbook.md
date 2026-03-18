@@ -85,13 +85,16 @@ Demo scenario behavior:
 Manual controls:
 
 - `POST /controls/worker-cycle` runs one worker cycle with the current configured strategy, risk, and paper/live mode
-- `POST /controls/market-sync` fetches recent closed candles for the configured exchange, symbol, and timeframe and stores them through the market data service
+- `GET /controls/operator-config` returns the effective paper-runtime strategy, symbol, timeframe, and EMA defaults
+- `POST /controls/operator-config` persists paper-runtime strategy, symbol, timeframe, and EMA defaults for later worker, sync, status, and console use
+- `POST /controls/market-sync` fetches recent closed candles for the configured exchange and effective runtime symbol/timeframe and stores them through the market data service
 - `POST /controls/backtest` runs one backtest over stored candles and can now accept explicit strategy, symbol, timeframe, EMA periods, and starting-equity inputs
 - live worker execution now rejects a new same-side live submission when an unresolved live order already exists for that market
 - `POST /controls/live-halt` persists the live-entry halt state used by status and worker execution
 - control endpoints do not accept arbitrary trading parameters; they only use current application configuration
 - `GET /console` provides a local operator surface over the same bounded actions for market sync, worker cycle, and backtest
 - the console is intended for paper-trading workflows and shows inline feedback from the most recent action run
+- the console now includes a runtime-defaults form for strategy, symbol, timeframe, and EMA periods, persisted through the same bounded control path
 - the console backtest form now lets operators choose symbol, timeframe, EMA periods, and starting equity before running the replay
 - the console also exposes explicit live halt, live resume, live reconcile, and live cancel actions that call the same bounded control service as the JSON API
 - live cancel in the console requires exactly one identifier: local `order_id`, `client_order_id`, or `exchange_order_id`

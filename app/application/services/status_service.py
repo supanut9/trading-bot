@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 
 from app.application.services.exchange_balance_service import ExchangeBalanceService
 from app.application.services.live_operator_control_service import LiveOperatorControlService
+from app.application.services.operator_runtime_config_service import OperatorRuntimeConfigService
 from app.config import Settings
 from app.infrastructure.database.session import create_engine_from_settings
 from app.infrastructure.exchanges.factory import (
@@ -20,11 +21,12 @@ class StatusService:
     def get_status(self) -> dict[str, str | bool | list[dict[str, str]]]:
         database_status = self._get_database_status()
         effective_live_halt = self._effective_live_trading_halted()
+        effective_operator_config = self._effective_operator_config()
         latest_price_status = "unavailable"
         latest_price: str | None = None
         try:
             latest_ticker = build_market_data_exchange_client(self._settings).fetch_latest_price(
-                symbol=self._settings.default_symbol
+                symbol=effective_operator_config["symbol"]
             )
             latest_price_status = "available"
             latest_price = format(latest_ticker.price, "f")
@@ -70,8 +72,12 @@ class StatusService:
                 else None
             ),
             "exchange": self._settings.exchange_name,
-            "symbol": self._settings.default_symbol,
-            "timeframe": self._settings.default_timeframe,
+            "strategy_name": effective_operator_config["strategy_name"],
+            "symbol": effective_operator_config["symbol"],
+            "timeframe": effective_operator_config["timeframe"],
+            "fast_period": effective_operator_config["fast_period"],
+            "slow_period": effective_operator_config["slow_period"],
+            "operator_config_source": effective_operator_config["source"],
             "database_url": self._settings.database_url,
             "database_status": database_status,
             "latest_price_status": latest_price_status,
@@ -102,6 +108,40 @@ class StatusService:
         except SQLAlchemyError:
             self._session.rollback()
             return self._settings.live_trading_halted
+
+    def _effective_operator_config(self) -> dict[str, str | int]:
+        if self._session is None:
+            return {
+                "strategy_name": "ema_crossover",
+                "symbol": self._settings.default_symbol,
+                "timeframe": self._settings.default_timeframe,
+                "fast_period": self._settings.strategy_fast_period,
+                "slow_period": self._settings.strategy_slow_period,
+                "source": "settings",
+            }
+        try:
+            config = OperatorRuntimeConfigService(
+                self._session,
+                self._settings,
+            ).get_effective_config()
+            return {
+                "strategy_name": config.strategy_name,
+                "symbol": config.symbol,
+                "timeframe": config.timeframe,
+                "fast_period": config.fast_period,
+                "slow_period": config.slow_period,
+                "source": config.source,
+            }
+        except SQLAlchemyError:
+            self._session.rollback()
+            return {
+                "strategy_name": "ema_crossover",
+                "symbol": self._settings.default_symbol,
+                "timeframe": self._settings.default_timeframe,
+                "fast_period": self._settings.strategy_fast_period,
+                "slow_period": self._settings.strategy_slow_period,
+                "source": "settings",
+            }
 
     def _get_database_status(self) -> str:
         try:

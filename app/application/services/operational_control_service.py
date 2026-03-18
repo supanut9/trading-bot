@@ -22,6 +22,11 @@ from app.application.services.notification_service import (
     NotificationService,
     build_notification_service,
 )
+from app.application.services.operator_runtime_config_service import (
+    OPERATOR_STRATEGY_EMA_CROSSOVER,
+    OperatorRuntimeConfig,
+    OperatorRuntimeConfigService,
+)
 from app.application.services.worker_orchestration_service import WorkerOrchestrationService
 from app.config import Settings
 from app.domain.risk import RiskLimits, RiskService
@@ -35,7 +40,7 @@ from app.infrastructure.exchanges.factory import (
     build_market_data_exchange_client,
 )
 
-BACKTEST_STRATEGY_EMA_CROSSOVER = "ema_crossover"
+BACKTEST_STRATEGY_EMA_CROSSOVER = OPERATOR_STRATEGY_EMA_CROSSOVER
 
 
 @dataclass(frozen=True, slots=True)
@@ -99,6 +104,8 @@ class BacktestControlResult:
 class MarketSyncControlResult:
     status: str
     detail: str
+    symbol: str
+    timeframe: str
     fetched_count: int
     stored_count: int
     latest_open_time: datetime | None = None
@@ -135,6 +142,21 @@ class LiveHaltControlResult:
     notified: bool = False
 
 
+@dataclass(frozen=True, slots=True)
+class OperatorConfigControlResult:
+    status: str
+    detail: str
+    strategy_name: str
+    exchange: str
+    symbol: str
+    timeframe: str
+    fast_period: int
+    slow_period: int
+    source: str
+    changed: bool = False
+    notified: bool = False
+
+
 class OperationalControlService:
     _decimal_precision = Decimal("0.00000001")
 
@@ -161,7 +183,15 @@ class OperationalControlService:
         audit: bool = True,
     ) -> WorkerControlResult:
         with self._session_factory() as session:
-            result = WorkerOrchestrationService(session, self._settings).run_cycle()
+            operator_config = OperatorRuntimeConfigService(
+                session,
+                self._settings,
+            ).get_effective_config()
+            result = WorkerOrchestrationService(
+                session,
+                self._settings,
+                operator_config=operator_config,
+            ).run_cycle()
 
         notified = self._notifications.notify_worker_cycle(self._settings, result)
         control_result = WorkerControlResult(
@@ -199,20 +229,26 @@ class OperationalControlService:
         audit: bool = True,
     ) -> MarketSyncControlResult:
         with self._session_factory() as session:
+            operator_config = OperatorRuntimeConfigService(
+                session,
+                self._settings,
+            ).get_effective_config()
             try:
                 result = MarketDataSyncService(
                     session,
                     build_market_data_exchange_client(self._settings),
                 ).sync_recent_closed_candles(
                     exchange=self._settings.exchange_name,
-                    symbol=self._settings.default_symbol,
-                    timeframe=self._settings.default_timeframe,
+                    symbol=operator_config.symbol,
+                    timeframe=operator_config.timeframe,
                     limit=self._settings.market_data_sync_limit,
                 )
             except Exception:
                 failed = MarketSyncControlResult(
                     status="failed",
                     detail="market data sync failed",
+                    symbol=operator_config.symbol,
+                    timeframe=operator_config.timeframe,
                     fetched_count=0,
                     stored_count=0,
                 )
@@ -220,6 +256,8 @@ class OperationalControlService:
                 control_result = MarketSyncControlResult(
                     status=failed.status,
                     detail=failed.detail,
+                    symbol=failed.symbol,
+                    timeframe=failed.timeframe,
                     fetched_count=failed.fetched_count,
                     stored_count=failed.stored_count,
                     latest_open_time=failed.latest_open_time,
@@ -233,6 +271,8 @@ class OperationalControlService:
                         detail=control_result.detail,
                         settings=self._settings,
                         payload={
+                            "symbol": control_result.symbol,
+                            "timeframe": control_result.timeframe,
                             "fetched_count": control_result.fetched_count,
                             "stored_count": control_result.stored_count,
                             "latest_open_time": control_result.latest_open_time,
@@ -250,6 +290,8 @@ class OperationalControlService:
         completed = MarketSyncControlResult(
             status="completed",
             detail=detail,
+            symbol=operator_config.symbol,
+            timeframe=operator_config.timeframe,
             fetched_count=result.fetched_count,
             stored_count=result.stored_count,
             latest_open_time=result.latest_open_time,
@@ -258,6 +300,8 @@ class OperationalControlService:
         control_result = MarketSyncControlResult(
             status=completed.status,
             detail=completed.detail,
+            symbol=completed.symbol,
+            timeframe=completed.timeframe,
             fetched_count=completed.fetched_count,
             stored_count=completed.stored_count,
             latest_open_time=completed.latest_open_time,
@@ -271,6 +315,8 @@ class OperationalControlService:
                 detail=control_result.detail,
                 settings=self._settings,
                 payload={
+                    "symbol": control_result.symbol,
+                    "timeframe": control_result.timeframe,
                     "fetched_count": control_result.fetched_count,
                     "stored_count": control_result.stored_count,
                     "latest_open_time": control_result.latest_open_time,
@@ -287,10 +333,11 @@ class OperationalControlService:
         source: str = "internal",
         audit: bool = True,
     ) -> BacktestControlResult:
+        defaults = self._get_effective_operator_config()
         try:
-            resolved = self._resolve_backtest_options(options)
+            resolved = self._resolve_backtest_options(options, defaults=defaults)
         except ValueError as exc:
-            preview = self._preview_backtest_options(options)
+            preview = self._preview_backtest_options(options, defaults=defaults)
             control_result = BacktestControlResult(
                 status="failed",
                 detail=str(exc),
@@ -575,6 +622,95 @@ class OperationalControlService:
             )
         return control_result
 
+    def get_operator_config(self) -> OperatorConfigControlResult:
+        config = self._get_effective_operator_config()
+        return OperatorConfigControlResult(
+            status="completed",
+            detail="operator runtime config loaded",
+            strategy_name=config.strategy_name,
+            exchange=config.exchange,
+            symbol=config.symbol,
+            timeframe=config.timeframe,
+            fast_period=config.fast_period,
+            slow_period=config.slow_period,
+            source=config.source,
+        )
+
+    def run_update_operator_config(
+        self,
+        *,
+        strategy_name: str,
+        symbol: str,
+        timeframe: str,
+        fast_period: int,
+        slow_period: int,
+        source: str = "internal",
+        audit: bool = True,
+    ) -> OperatorConfigControlResult:
+        try:
+            with self._session_factory() as session:
+                update = OperatorRuntimeConfigService(
+                    session,
+                    self._settings,
+                ).set_config(
+                    strategy_name=strategy_name,
+                    symbol=symbol,
+                    timeframe=timeframe,
+                    fast_period=fast_period,
+                    slow_period=slow_period,
+                    updated_by=source,
+                )
+                session.commit()
+        except ValueError as exc:
+            current = self.get_operator_config()
+            return OperatorConfigControlResult(
+                status="failed",
+                detail=str(exc),
+                strategy_name=strategy_name.strip().lower() or current.strategy_name,
+                exchange=self._settings.exchange_name,
+                symbol=symbol.strip() or current.symbol,
+                timeframe=timeframe.strip() or current.timeframe,
+                fast_period=fast_period,
+                slow_period=slow_period,
+                source=current.source,
+            )
+
+        control_result = OperatorConfigControlResult(
+            status="completed",
+            detail=(
+                "operator runtime config updated"
+                if update.changed
+                else "operator runtime config unchanged"
+            ),
+            strategy_name=update.current.strategy_name,
+            exchange=update.current.exchange,
+            symbol=update.current.symbol,
+            timeframe=update.current.timeframe,
+            fast_period=update.current.fast_period,
+            slow_period=update.current.slow_period,
+            source=update.current.source,
+            changed=update.changed,
+        )
+        if audit:
+            self._audit.record_control_result(
+                control_type="operator_config",
+                source=source,
+                status=control_result.status,
+                detail=control_result.detail,
+                settings=self._settings,
+                payload={
+                    "strategy_name": control_result.strategy_name,
+                    "exchange": control_result.exchange,
+                    "symbol": control_result.symbol,
+                    "timeframe": control_result.timeframe,
+                    "fast_period": control_result.fast_period,
+                    "slow_period": control_result.slow_period,
+                    "config_source": control_result.source,
+                    "changed": control_result.changed,
+                },
+            )
+        return control_result
+
     def run_live_cancel(
         self,
         *,
@@ -713,16 +849,18 @@ class OperationalControlService:
     def _resolve_backtest_options(
         self,
         options: BacktestRunOptions | None,
+        *,
+        defaults: OperatorRuntimeConfig,
     ) -> BacktestRunOptions:
         active = options or BacktestRunOptions()
         strategy_name = active.strategy_name.strip().lower()
         if strategy_name != BACKTEST_STRATEGY_EMA_CROSSOVER:
             raise ValueError(f"unsupported backtest strategy: {active.strategy_name}")
-        exchange = (active.exchange or self._settings.exchange_name).strip()
-        symbol = (active.symbol or self._settings.default_symbol).strip()
-        timeframe = (active.timeframe or self._settings.default_timeframe).strip()
-        fast_period = active.fast_period or self._settings.strategy_fast_period
-        slow_period = active.slow_period or self._settings.strategy_slow_period
+        exchange = (active.exchange or defaults.exchange).strip()
+        symbol = (active.symbol or defaults.symbol).strip()
+        timeframe = (active.timeframe or defaults.timeframe).strip()
+        fast_period = active.fast_period or defaults.fast_period
+        slow_period = active.slow_period or defaults.slow_period
         starting_equity = active.starting_equity or Decimal(
             str(self._settings.paper_account_equity)
         )
@@ -747,15 +885,17 @@ class OperationalControlService:
     def _preview_backtest_options(
         self,
         options: BacktestRunOptions | None,
+        *,
+        defaults: OperatorRuntimeConfig,
     ) -> BacktestRunOptions:
         active = options or BacktestRunOptions()
         return BacktestRunOptions(
             strategy_name=(active.strategy_name or BACKTEST_STRATEGY_EMA_CROSSOVER).strip().lower(),
-            exchange=(active.exchange or self._settings.exchange_name).strip(),
-            symbol=(active.symbol or self._settings.default_symbol).strip(),
-            timeframe=(active.timeframe or self._settings.default_timeframe).strip(),
-            fast_period=int(active.fast_period or self._settings.strategy_fast_period),
-            slow_period=int(active.slow_period or self._settings.strategy_slow_period),
+            exchange=(active.exchange or defaults.exchange).strip(),
+            symbol=(active.symbol or defaults.symbol).strip(),
+            timeframe=(active.timeframe or defaults.timeframe).strip(),
+            fast_period=int(active.fast_period or defaults.fast_period),
+            slow_period=int(active.slow_period or defaults.slow_period),
             starting_equity=Decimal(
                 str(active.starting_equity or self._settings.paper_account_equity)
             ),
@@ -779,6 +919,13 @@ class OperationalControlService:
                 paper_trading_only=not self._settings.live_trading_enabled,
             )
         )
+
+    def _get_effective_operator_config(self) -> OperatorRuntimeConfig:
+        with self._session_factory() as session:
+            return OperatorRuntimeConfigService(
+                session,
+                self._settings,
+            ).get_effective_config()
 
     @classmethod
     def _quantize_decimal(cls, value: Decimal | None) -> Decimal | None:
