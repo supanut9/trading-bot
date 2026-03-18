@@ -32,3 +32,16 @@ def export_performance_daily_csv(
         media_type="text/csv; charset=utf-8",
         headers={"Content-Disposition": 'attachment; filename="performance-daily.csv"'},
     )
+
+
+@router.get("/equity.csv")
+def export_performance_equity_csv(
+    session: Session = session_dependency,
+    settings: Settings = settings_dependency,
+) -> Response:
+    content = ReportingExportService(session, settings).export_performance_equity_csv()
+    return Response(
+        content=content,
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": 'attachment; filename="performance-equity.csv"'},
+    )

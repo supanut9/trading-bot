@@ -243,3 +243,26 @@ class ReportingExportService:
                 ]
             )
         return output.getvalue()
+
+    def export_performance_equity_csv(self) -> str:
+        analytics = self._performance.build()
+        output = StringIO()
+        writer = csv.writer(output)
+        writer.writerow(
+            [
+                "mode",
+                "recorded_at",
+                "net_pnl",
+                "drawdown",
+            ]
+        )
+        for point in analytics.equity_curve:
+            writer.writerow(
+                [
+                    point.mode,
+                    point.recorded_at.isoformat(),
+                    point.net_pnl,
+                    point.drawdown,
+                ]
+            )
+        return output.getvalue()

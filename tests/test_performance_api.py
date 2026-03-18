@@ -145,3 +145,31 @@ def test_performance_daily_csv_exports_rows(tmp_path: Path) -> None:
         assert rows[0]["trade_count"] == "2"
     finally:
         teardown_client(session)
+
+
+def test_performance_equity_csv_exports_curve_points(tmp_path: Path) -> None:
+    client, session = build_client(tmp_path)
+    try:
+        start = datetime(2026, 1, 1, tzinfo=UTC)
+        seed_trade(session, created_at=start, side="buy", quantity="1.0", price="100")
+        seed_trade(
+            session,
+            created_at=start + timedelta(hours=1),
+            side="sell",
+            quantity="1.0",
+            price="110",
+        )
+        session.commit()
+
+        response = client.get("/performance/equity.csv")
+
+        assert response.status_code == 200
+        assert response.headers["content-disposition"] == (
+            'attachment; filename="performance-equity.csv"'
+        )
+        rows = list(csv.DictReader(StringIO(response.text)))
+        assert len(rows) == 2
+        assert rows[0]["mode"] == "paper"
+        assert Decimal(rows[-1]["net_pnl"]) == Decimal("10")
+    finally:
+        teardown_client(session)

@@ -854,6 +854,25 @@ Main outputs:
 - performance summary API endpoint and daily CSV export
 - tests for metric calculations and API exposure
 
+### 45. `feature/performance-equity-reporting`
+
+Status:
+
+- in progress
+
+Scope:
+
+- expose the computed equity curve through the reporting deck instead of only the JSON API
+- add an export-friendly CSV for equity-curve review and plotting
+- keep performance analytics live-computed from existing trading records
+- add tests and docs for the new reporting surface
+
+Main outputs:
+
+- reporting dashboard equity-curve section
+- performance equity CSV export endpoint
+- updated operator docs for equity review
+
 Current next feature:
 
-- no next feature selected
+- `feature/performance-equity-reporting`

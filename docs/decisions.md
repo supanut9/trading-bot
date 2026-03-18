@@ -227,6 +227,20 @@ Operators now have more controls and more state to inspect, but the reporting pa
 
 ### Decision
 
+Expose the computed performance equity curve through the reporting deck and a CSV export, rather than keeping it limited to the JSON API response.
+
+### Reason
+
+The analytics core already derives equity-curve points at request time, but operators and reviewers still lacked a dashboard view and an offline artifact for the same data. Extending the existing reporting surface keeps the feature bounded and makes the curve usable without adding a charting stack or new persistence.
+
+### Consequence
+
+`/reports` now includes an equity-curve section grouped by mode, and `/performance/equity.csv` exports the same live-computed curve points for offline inspection.
+
+## 2026-03-18
+
+### Decision
+
 Implement performance analytics as a live-computed service over existing trades, orders, and positions before introducing any dedicated summary table.
 
 ### Reason

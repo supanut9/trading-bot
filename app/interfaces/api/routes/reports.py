@@ -1,10 +1,16 @@
+from collections import defaultdict
+from decimal import Decimal
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import HTMLResponse, Response
 from sqlalchemy.orm import Session, sessionmaker
 
-from app.application.services.reporting_dashboard_service import ReportingDashboardService
+from app.application.services.performance_analytics_service import EquityCurvePoint
+from app.application.services.reporting_dashboard_service import (
+    ReportingDashboard,
+    ReportingDashboardService,
+)
 from app.application.services.reporting_export_service import ReportingExportService
 from app.config import Settings, get_settings
 from app.infrastructure.database.session import get_session, get_session_factory_dependency
@@ -31,6 +37,65 @@ def _render_card(label: str, value: str) -> str:
     return (
         f'<div class="card"><div class="label">{label}</div><div class="value">{value}</div></div>'
     )
+
+
+def _render_equity_curve_panels(dashboard: ReportingDashboard) -> str:
+    points_by_mode: dict[str, list[EquityCurvePoint]] = defaultdict(list)
+    for point in dashboard.performance_equity_curve:
+        points_by_mode[point.mode].append(point)
+
+    if not points_by_mode:
+        return '<div class="curve-empty">No equity curve points available.</div>'
+
+    width = 640
+    height = 180
+    charts: list[str] = []
+    for mode in sorted(points_by_mode):
+        points = points_by_mode[mode]
+        net_values = [point.net_pnl for point in points]
+        minimum = min(net_values)
+        maximum = max(net_values)
+        if minimum == maximum:
+            minimum -= Decimal("1")
+            maximum += Decimal("1")
+        vertical_span = maximum - minimum
+        horizontal_steps = max(len(points) - 1, 1)
+        path_segments: list[str] = []
+        for index, point in enumerate(points):
+            x = (Decimal(index) / Decimal(horizontal_steps)) * Decimal(width)
+            normalized = (point.net_pnl - minimum) / vertical_span
+            y = Decimal(height) - (normalized * Decimal(height))
+            command = "M" if index == 0 else "L"
+            path_segments.append(f"{command} {x:.2f} {y:.2f}")
+
+        zero_line = ""
+        if minimum <= Decimal("0") <= maximum:
+            normalized_zero = (Decimal("0") - minimum) / vertical_span
+            zero_y = Decimal(height) - (normalized_zero * Decimal(height))
+            zero_line = (
+                f'<line class="baseline" x1="0" y1="{zero_y:.2f}" '
+                f'x2="{width}" y2="{zero_y:.2f}"></line>'
+            )
+
+        latest_point = points[-1]
+        path_data = " ".join(path_segments)
+        charts.append(
+            '<article class="curve-card">'
+            f'<div class="label">Mode</div><h3>{mode}</h3>'
+            '<div class="curve-meta">'
+            f"<span>Latest Net PnL {latest_point.net_pnl}</span>"
+            f"<span>Max Drawdown {max(point.drawdown for point in points)}</span>"
+            f"<span>Points {len(points)}</span>"
+            "</div>"
+            f'<svg class="equity-chart" viewBox="0 0 {width} {height}" '
+            'preserveAspectRatio="none" role="img" '
+            f'aria-label="{mode} equity curve">'
+            f"{zero_line}"
+            f'<path class="curve-line" d="{path_data}"></path>'
+            "</svg>"
+            "</article>"
+        )
+    return "".join(charts)
 
 
 def _render_dashboard(service: ReportingDashboardService) -> str:
@@ -68,6 +133,7 @@ def _render_dashboard(service: ReportingDashboardService) -> str:
         )
         or '<tr><td colspan="5">No daily performance rows available.</td></tr>'
     )
+    equity_curve_panels = _render_equity_curve_panels(dashboard)
     positions_rows = (
         "".join(
             (
@@ -276,6 +342,51 @@ def _render_dashboard(service: ReportingDashboardService) -> str:
         grid-template-columns: 1fr;
         margin-top: 24px;
       }}
+      .curve-grid {{
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 16px;
+      }}
+      .curve-card {{
+        display: grid;
+        gap: 12px;
+      }}
+      .curve-card h3 {{
+        margin: 0;
+        font-size: 1.4rem;
+      }}
+      .curve-meta {{
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        color: var(--muted);
+        font-size: 0.92rem;
+      }}
+      .equity-chart {{
+        width: 100%;
+        height: 180px;
+        display: block;
+        border: 1px solid var(--line);
+        background:
+          linear-gradient(180deg, rgba(179, 63, 98, 0.10) 0%, rgba(179, 63, 98, 0.02) 100%),
+          linear-gradient(180deg, rgba(255, 255, 255, 0.85) 0%, rgba(242, 209, 201, 0.35) 100%);
+      }}
+      .equity-chart .curve-line {{
+        fill: none;
+        stroke: var(--accent);
+        stroke-width: 3;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }}
+      .equity-chart .baseline {{
+        stroke: var(--muted);
+        stroke-width: 1;
+        stroke-dasharray: 4 6;
+        opacity: 0.65;
+      }}
+      .curve-empty {{
+        color: var(--muted);
+      }}
       .panel h2 {{
         margin: 0 0 12px;
         font-size: 1.15rem;
@@ -329,7 +440,8 @@ def _render_dashboard(service: ReportingDashboardService) -> str:
           <a href="/reports/backtest-summary.csv">Download backtest CSV</a>
           <a href="/reports/audit.csv">Download audit CSV</a>
           <a href="/reports/live-recovery.csv">Download live recovery CSV</a>
-          <a href="/performance/daily.csv">Download performance CSV</a>
+          <a href="/performance/daily.csv">Download daily performance CSV</a>
+          <a href="/performance/equity.csv">Download equity curve CSV</a>
         </div>
       </section>
       <section class="cards summary">{summary_cards}</section>
@@ -369,6 +481,10 @@ def _render_dashboard(service: ReportingDashboardService) -> str:
             </thead>
             <tbody>{performance_rows}</tbody>
           </table>
+        </div>
+        <div class="panel">
+          <h2>Equity Curve</h2>
+          <div class="curve-grid">{equity_curve_panels}</div>
         </div>
         <div class="panel">
           <h2>Positions</h2>
