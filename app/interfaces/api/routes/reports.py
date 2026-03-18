@@ -127,6 +127,34 @@ def _render_dashboard(service: ReportingDashboardService) -> str:
             f"Latest recovery event: {dashboard.latest_recovery_event_type} "
             f"{dashboard.latest_recovery_event_status} at {dashboard.latest_recovery_event_at}."
         )
+    latest_worker_summary = "Latest worker cycle: none."
+    if dashboard.latest_worker_event_at is not None:
+        latest_worker_summary = (
+            f"Latest worker cycle: {dashboard.latest_worker_event_status} "
+            f"at {dashboard.latest_worker_event_at}. "
+            f"{dashboard.latest_worker_event_detail}."
+        )
+    latest_worker_signal = dashboard.latest_worker_signal_action or "-"
+    latest_worker_order = dashboard.latest_worker_client_order_id or "-"
+    summary_cards = "".join(
+        [
+            _render_card(
+                "Latest Worker Status",
+                dashboard.latest_worker_event_status or "none",
+            ),
+            _render_card("Worker Signal", latest_worker_signal),
+            _render_card("Worker Order", latest_worker_order),
+            _render_card(
+                "Net PnL",
+                str(dashboard.total_realized_pnl + dashboard.total_unrealized_pnl),
+            ),
+            _render_card("Open Positions", str(dashboard.position_count)),
+            _render_card("Recent Trades", str(dashboard.trade_count)),
+            _render_card("Stale Live Orders", str(len(dashboard.stale_live_orders))),
+            _render_card("Unresolved Live Orders", str(dashboard.unresolved_live_orders)),
+        ]
+    )
+    net_pnl = dashboard.total_realized_pnl + dashboard.total_unrealized_pnl
 
     return f"""<!DOCTYPE html>
 <html lang="en">
@@ -190,6 +218,10 @@ def _render_dashboard(service: ReportingDashboardService) -> str:
       }}
       .cards {{
         grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        margin-top: 24px;
+      }}
+      .summary {{
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
         margin-top: 24px;
       }}
       .card, .panel {{
@@ -257,6 +289,7 @@ def _render_dashboard(service: ReportingDashboardService) -> str:
         <h1>{dashboard.app_name}</h1>
         <div class="sub">{subheadline}</div>
         <div class="sub">{latest_recovery_summary}</div>
+        <div class="sub">{latest_worker_summary}</div>
         <div class="exports">
           <a href="/reports/positions.csv">Download positions CSV</a>
           <a href="/reports/trades.csv">Download trades CSV</a>
@@ -265,8 +298,26 @@ def _render_dashboard(service: ReportingDashboardService) -> str:
           <a href="/reports/live-recovery.csv">Download live recovery CSV</a>
         </div>
       </section>
+      <section class="cards summary">{summary_cards}</section>
       <section class="cards">{cards}</section>
       <section class="tables">
+        <div class="panel">
+          <h2>Session Summary</h2>
+          <table>
+            <tbody>
+              <tr>
+                <th>Latest Worker Status</th>
+                <td>{dashboard.latest_worker_event_status or "-"}</td>
+              </tr>
+              <tr><th>Worker Detail</th><td>{dashboard.latest_worker_event_detail or "-"}</td></tr>
+              <tr><th>Worker Signal</th><td>{latest_worker_signal}</td></tr>
+              <tr><th>Worker Order</th><td>{latest_worker_order}</td></tr>
+              <tr><th>Net PnL</th><td>{net_pnl}</td></tr>
+              <tr><th>Stale Live Orders</th><td>{len(dashboard.stale_live_orders)}</td></tr>
+              <tr><th>Unresolved Live Orders</th><td>{dashboard.unresolved_live_orders}</td></tr>
+            </tbody>
+          </table>
+        </div>
         <div class="panel">
           <h2>Positions</h2>
           <table>
@@ -314,21 +365,6 @@ def _render_dashboard(service: ReportingDashboardService) -> str:
           </table>
         </div>
         <div class="panel">
-          <h2>Backtest Snapshot</h2>
-          <table>
-            <tbody>
-              <tr><th>Status</th><td>{dashboard.backtest.status}</td></tr>
-              <tr><th>Detail</th><td>{dashboard.backtest.detail}</td></tr>
-              <tr><th>Candle Count</th><td>{dashboard.backtest.candle_count}</td></tr>
-              <tr><th>Required Candles</th><td>{dashboard.backtest.required_candles}</td></tr>
-              <tr><th>Ending Equity</th><td>{dashboard.backtest.ending_equity or "-"}</td></tr>
-              <tr><th>Realized PnL</th><td>{dashboard.backtest.realized_pnl or "-"}</td></tr>
-              <tr><th>Return %</th><td>{dashboard.backtest.total_return_pct or "-"}</td></tr>
-              <tr><th>Max Drawdown %</th><td>{dashboard.backtest.max_drawdown_pct or "-"}</td></tr>
-            </tbody>
-          </table>
-        </div>
-        <div class="panel">
           <h2>Recent Audit Events</h2>
           <table>
             <thead>
@@ -341,6 +377,21 @@ def _render_dashboard(service: ReportingDashboardService) -> str:
               </tr>
             </thead>
             <tbody>{audit_rows}</tbody>
+          </table>
+        </div>
+        <div class="panel">
+          <h2>Backtest Snapshot</h2>
+          <table>
+            <tbody>
+              <tr><th>Status</th><td>{dashboard.backtest.status}</td></tr>
+              <tr><th>Detail</th><td>{dashboard.backtest.detail}</td></tr>
+              <tr><th>Candle Count</th><td>{dashboard.backtest.candle_count}</td></tr>
+              <tr><th>Required Candles</th><td>{dashboard.backtest.required_candles}</td></tr>
+              <tr><th>Ending Equity</th><td>{dashboard.backtest.ending_equity or "-"}</td></tr>
+              <tr><th>Realized PnL</th><td>{dashboard.backtest.realized_pnl or "-"}</td></tr>
+              <tr><th>Return %</th><td>{dashboard.backtest.total_return_pct or "-"}</td></tr>
+              <tr><th>Max Drawdown %</th><td>{dashboard.backtest.max_drawdown_pct or "-"}</td></tr>
+            </tbody>
           </table>
         </div>
       </section>

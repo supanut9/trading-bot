@@ -1,3 +1,4 @@
+import json
 from dataclasses import dataclass
 from decimal import Decimal
 
@@ -44,6 +45,11 @@ class ReportingDashboard:
     latest_recovery_event_at: str | None
     latest_recovery_event_type: str | None
     latest_recovery_event_status: str | None
+    latest_worker_event_at: str | None
+    latest_worker_event_status: str | None
+    latest_worker_event_detail: str | None
+    latest_worker_signal_action: str | None
+    latest_worker_client_order_id: str | None
     backtest: BacktestControlResult
     audit_events: list[AuditEventView]
 
@@ -80,6 +86,13 @@ class ReportingDashboardService:
             session_factory=self._session_factory,
         ).run_backtest(notify=False, audit=False, source="reporting.snapshot")
         audit_events = self._audit.list_recent(limit=10)
+        (
+            latest_worker_event_at,
+            latest_worker_event_status,
+            latest_worker_event_detail,
+            latest_worker_signal_action,
+            latest_worker_client_order_id,
+        ) = self._latest_worker_summary(audit_events)
 
         return ReportingDashboard(
             app_name=str(status["app"]),
@@ -114,6 +127,32 @@ class ReportingDashboardService:
             ),
             latest_recovery_event_type=latest_recovery_type,
             latest_recovery_event_status=latest_recovery_status,
+            latest_worker_event_at=latest_worker_event_at,
+            latest_worker_event_status=latest_worker_event_status,
+            latest_worker_event_detail=latest_worker_event_detail,
+            latest_worker_signal_action=latest_worker_signal_action,
+            latest_worker_client_order_id=latest_worker_client_order_id,
             backtest=backtest,
             audit_events=audit_events,
         )
+
+    @staticmethod
+    def _latest_worker_summary(
+        audit_events: list[AuditEventView],
+    ) -> tuple[str | None, str | None, str | None, str | None, str | None]:
+        for event in audit_events:
+            if event.event_type != "worker_cycle":
+                continue
+            payload: dict[str, object] = {}
+            if event.payload_json:
+                payload = json.loads(event.payload_json)
+            signal_action = payload.get("signal_action")
+            client_order_id = payload.get("client_order_id")
+            return (
+                event.created_at.isoformat(),
+                event.status,
+                event.detail,
+                str(signal_action) if signal_action is not None else None,
+                str(client_order_id) if client_order_id is not None else None,
+            )
+        return (None, None, None, None, None)

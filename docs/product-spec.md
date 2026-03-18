@@ -50,6 +50,7 @@ Build a maintainable trading bot that supports research, backtesting, paper trad
 - render an operator-facing reporting page over positions, trades, backtest summary data, and recent audit events
 - render a bounded operator console page for paper-trading workflows with one-click market sync, worker-cycle, and backtest actions
 - extend the operator console with explicit live reconcile and live cancel controls while keeping all actions operator-initiated
+- render a compact reporting summary over the latest worker outcome, PnL, trade count, positions, and stale live state
 - persist a lightweight audit feed for control outcomes and notification delivery attempts
 - run recurring worker and optional recurring backtest jobs through explicit scheduled job modules
 - package API and worker runtime entrypoints into one deployable repository image

@@ -91,7 +91,7 @@ Manual controls:
 
 Report exports:
 
-- `GET /reports` renders an operator-facing HTML dashboard over positions, trades, backtest summary data, and recent audit events
+- `GET /reports` renders an operator-facing HTML dashboard over a compact session summary, positions, trades, backtest summary data, and recent audit events
 - `GET /reports/positions.csv` exports the current positions view as CSV
 - `GET /reports/trades.csv` exports recent trades as CSV and supports the same `limit` query parameter as `GET /trades`
 - `GET /reports/backtest-summary.csv` runs one backtest summary export against stored candles using current settings

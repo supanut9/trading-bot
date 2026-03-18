@@ -147,6 +147,7 @@ def test_reports_dashboard_renders_html_snapshot(tmp_path: Path) -> None:
         assert "Recent Trades" in response.text
         assert "Stale Live Orders" in response.text
         assert "Backtest Snapshot" in response.text
+        assert "Session Summary" in response.text
         assert "Recent Audit Events" in response.text
         assert "BTC/USDT" in response.text
         assert "Download positions CSV" in response.text
@@ -227,6 +228,34 @@ def test_reports_dashboard_renders_live_recovery_summary(tmp_path: Path) -> None
         assert "Recovery Events" in response.text
         assert "Latest recovery event: live_reconcile completed" in response.text
         assert "Download live recovery CSV" in response.text
+    finally:
+        teardown_client(session)
+
+
+def test_reports_dashboard_renders_latest_worker_summary(tmp_path: Path) -> None:
+    client, session, settings = build_client(tmp_path)
+    try:
+        AuditService(session=session).record_control_result(
+            control_type="worker_cycle",
+            source="api.console",
+            status="executed",
+            detail="signal executed in paper mode",
+            settings=settings,
+            payload={
+                "signal_action": "buy",
+                "client_order_id": "worker-summary-1",
+                "notified": False,
+            },
+        )
+        session.commit()
+
+        response = client.get("/reports")
+
+        assert response.status_code == 200
+        assert "Latest worker cycle: executed" in response.text
+        assert "Latest Worker Status" in response.text
+        assert "Worker Signal" in response.text
+        assert "worker-summary-1" in response.text
     finally:
         teardown_client(session)
 

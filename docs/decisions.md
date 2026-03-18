@@ -209,6 +209,20 @@ The console already reduces operator friction for paper workflows, but live inci
 
 Operators can trigger live reconcile and live cancel actions from `/console`, and the UI shows completed, skipped, and failed outcomes using the same control results already persisted to audit events.
 
+## 2026-03-18
+
+### Decision
+
+Promote a compact session summary to the top of the reporting deck using existing operational and audit data.
+
+### Reason
+
+Operators now have more controls and more state to inspect, but the reporting page still emphasized raw tables over scan-friendly session status. The latest worker outcome, PnL, trade count, open positions, and stale live state already exist in current services, so the right next step is to summarize them instead of introducing new summary persistence.
+
+### Consequence
+
+`/reports` now shows a session summary with the latest worker-cycle result and key operational counts before the detailed tables, while the underlying source of truth remains the existing operational, audit, and backtest services.
+
 ## 2026-03-17
 
 ### Decision
