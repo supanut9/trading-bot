@@ -684,3 +684,17 @@ The system already stored notification-delivery audit events, but operators stil
 ### Consequence
 
 `/reports` now includes notification-delivery summary cards and a recent delivery table, and `/reports/notification-delivery.csv` exports only notification-delivery audit rows with optional filtering by status, channel, and related event type.
+
+## 2026-03-18
+
+### Decision
+
+Promote notification-delivery filtering into the reporting dashboard instead of leaving filtering only on the export route.
+
+### Reason
+
+The dedicated notification-delivery CSV export could already be filtered, but operators still had to leave the dashboard or mentally correlate rows when narrowing delivery failures to one channel or one event type. The next safe improvement was read-only dashboard filtering that reused the same slice as the export.
+
+### Consequence
+
+`/reports` now accepts notification-delivery filters for status, channel, and related event type. The notification-delivery panel and its CSV export link use the same active filter slice, while the generic recent-audit table remains unchanged as a broader context view.

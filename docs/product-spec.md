@@ -24,10 +24,11 @@ Current baseline on `main`:
 - runtime log correlation across API requests and scheduled worker jobs via shared request and run ids
 - notification payloads that carry the active runtime correlation id when alerts are emitted from a correlated run
 - notification-delivery reporting in the dashboard and a dedicated CSV export for delivery audit rows
+- notification-delivery filters in the dashboard with a matching filtered CSV export link
 
 Next implementation queue:
 
-1. `feature/notification-delivery-filters`
+1. `feature/audit-report-filters`
 
 ## Initial Market And Strategy
 

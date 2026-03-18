@@ -48,6 +48,7 @@ class ReportingDashboard:
     latest_price_status: str
     latest_price: str | None
     recovery_filters: RecoveryReportFilters
+    notification_filters: AuditEventFilters
     position_count: int
     trade_count: int
     total_realized_pnl: Decimal
@@ -90,6 +91,7 @@ class ReportingDashboardService:
         *,
         session_factory: sessionmaker[Session] | None = None,
         recovery_filters: RecoveryReportFilters | None = None,
+        notification_filters: AuditEventFilters | None = None,
     ) -> None:
         self._session = session
         self._operations = OperationsService(session)
@@ -100,6 +102,9 @@ class ReportingDashboardService:
         self._settings = settings
         self._session_factory = session_factory
         self._recovery_filters = recovery_filters or RecoveryReportFilters()
+        self._notification_filters = notification_filters or AuditEventFilters(
+            event_type="notification_delivery"
+        )
 
     def build_dashboard(self) -> ReportingDashboard:
         status = StatusService(self._settings, session=self._session).get_status()
@@ -127,7 +132,7 @@ class ReportingDashboardService:
         audit_events = self._audit.list_recent(limit=10)
         notification_delivery_events = self._audit.list_recent(
             limit=10,
-            filters=AuditEventFilters(event_type="notification_delivery"),
+            filters=self._notification_filters,
         )
         analytics = self._performance.build()
         (
@@ -159,6 +164,7 @@ class ReportingDashboardService:
                 str(status["latest_price"]) if status["latest_price"] is not None else None
             ),
             recovery_filters=self._recovery_filters,
+            notification_filters=self._notification_filters,
             position_count=len(positions),
             trade_count=len(trades),
             total_realized_pnl=sum(
