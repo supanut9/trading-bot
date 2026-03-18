@@ -5,6 +5,7 @@ from decimal import Decimal
 from sqlalchemy.orm import Session
 
 from app.application.services.execution_factory import build_execution_service
+from app.application.services.live_execution_service import DuplicateLiveOrderError
 from app.application.services.live_operator_control_service import LiveOperatorControlService
 from app.application.services.market_data_service import MarketDataService
 from app.application.services.market_data_sync_service import MarketDataSyncService
@@ -258,6 +259,22 @@ class WorkerOrchestrationService:
             return WorkerCycleResult(
                 status="duplicate_signal",
                 detail="signal for latest candle was already executed",
+                signal_action=signal.action,
+                client_order_id=client_order_id,
+            )
+        except DuplicateLiveOrderError as exc:
+            logger.warning(
+                "worker_cycle_rejected reason=duplicate_live_order "
+                "exchange=%s symbol=%s signal=%s client_order_id=%s detail=%s",
+                self._settings.exchange_name,
+                self._settings.default_symbol,
+                signal.action,
+                client_order_id,
+                exc,
+            )
+            return WorkerCycleResult(
+                status="duplicate_live_order",
+                detail=str(exc),
                 signal_action=signal.action,
                 client_order_id=client_order_id,
             )

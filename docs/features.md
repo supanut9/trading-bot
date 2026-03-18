@@ -638,14 +638,31 @@ Main outputs:
 - recovery timeline context column in `/reports`
 - live recovery CSV fields that include the latest recovery event context
 
+### 35. `feature/live-order-duplication-guardrails`
+
+Status:
+
+- implemented on branch
+
+Scope:
+
+- prevent duplicate live submissions while an unresolved same-side live order is already open
+- keep the guardrail at live submission time rather than adding broader reconciliation logic
+- surface the rejection through existing worker and control responses
+
+Main outputs:
+
+- live execution rejection for same-side unresolved live orders on the same market
+- worker and controls responses that return `duplicate_live_order`
+- test coverage for live execution, worker orchestration, and control API duplicate-order behavior
+
 ## Current Recommended Queue
 
 These are the next bounded features after the current `main` baseline:
 
-1. `feature/live-order-duplication-guardrails`
-2. `feature/recovery-filters-and-search`
-3. `feature/runtime-log-correlation`
+1. `feature/recovery-filters-and-search`
+2. `feature/runtime-log-correlation`
 
 Current next feature:
 
-- `feature/live-order-duplication-guardrails`
+- `feature/recovery-filters-and-search`

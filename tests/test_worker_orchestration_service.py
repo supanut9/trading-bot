@@ -313,6 +313,38 @@ def test_rejects_live_buy_when_live_trading_is_halted(tmp_path: Path) -> None:
     assert result.detail == "live trading is halted by configuration"
 
 
+def test_rejects_live_buy_when_active_live_order_exists(tmp_path: Path) -> None:
+    service, session, settings = build_service(
+        tmp_path,
+        PAPER_TRADING=False,
+        LIVE_TRADING_ENABLED=True,
+        EXCHANGE_API_KEY="key",
+        EXCHANGE_API_SECRET="secret",
+    )
+    session.add(
+        OrderRecord(
+            exchange=settings.exchange_name,
+            symbol=settings.default_symbol,
+            side="buy",
+            order_type="market",
+            status="submitted",
+            mode="live",
+            quantity=Decimal("0.002"),
+            price=Decimal("50000"),
+            client_order_id="existing-live-order-1",
+            exchange_order_id="existing-exchange-1",
+        )
+    )
+    session.commit()
+    store_closes(session, settings, [10, 10, 10, 10, 10, 9, 9, 9, 20])
+
+    result = service.run_cycle()
+
+    assert result.status == "duplicate_live_order"
+    assert result.detail == "active live order already exists for the same market side"
+    assert result.signal_action == "buy"
+
+
 def test_rejects_live_buy_when_runtime_halt_override_is_enabled(tmp_path: Path) -> None:
     settings = Settings(
         DATABASE_URL=f"sqlite:///{tmp_path / 'worker_orchestration.db'}",

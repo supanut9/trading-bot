@@ -24,9 +24,8 @@ Current baseline on `main`:
 
 Next implementation queue:
 
-1. `feature/live-order-duplication-guardrails`
-2. `feature/recovery-filters-and-search`
-3. `feature/runtime-log-correlation`
+1. `feature/recovery-filters-and-search`
+2. `feature/runtime-log-correlation`
 
 ## Initial Market And Strategy
 
@@ -50,6 +49,7 @@ Next implementation queue:
 - orchestrate a worker cycle from persisted candles through execution
 - persist accepted live orders locally while keeping trades and positions unchanged until exchange fills are explicitly reconciled
 - normalize live order status into a canonical local state model before operator surfaces consume it
+- block new live submissions when an unresolved same-side live order already exists for the configured market
 - reconcile confirmed live exchange fills into local trades and positions through a bounded control workflow
 - mark uncertain exchange outcomes as `review_required` instead of silently treating them as ordinary open or terminal states
 - expose exchange-side base and quote asset balances for the configured live symbol through the status surface

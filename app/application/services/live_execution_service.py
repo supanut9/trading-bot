@@ -19,6 +19,10 @@ from app.infrastructure.exchanges.base import (
 )
 
 
+class DuplicateLiveOrderError(ValueError):
+    """Raised when a matching unresolved live order already exists."""
+
+
 @dataclass(frozen=True, slots=True)
 class LiveExecutionResult:
     order: OrderRecord
@@ -54,6 +58,7 @@ class LiveExecutionService:
             current_position=current_position,
             request=request,
         )
+        self._validate_no_duplicate_live_order(request)
 
         order = self._orders.create(
             exchange=request.exchange,
@@ -87,6 +92,15 @@ class LiveExecutionService:
             position=current_position,
             submission=submission,
         )
+
+    def _validate_no_duplicate_live_order(self, request: PaperExecutionRequest) -> None:
+        if not self._orders.has_active_live_order(
+            exchange=request.exchange,
+            symbol=request.symbol,
+            side=request.side,
+        ):
+            return
+        raise DuplicateLiveOrderError("active live order already exists for the same market side")
 
     @staticmethod
     def _validate_request_against_position(

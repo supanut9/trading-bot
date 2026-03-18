@@ -4,7 +4,10 @@ from pathlib import Path
 import pytest
 from sqlalchemy import func, select
 
-from app.application.services.live_execution_service import LiveExecutionService
+from app.application.services.live_execution_service import (
+    DuplicateLiveOrderError,
+    LiveExecutionService,
+)
 from app.application.services.paper_execution_service import (
     PaperExecutionRequest,
 )
@@ -159,3 +162,41 @@ def test_maps_exchange_new_submission_to_open_status(tmp_path: Path) -> None:
         assert result.order.status == "open"
     finally:
         session.close()
+
+
+def test_rejects_duplicate_live_buy_when_active_order_exists(tmp_path: Path) -> None:
+    service, session = build_service(tmp_path)
+    existing_order = OrderRecord(
+        exchange="binance",
+        symbol="BTC/USDT",
+        side="buy",
+        order_type="market",
+        status="submitted",
+        mode="live",
+        quantity=Decimal("0.002"),
+        price=Decimal("50000"),
+        client_order_id="live-binance-btc-usdt-buy-existing",
+        exchange_order_id="existing-1",
+    )
+    session.add(existing_order)
+    session.commit()
+
+    with pytest.raises(
+        DuplicateLiveOrderError,
+        match="active live order already exists for the same market side",
+    ):
+        service.execute(
+            PaperExecutionRequest(
+                exchange="binance",
+                symbol="BTC/USDT",
+                side="buy",
+                quantity=Decimal("0.002"),
+                price=Decimal("50000"),
+                mode="live",
+                client_order_id="live-binance-btc-usdt-buy-duplicate",
+            )
+        )
+
+    orders = session.scalars(select(OrderRecord).order_by(OrderRecord.id.asc())).all()
+    assert len(orders) == 1
+    assert orders[0].client_order_id == "live-binance-btc-usdt-buy-existing"
