@@ -154,6 +154,7 @@ class ReportingExportService:
                 "timeframe",
                 "channel",
                 "related_event_type",
+                "correlation_id",
                 "payload_json",
             ]
         )
@@ -171,6 +172,7 @@ class ReportingExportService:
                     event.timeframe,
                     event.channel,
                     event.related_event_type,
+                    event.correlation_id,
                     event.payload_json,
                 ]
             )

@@ -712,3 +712,17 @@ The dashboard still showed the recent audit table as an unfiltered backlog, even
 ### Consequence
 
 `/reports` and `/reports/audit.csv` now accept audit filters for event type, status, source, and free-text search. The recent-audit table and audit CSV export link use the same active filter slice, while notification-delivery and recovery filters remain independent.
+
+## 2026-03-19
+
+### Decision
+
+Expose explicit metadata columns in the generic audit reporting slice instead of leaving operators to infer them from raw payload JSON.
+
+### Reason
+
+The generic audit table already persisted market, delivery, and payload metadata, but the dashboard still reduced that slice to event, source, status, and free-form detail. Operators needed the same scan-friendly visibility that the recovery and notification slices already had, especially for correlation ids added in recent observability work.
+
+### Consequence
+
+The recent-audit table now shows exchange, symbol, timeframe, channel, related event type, and correlation id columns, and `/reports/audit.csv` exports `correlation_id` as a first-class field alongside the existing audit metadata.
