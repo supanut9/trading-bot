@@ -293,3 +293,54 @@ def test_rejects_live_mode_when_no_live_execution_service_exists(tmp_path: Path)
     assert result.signal_action == "buy"
     assert result.trade_id is None
     assert order_count == 0
+
+
+def test_rejects_live_buy_when_live_trading_is_halted(tmp_path: Path) -> None:
+    service, session, settings = build_service(
+        tmp_path,
+        PAPER_TRADING=False,
+        LIVE_TRADING_ENABLED=True,
+        EXCHANGE_API_KEY="key",
+        EXCHANGE_API_SECRET="secret",
+        LIVE_TRADING_HALTED=True,
+    )
+    store_closes(session, settings, [10, 10, 10, 10, 10, 9, 9, 9, 20])
+
+    result = service.run_cycle()
+
+    assert result.status == "risk_rejected"
+    assert result.detail == "live trading is halted by configuration"
+
+
+def test_rejects_live_buy_when_order_notional_exceeds_limit(tmp_path: Path) -> None:
+    service, session, settings = build_service(
+        tmp_path,
+        PAPER_TRADING=False,
+        LIVE_TRADING_ENABLED=True,
+        EXCHANGE_API_KEY="key",
+        EXCHANGE_API_SECRET="secret",
+        LIVE_MAX_ORDER_NOTIONAL=Decimal("50"),
+    )
+    store_closes(session, settings, [10, 10, 10, 10, 10, 9, 9, 9, 20])
+
+    result = service.run_cycle()
+
+    assert result.status == "risk_rejected"
+    assert result.detail == "live order notional exceeds configured limit"
+
+
+def test_rejects_live_buy_when_position_quantity_exceeds_limit(tmp_path: Path) -> None:
+    service, session, settings = build_service(
+        tmp_path,
+        PAPER_TRADING=False,
+        LIVE_TRADING_ENABLED=True,
+        EXCHANGE_API_KEY="key",
+        EXCHANGE_API_SECRET="secret",
+        LIVE_MAX_POSITION_QUANTITY=Decimal("4.00000000"),
+    )
+    store_closes(session, settings, [10, 10, 10, 10, 10, 9, 9, 9, 20])
+
+    result = service.run_cycle()
+
+    assert result.status == "risk_rejected"
+    assert result.detail == "live position quantity exceeds configured limit"

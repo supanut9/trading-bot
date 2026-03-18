@@ -42,3 +42,19 @@ def test_rejects_live_mode_without_exchange_credentials() -> None:
         match="EXCHANGE_API_KEY and EXCHANGE_API_SECRET are required when live trading is enabled",
     ):
         Settings(PAPER_TRADING=False, LIVE_TRADING_ENABLED=True)
+
+
+def test_rejects_non_positive_live_max_order_notional() -> None:
+    with pytest.raises(
+        ValueError,
+        match="LIVE_MAX_ORDER_NOTIONAL must be positive when provided",
+    ):
+        Settings(LIVE_MAX_ORDER_NOTIONAL=0)
+
+
+def test_rejects_non_positive_live_max_position_quantity() -> None:
+    with pytest.raises(
+        ValueError,
+        match="LIVE_MAX_POSITION_QUANTITY must be positive when provided",
+    ):
+        Settings(LIVE_MAX_POSITION_QUANTITY=0)

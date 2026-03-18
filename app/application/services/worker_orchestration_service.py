@@ -64,6 +64,9 @@ class WorkerOrchestrationService:
                 max_open_positions=settings.max_open_positions,
                 max_daily_loss_pct=Decimal(str(settings.max_daily_loss_pct)),
                 paper_trading_only=not settings.live_trading_enabled,
+                live_trading_halted=settings.live_trading_halted,
+                live_max_order_notional=settings.live_max_order_notional,
+                live_max_position_quantity=settings.live_max_position_quantity,
             )
         )
 
@@ -301,6 +304,9 @@ class WorkerOrchestrationService:
         return PortfolioState(
             account_equity=account_equity,
             open_positions=1 if self._has_open_quantity(current_position) else 0,
+            current_position_quantity=(
+                current_position.quantity if current_position is not None else Decimal("0")
+            ),
             daily_realized_loss_pct=daily_realized_loss_pct,
             trading_mode=self._trading_mode,
         )

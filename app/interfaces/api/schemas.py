@@ -16,6 +16,10 @@ class StatusResponse(BaseModel):
     execution_mode: str
     paper_trading: bool
     live_trading_enabled: bool
+    live_trading_halted: bool
+    live_safety_status: str
+    live_max_order_notional: Decimal | None = None
+    live_max_position_quantity: Decimal | None = None
     exchange: str
     symbol: str
     timeframe: str

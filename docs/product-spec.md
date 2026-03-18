@@ -24,11 +24,11 @@ Current baseline on `main`:
 
 Next implementation queue:
 
-1. `feature/live-risk-safety-controls`
-2. `feature/operator-recovery-timeline`
-3. `feature/observability-and-deploy-hardening`
-4. `feature/live-operator-halt-control`
-5. `feature/recovery-audit-timeline`
+1. `feature/operator-recovery-timeline`
+2. `feature/observability-and-deploy-hardening`
+3. `feature/live-operator-halt-control`
+4. `feature/recovery-audit-timeline`
+5. `feature/live-order-duplication-guardrails`
 
 ## Initial Market And Strategy
 
@@ -55,6 +55,8 @@ Next implementation queue:
 - reconcile confirmed live exchange fills into local trades and positions through a bounded control workflow
 - mark uncertain exchange outcomes as `review_required` instead of silently treating them as ordinary open or terminal states
 - expose exchange-side base and quote asset balances for the configured live symbol through the status surface
+- block new live entries when live trading is halted by configuration while leaving recovery controls available
+- bound live entries by configured max order notional and max position quantity limits
 - optionally run recurring live reconciliation jobs so local runtime state can catch up with exchange fills without manual control calls
 - run startup live reconciliation before new live worker execution so restarts fail closed on uncertain exchange state
 - allow bounded manual cancellation of recent live orders through the controls surface

@@ -52,6 +52,18 @@ class StatusService:
             "execution_mode": self._settings.execution_mode,
             "paper_trading": self._settings.paper_trading,
             "live_trading_enabled": self._settings.live_trading_enabled,
+            "live_trading_halted": self._settings.live_trading_halted,
+            "live_safety_status": self._live_safety_status(),
+            "live_max_order_notional": (
+                format(self._settings.live_max_order_notional, "f")
+                if self._settings.live_max_order_notional is not None
+                else None
+            ),
+            "live_max_position_quantity": (
+                format(self._settings.live_max_position_quantity, "f")
+                if self._settings.live_max_position_quantity is not None
+                else None
+            ),
             "exchange": self._settings.exchange_name,
             "symbol": self._settings.default_symbol,
             "timeframe": self._settings.default_timeframe,
@@ -62,6 +74,13 @@ class StatusService:
             "account_balance_status": balance_status,
             "account_balances": account_balances,
         }
+
+    def _live_safety_status(self) -> str:
+        if not self._settings.live_trading_enabled:
+            return "disabled"
+        if self._settings.live_trading_halted:
+            return "halted"
+        return "enabled"
 
     def _get_database_status(self) -> str:
         try:

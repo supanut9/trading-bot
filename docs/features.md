@@ -549,16 +549,34 @@ Main outputs:
 - recovery export fields for `requires_operator_review` and `next_action`
 - live reconcile summaries that count review-required orders
 
+### 30. `feature/live-risk-safety-controls`
+
+Status:
+
+- implemented on branch
+
+Scope:
+
+- add explicit live-entry safety gates beyond credential presence
+- bound live entry by halt flag, max order notional, and max position quantity
+- expose live safety posture through the status surface
+
+Main outputs:
+
+- config-backed `LIVE_TRADING_HALTED`, `LIVE_MAX_ORDER_NOTIONAL`, and `LIVE_MAX_POSITION_QUANTITY`
+- live risk rejections for halted entry, oversized notional, and oversized position quantity
+- status visibility for live safety posture and configured limits
+
 ## Current Recommended Queue
 
 These are the next bounded features after the current `main` baseline:
 
-1. `feature/live-risk-safety-controls`
-2. `feature/operator-recovery-timeline`
-3. `feature/observability-and-deploy-hardening`
-4. `feature/live-operator-halt-control`
-5. `feature/recovery-audit-timeline`
+1. `feature/operator-recovery-timeline`
+2. `feature/observability-and-deploy-hardening`
+3. `feature/live-operator-halt-control`
+4. `feature/recovery-audit-timeline`
+5. `feature/live-order-duplication-guardrails`
 
 Current next feature:
 
-- `feature/live-risk-safety-controls`
+- `feature/operator-recovery-timeline`

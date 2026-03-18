@@ -13,6 +13,9 @@ class RiskService:
         if self._limits.paper_trading_only and portfolio.trading_mode != "paper":
             return RiskDecision(approved=False, reason="live trading is not allowed by risk policy")
 
+        if is_entry and portfolio.trading_mode == "live" and self._limits.live_trading_halted:
+            return RiskDecision(approved=False, reason="live trading is halted by configuration")
+
         if portfolio.account_equity <= Decimal("0"):
             return RiskDecision(approved=False, reason="account equity must be positive")
 
@@ -41,6 +44,30 @@ class RiskService:
             return RiskDecision(
                 approved=False,
                 reason="calculated quantity must be positive",
+            )
+
+        if (
+            is_entry
+            and portfolio.trading_mode == "live"
+            and self._limits.live_max_order_notional is not None
+        ):
+            order_notional = quantity * trade.entry_price
+            if order_notional > self._limits.live_max_order_notional:
+                return RiskDecision(
+                    approved=False,
+                    reason="live order notional exceeds configured limit",
+                )
+
+        if (
+            is_entry
+            and portfolio.trading_mode == "live"
+            and self._limits.live_max_position_quantity is not None
+            and portfolio.current_position_quantity + quantity
+            > self._limits.live_max_position_quantity
+        ):
+            return RiskDecision(
+                approved=False,
+                reason="live position quantity exceeds configured limit",
             )
 
         return RiskDecision(

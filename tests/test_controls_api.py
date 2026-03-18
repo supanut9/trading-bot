@@ -260,6 +260,27 @@ def test_worker_cycle_control_refuses_live_mode_without_live_executor(tmp_path: 
         teardown_client()
 
 
+def test_worker_cycle_control_rejects_live_entry_when_halted(tmp_path: Path) -> None:
+    client, settings = build_client(tmp_path)
+    try:
+        settings.paper_trading = False
+        settings.live_trading_enabled = True
+        settings.live_trading_halted = True
+        settings.exchange_api_key = "key"
+        settings.exchange_api_secret = "secret"
+        store_closes(settings, [10, 10, 10, 10, 10, 9, 9, 9, 20])
+
+        response = client.post("/controls/worker-cycle")
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["status"] == "risk_rejected"
+        assert payload["detail"] == "live trading is halted by configuration"
+        assert payload["signal_action"] == "buy"
+    finally:
+        teardown_client()
+
+
 def test_live_reconcile_control_returns_completed_summary(tmp_path: Path) -> None:
     client, settings = build_client(tmp_path)
     try:

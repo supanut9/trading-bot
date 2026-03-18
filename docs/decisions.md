@@ -544,3 +544,17 @@ Live submission, reconciliation, stale-order detection, and cancel flows were pr
 ### Consequence
 
 Live orders now transition through a shared local state model such as `submitted`, `open`, `partially_filled`, `filled`, `canceled`, `rejected`, and `review_required`. Unknown or detail-incomplete exchange responses are surfaced as `review_required`, and recovery exports now include explicit operator-review hints instead of relying on raw status inspection alone.
+
+## 2026-03-18
+
+### Decision
+
+Add explicit configuration-backed safety gates for live entry instead of relying only on the paper/live mode flag and exchange credentials.
+
+### Reason
+
+The runtime could already submit live orders once credentials and live mode were enabled, but operators still lacked a simple way to halt new entries or cap live order size without disabling the rest of the live-state tooling. Entry safety needed a narrower control boundary than "turn live mode off entirely."
+
+### Consequence
+
+Live entry now respects `LIVE_TRADING_HALTED`, `LIVE_MAX_ORDER_NOTIONAL`, and `LIVE_MAX_POSITION_QUANTITY`. These controls block new live buys while leaving reconcile, cancel, and reporting paths available, and `/status` now exposes the active live safety posture and configured limits.
