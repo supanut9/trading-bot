@@ -14,6 +14,7 @@ from app.application.services.operational_control_service import MarketSyncContr
 from app.application.services.stale_live_order_service import StaleLiveOrderView
 from app.application.services.worker_orchestration_service import WorkerCycleResult
 from app.config import Settings
+from app.core.logger import correlation_context
 from app.infrastructure.notifications.senders import WebhookNotificationSender
 
 
@@ -54,23 +55,25 @@ def test_notifies_worker_execution_event() -> None:
     service = NotificationService(sender=sender, channel="log")
     settings = build_settings()
 
-    sent = service.notify_worker_cycle(
-        settings,
-        WorkerCycleResult(
-            status="executed",
-            detail="signal executed in paper mode",
-            signal_action="buy",
-            client_order_id="worker-btc-usdt-buy-20260101010000",
-            order_id=10,
-            trade_id=20,
-            position_quantity=Decimal("0.50000000"),
-        ),
-    )
+    with correlation_context("worker-cycle-test-123"):
+        sent = service.notify_worker_cycle(
+            settings,
+            WorkerCycleResult(
+                status="executed",
+                detail="signal executed in paper mode",
+                signal_action="buy",
+                client_order_id="worker-btc-usdt-buy-20260101010000",
+                order_id=10,
+                trade_id=20,
+                position_quantity=Decimal("0.50000000"),
+            ),
+        )
 
     assert sent is True
     assert len(sender.events) == 1
     event = sender.events[0]
     assert event.event_type == "worker.executed"
+    assert event.correlation_id == "worker-cycle-test-123"
     assert event.metadata["order_id"] == 10
     assert event.metadata["position_quantity"] == Decimal("0.50000000")
 
@@ -236,12 +239,24 @@ def test_notifies_stale_live_orders_event() -> None:
     assert event.metadata["order_ids"] == [5]
 
 
+def test_notification_payload_defaults_to_no_correlation_id_without_runtime_context() -> None:
+    sender = RecordingSender()
+    service = NotificationService(sender=sender, channel="log")
+    settings = build_settings()
+
+    sent = service.notify_backtest_skipped(settings, reason="not_enough_candles")
+
+    assert sent is True
+    assert sender.events[0].correlation_id is None
+    assert sender.events[0].to_payload()["correlation_id"] is None
+
+
 def test_notification_failures_are_logged_and_do_not_raise(caplog) -> None:
     audit = RecordingAudit()
     service = NotificationService(sender=FailingSender(), channel="webhook", audit=audit)
     settings = build_settings()
 
-    with caplog.at_level(logging.ERROR):
+    with correlation_context("backtest-test-456"), caplog.at_level(logging.ERROR):
         sent = service.notify_backtest_skipped(settings, reason="no_candles")
 
     assert sent is False
@@ -249,6 +264,7 @@ def test_notification_failures_are_logged_and_do_not_raise(caplog) -> None:
     assert len(audit.entries) == 1
     assert audit.entries[0]["status"] == "failed"
     assert audit.entries[0]["related_event_type"] == "backtest.skipped"
+    assert audit.entries[0]["payload"]["correlation_id"] == "backtest-test-456"
 
 
 def test_build_notification_service_requires_webhook_url() -> None:
@@ -289,17 +305,19 @@ def test_webhook_sender_posts_json_payload(monkeypatch) -> None:
     service = NotificationService(sender=sender, channel="webhook", audit=audit)
     settings = build_settings()
 
-    sent = service.notify_backtest_skipped(
-        settings,
-        reason="not_enough_candles",
-        count=1,
-        required=6,
-    )
+    with correlation_context("webhook-test-789"):
+        sent = service.notify_backtest_skipped(
+            settings,
+            reason="not_enough_candles",
+            count=1,
+            required=6,
+        )
 
     assert sent is True
     assert captured["url"] == "https://example.com/hook"
     assert captured["timeout"] == 7
     assert captured["body"]["event_type"] == "backtest.skipped"
+    assert captured["body"]["correlation_id"] == "webhook-test-789"
     assert captured["body"]["metadata"]["required"] == 6
     assert len(audit.entries) == 1
     assert audit.entries[0]["status"] == "sent"

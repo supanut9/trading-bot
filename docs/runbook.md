@@ -187,6 +187,7 @@ Runtime log correlation:
 - API responses now return `X-Request-ID`; send one if you want to preserve an upstream request id, otherwise the API generates one
 - standard log lines now include `correlation_id`, which matches the request id for API work
 - scheduled worker-cycle, backtest, live-reconcile, and startup-sync runs generate one runtime correlation id per run so related log entries can be grouped quickly
+- notifications emitted during those correlated runs now include the same `correlation_id` in the payload and notification-delivery audit trail
 
 Reconciliation alerting:
 
