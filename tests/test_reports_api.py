@@ -235,6 +235,7 @@ def test_reports_dashboard_renders_live_recovery_summary(tmp_path: Path) -> None
         assert "inspect_exchange_state" not in response.text
         assert "reconcile_or_cancel" in response.text
         assert "Latest recovery event: live_reconcile completed" in response.text
+        assert "reconciled=1 filled=0" in response.text
         assert "Download live recovery CSV" in response.text
     finally:
         teardown_client(session)
@@ -439,6 +440,7 @@ def test_live_recovery_report_exports_unresolved_orders_with_latest_context(
         assert rows[0]["client_order_id"] == "recovery-order-1"
         assert rows[0]["latest_recovery_event_type"] == "live_cancel"
         assert rows[0]["latest_recovery_event_status"] == "completed"
+        assert rows[0]["latest_recovery_event_context"] == "order_id=1"
         assert rows[0]["requires_operator_review"] == "false"
         assert rows[0]["next_action"] == "reconcile_or_cancel"
     finally:

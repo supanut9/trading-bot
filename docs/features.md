@@ -620,15 +620,32 @@ Main outputs:
 - console actions to halt or resume live entry
 - worker and status surfaces that resolve live halt from persisted operator state first
 
+### 34. `feature/recovery-audit-timeline`
+
+Status:
+
+- implemented on branch
+
+Scope:
+
+- enrich the reporting recovery timeline with audit payload context
+- keep the feature read-only and focused on operator visibility
+- avoid overlapping with later filtering or search work
+
+Main outputs:
+
+- parsed recovery event context for live reconcile and live cancel audit events
+- recovery timeline context column in `/reports`
+- live recovery CSV fields that include the latest recovery event context
+
 ## Current Recommended Queue
 
 These are the next bounded features after the current `main` baseline:
 
-1. `feature/recovery-audit-timeline`
-2. `feature/live-order-duplication-guardrails`
-3. `feature/recovery-filters-and-search`
-4. `feature/runtime-log-correlation`
+1. `feature/live-order-duplication-guardrails`
+2. `feature/recovery-filters-and-search`
+3. `feature/runtime-log-correlation`
 
 Current next feature:
 
-- `feature/recovery-audit-timeline`
+- `feature/live-order-duplication-guardrails`

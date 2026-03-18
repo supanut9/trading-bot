@@ -172,7 +172,7 @@ class ReportingExportService:
 
     def export_live_recovery_csv(self) -> str:
         report = self._recovery.build_report(order_limit=50, audit_limit=10)
-        latest_at, latest_type, latest_status = self._recovery.latest_event_summary(
+        latest_at, latest_type, latest_status, latest_context = self._recovery.latest_event_summary(
             report.recovery_events
         )
 
@@ -191,6 +191,7 @@ class ReportingExportService:
                 "latest_recovery_event_at",
                 "latest_recovery_event_type",
                 "latest_recovery_event_status",
+                "latest_recovery_event_context",
                 "requires_operator_review",
                 "next_action",
             ]
@@ -209,6 +210,7 @@ class ReportingExportService:
                     latest_at.isoformat() if latest_at is not None else None,
                     latest_type,
                     latest_status,
+                    latest_context,
                     str(order.requires_operator_review).lower(),
                     order.next_action,
                 ]

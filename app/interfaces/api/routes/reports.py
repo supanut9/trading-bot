@@ -205,11 +205,12 @@ def _render_dashboard(service: ReportingDashboardService) -> str:
                 f"<td>{event.source}</td>"
                 f"<td>{event.status}</td>"
                 f"<td>{event.detail}</td>"
+                f"<td>{event.context}</td>"
                 "</tr>"
             )
             for event in dashboard.recovery_events
         )
-        or '<tr><td colspan="5">No recent recovery events recorded.</td></tr>'
+        or '<tr><td colspan="6">No recent recovery events recorded.</td></tr>'
     )
     audit_rows = (
         "".join(
@@ -255,7 +256,8 @@ def _render_dashboard(service: ReportingDashboardService) -> str:
     if dashboard.latest_recovery_event_at is not None:
         latest_recovery_summary = (
             f"Latest recovery event: {dashboard.latest_recovery_event_type} "
-            f"{dashboard.latest_recovery_event_status} at {dashboard.latest_recovery_event_at}."
+            f"{dashboard.latest_recovery_event_status} at {dashboard.latest_recovery_event_at}. "
+            f"{dashboard.latest_recovery_event_context or '-'}."
         )
     latest_worker_summary = "Latest worker cycle: none."
     if dashboard.latest_worker_event_at is not None:
@@ -589,6 +591,7 @@ def _render_dashboard(service: ReportingDashboardService) -> str:
                 <th>Source</th>
                 <th>Status</th>
                 <th>Detail</th>
+                <th>Context</th>
               </tr>
             </thead>
             <tbody>{recovery_event_rows}</tbody>

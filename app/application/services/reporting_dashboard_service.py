@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from app.application.services.audit_service import AuditEventView, AuditService
 from app.application.services.live_order_recovery_report_service import (
     LiveOrderRecoveryReportService,
+    RecoveryEventView,
     RecoveryOrderView,
 )
 from app.application.services.operational_control_service import (
@@ -49,12 +50,13 @@ class ReportingDashboard:
     trades: list[TradeView]
     stale_live_orders: list[StaleLiveOrderView]
     recovery_orders: list[RecoveryOrderView]
-    recovery_events: list[AuditEventView]
+    recovery_events: list[RecoveryEventView]
     unresolved_live_orders: int
     recovery_event_count: int
     latest_recovery_event_at: str | None
     latest_recovery_event_type: str | None
     latest_recovery_event_status: str | None
+    latest_recovery_event_context: str | None
     latest_worker_event_at: str | None
     latest_worker_event_status: str | None
     latest_worker_event_detail: str | None
@@ -93,9 +95,12 @@ class ReportingDashboardService:
             limit=10,
         )
         recovery_report = self._recovery_report.build_report(order_limit=25, audit_limit=10)
-        latest_recovery_at, latest_recovery_type, latest_recovery_status = (
-            self._recovery_report.latest_event_summary(recovery_report.recovery_events)
-        )
+        (
+            latest_recovery_at,
+            latest_recovery_type,
+            latest_recovery_status,
+            latest_recovery_context,
+        ) = self._recovery_report.latest_event_summary(recovery_report.recovery_events)
         backtest = OperationalControlService(
             self._settings,
             session_factory=self._session_factory,
@@ -146,6 +151,7 @@ class ReportingDashboardService:
             ),
             latest_recovery_event_type=latest_recovery_type,
             latest_recovery_event_status=latest_recovery_status,
+            latest_recovery_event_context=latest_recovery_context,
             latest_worker_event_at=latest_worker_event_at,
             latest_worker_event_status=latest_worker_event_status,
             latest_worker_event_detail=latest_worker_event_detail,

@@ -600,3 +600,17 @@ Persist operator-managed live-entry halt state in the database and expose it thr
 ### Consequence
 
 The runtime now stores `live_trading_halted` in `runtime_controls` when operators change it. `POST /controls/live-halt`, the console halt and resume actions, `/status`, and worker-cycle risk evaluation all resolve the same persisted halt state first, while configuration remains the fallback when no override has been written yet.
+
+## 2026-03-18
+
+### Decision
+
+Promote recovery audit payloads into operator-facing timeline context instead of showing only flat event labels.
+
+### Reason
+
+The reporting deck already showed a recovery timeline, but operators still had to infer what a reconcile or cancel event actually changed by reading raw audit JSON or leaving the UI. The missing value was not another control surface but a readable summary of the existing audit payloads.
+
+### Consequence
+
+`/reports` now shows a recovery timeline context column derived from audit payloads, and `/reports/live-recovery.csv` includes the latest recovery event context alongside the existing type and status fields. Reconcile events surface count summaries, while cancel events surface the most relevant identifiers.
