@@ -13,6 +13,11 @@ from app.application.services.operational_control_service import (
     OperationalControlService,
 )
 from app.application.services.operations_service import OperationsService, PositionView, TradeView
+from app.application.services.performance_analytics_service import (
+    DailyPerformanceRow,
+    PerformanceAnalyticsService,
+    PerformanceSummary,
+)
 from app.application.services.stale_live_order_service import (
     StaleLiveOrderService,
     StaleLiveOrderView,
@@ -50,6 +55,8 @@ class ReportingDashboard:
     latest_worker_event_detail: str | None
     latest_worker_signal_action: str | None
     latest_worker_client_order_id: str | None
+    performance_summaries: list[PerformanceSummary]
+    performance_daily_rows: list[DailyPerformanceRow]
     backtest: BacktestControlResult
     audit_events: list[AuditEventView]
 
@@ -66,6 +73,7 @@ class ReportingDashboardService:
         self._audit = AuditService(session=session)
         self._stale_orders = StaleLiveOrderService(session)
         self._recovery_report = LiveOrderRecoveryReportService(session)
+        self._performance = PerformanceAnalyticsService(session)
         self._settings = settings
         self._session_factory = session_factory
 
@@ -86,6 +94,7 @@ class ReportingDashboardService:
             session_factory=self._session_factory,
         ).run_backtest(notify=False, audit=False, source="reporting.snapshot")
         audit_events = self._audit.list_recent(limit=10)
+        analytics = self._performance.build()
         (
             latest_worker_event_at,
             latest_worker_event_status,
@@ -132,6 +141,8 @@ class ReportingDashboardService:
             latest_worker_event_detail=latest_worker_event_detail,
             latest_worker_signal_action=latest_worker_signal_action,
             latest_worker_client_order_id=latest_worker_client_order_id,
+            performance_summaries=analytics.summaries,
+            performance_daily_rows=analytics.daily_rows[:7],
             backtest=backtest,
             audit_events=audit_events,
         )

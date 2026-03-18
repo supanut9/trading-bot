@@ -834,6 +834,26 @@ Main outputs:
 - PnL and trade summary visibility
 - better session-level understanding
 
+### 44. `feature/performance-analytics-core`
+
+Status:
+
+- implemented on branch
+
+Scope:
+
+- derive operator-facing performance metrics from persisted trading data
+- separate paper and live metrics without adding a new summary table first
+- expose summary and daily rollups through reporting surfaces and API endpoints
+- avoid widening the stack into a separate BI or analytics service
+
+Main outputs:
+
+- performance analytics service
+- reporting dashboard performance section
+- performance summary API endpoint and daily CSV export
+- tests for metric calculations and API exposure
+
 Current next feature:
 
 - no next feature selected

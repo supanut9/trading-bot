@@ -9,6 +9,7 @@ from app.application.services.live_order_recovery_report_service import (
 )
 from app.application.services.operational_control_service import OperationalControlService
 from app.application.services.operations_service import OperationsService
+from app.application.services.performance_analytics_service import PerformanceAnalyticsService
 from app.config import Settings
 
 
@@ -23,6 +24,7 @@ class ReportingExportService:
         self._audit = AuditService(session=session)
         self._recovery = LiveOrderRecoveryReportService(session)
         self._operations = OperationsService(session)
+        self._performance = PerformanceAnalyticsService(session)
         self._settings = settings
         self._session_factory = session_factory
 
@@ -205,6 +207,39 @@ class ReportingExportService:
                     latest_at.isoformat() if latest_at is not None else None,
                     latest_type,
                     latest_status,
+                ]
+            )
+        return output.getvalue()
+
+    def export_performance_daily_csv(self) -> str:
+        analytics = self._performance.build()
+        output = StringIO()
+        writer = csv.writer(output)
+        writer.writerow(
+            [
+                "mode",
+                "trade_date",
+                "trade_count",
+                "closed_trade_count",
+                "winning_trades",
+                "losing_trades",
+                "realized_pnl",
+                "fees",
+                "net_pnl",
+            ]
+        )
+        for row in analytics.daily_rows:
+            writer.writerow(
+                [
+                    row.mode,
+                    row.trade_date.isoformat(),
+                    row.trade_count,
+                    row.closed_trade_count,
+                    row.winning_trades,
+                    row.losing_trades,
+                    row.realized_pnl,
+                    row.fees,
+                    row.net_pnl,
                 ]
             )
         return output.getvalue()

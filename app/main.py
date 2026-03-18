@@ -10,6 +10,7 @@ from app.interfaces.api.routes.controls import router as controls_router
 from app.interfaces.api.routes.health import router as health_router
 from app.interfaces.api.routes.market_data import router as market_data_router
 from app.interfaces.api.routes.operations import router as operations_router
+from app.interfaces.api.routes.performance import router as performance_router
 from app.interfaces.api.routes.reports import router as reports_router
 from app.interfaces.api.routes.status import router as status_router
 
@@ -45,6 +46,7 @@ def create_app() -> FastAPI:
     app.include_router(health_router)
     app.include_router(market_data_router)
     app.include_router(operations_router)
+    app.include_router(performance_router)
     app.include_router(reports_router)
     app.include_router(status_router)
     return app
