@@ -567,16 +567,33 @@ Main outputs:
 - live risk rejections for halted entry, oversized notional, and oversized position quantity
 - status visibility for live safety posture and configured limits
 
+### 31. `feature/operator-recovery-timeline`
+
+Status:
+
+- implemented on branch
+
+Scope:
+
+- promote live recovery into a readable operator workflow inside the reporting UI
+- show unresolved live orders as a recovery queue with explicit next actions
+- show recent recovery events as a compact timeline instead of one-line summary text only
+
+Main outputs:
+
+- `/reports` recovery queue with `review_required` and `next_action` visibility
+- `/reports` recovery timeline over recent live reconcile and live cancel events
+
 ## Current Recommended Queue
 
 These are the next bounded features after the current `main` baseline:
 
-1. `feature/operator-recovery-timeline`
-2. `feature/observability-and-deploy-hardening`
-3. `feature/live-operator-halt-control`
-4. `feature/recovery-audit-timeline`
-5. `feature/live-order-duplication-guardrails`
+1. `feature/observability-and-deploy-hardening`
+2. `feature/live-operator-halt-control`
+3. `feature/recovery-audit-timeline`
+4. `feature/live-order-duplication-guardrails`
+5. `feature/recovery-filters-and-search`
 
 Current next feature:
 
-- `feature/operator-recovery-timeline`
+- `feature/observability-and-deploy-hardening`

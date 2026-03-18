@@ -150,6 +150,8 @@ def test_reports_dashboard_renders_html_snapshot(tmp_path: Path) -> None:
         assert "Session Summary" in response.text
         assert "Performance Summary" in response.text
         assert "Daily Performance" in response.text
+        assert "Recovery Queue" in response.text
+        assert "Recovery Timeline" in response.text
         assert "Recent Audit Events" in response.text
         assert "BTC/USDT" in response.text
         assert "Download positions CSV" in response.text
@@ -228,8 +230,46 @@ def test_reports_dashboard_renders_live_recovery_summary(tmp_path: Path) -> None
         assert response.status_code == 200
         assert "Unresolved Live Orders" in response.text
         assert "Recovery Events" in response.text
+        assert "Recovery Queue" in response.text
+        assert "Recovery Timeline" in response.text
+        assert "inspect_exchange_state" not in response.text
+        assert "reconcile_or_cancel" in response.text
         assert "Latest recovery event: live_reconcile completed" in response.text
         assert "Download live recovery CSV" in response.text
+    finally:
+        teardown_client(session)
+
+
+def test_reports_dashboard_renders_review_required_recovery_action(tmp_path: Path) -> None:
+    client, session, settings = build_client(tmp_path)
+    try:
+        session.add(
+            OrderRecord(
+                exchange="binance",
+                symbol="BTC/USDT",
+                side="buy",
+                order_type="market",
+                status="review_required",
+                mode="live",
+                quantity=Decimal("0.001"),
+                client_order_id="review-order-1",
+                exchange_order_id="789",
+                created_at=datetime(2026, 1, 1, 0, tzinfo=UTC),
+                updated_at=datetime(2026, 1, 1, 0, tzinfo=UTC),
+            )
+        )
+        session.commit()
+        settings.paper_trading = False
+        settings.live_trading_enabled = True
+        settings.exchange_api_key = "key"
+        settings.exchange_api_secret = "secret"
+
+        response = client.get("/reports")
+
+        assert response.status_code == 200
+        assert "review_required" in response.text
+        assert "inspect_exchange_state" in response.text
+        assert "yes" in response.text
     finally:
         teardown_client(session)
 
