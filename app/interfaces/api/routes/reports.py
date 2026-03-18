@@ -35,6 +35,39 @@ def _render_card(label: str, value: str) -> str:
 
 def _render_dashboard(service: ReportingDashboardService) -> str:
     dashboard = service.build_dashboard()
+    performance_rows = (
+        "".join(
+            (
+                "<tr>"
+                f"<td>{summary.mode}</td>"
+                f"<td>{summary.net_pnl}</td>"
+                f"<td>{summary.total_realized_pnl}</td>"
+                f"<td>{summary.total_unrealized_pnl}</td>"
+                f"<td>{summary.trade_count}</td>"
+                f"<td>{summary.win_rate_pct or '-'}</td>"
+                f"<td>{summary.expectancy or '-'}</td>"
+                f"<td>{summary.max_drawdown}</td>"
+                "</tr>"
+            )
+            for summary in dashboard.performance_summaries
+        )
+        or '<tr><td colspan="8">No performance analytics available.</td></tr>'
+    )
+    performance_daily_rows = (
+        "".join(
+            (
+                "<tr>"
+                f"<td>{row.trade_date.isoformat()}</td>"
+                f"<td>{row.mode}</td>"
+                f"<td>{row.trade_count}</td>"
+                f"<td>{row.closed_trade_count}</td>"
+                f"<td>{row.net_pnl}</td>"
+                "</tr>"
+            )
+            for row in dashboard.performance_daily_rows
+        )
+        or '<tr><td colspan="5">No daily performance rows available.</td></tr>'
+    )
     positions_rows = (
         "".join(
             (
@@ -296,6 +329,7 @@ def _render_dashboard(service: ReportingDashboardService) -> str:
           <a href="/reports/backtest-summary.csv">Download backtest CSV</a>
           <a href="/reports/audit.csv">Download audit CSV</a>
           <a href="/reports/live-recovery.csv">Download live recovery CSV</a>
+          <a href="/performance/daily.csv">Download performance CSV</a>
         </div>
       </section>
       <section class="cards summary">{summary_cards}</section>
@@ -316,6 +350,24 @@ def _render_dashboard(service: ReportingDashboardService) -> str:
               <tr><th>Stale Live Orders</th><td>{len(dashboard.stale_live_orders)}</td></tr>
               <tr><th>Unresolved Live Orders</th><td>{dashboard.unresolved_live_orders}</td></tr>
             </tbody>
+          </table>
+        </div>
+        <div class="panel">
+          <h2>Performance Summary</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>Mode</th>
+                <th>Net PnL</th>
+                <th>Realized PnL</th>
+                <th>Unrealized PnL</th>
+                <th>Trades</th>
+                <th>Win Rate %</th>
+                <th>Expectancy</th>
+                <th>Max Drawdown</th>
+              </tr>
+            </thead>
+            <tbody>{performance_rows}</tbody>
           </table>
         </div>
         <div class="panel">
@@ -377,6 +429,21 @@ def _render_dashboard(service: ReportingDashboardService) -> str:
               </tr>
             </thead>
             <tbody>{audit_rows}</tbody>
+          </table>
+        </div>
+        <div class="panel">
+          <h2>Daily Performance</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Mode</th>
+                <th>Trades</th>
+                <th>Closed Trades</th>
+                <th>Net PnL</th>
+              </tr>
+            </thead>
+            <tbody>{performance_daily_rows}</tbody>
           </table>
         </div>
         <div class="panel">

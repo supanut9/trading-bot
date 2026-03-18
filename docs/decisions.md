@@ -223,6 +223,20 @@ Operators now have more controls and more state to inspect, but the reporting pa
 
 `/reports` now shows a session summary with the latest worker-cycle result and key operational counts before the detailed tables, while the underlying source of truth remains the existing operational, audit, and backtest services.
 
+## 2026-03-18
+
+### Decision
+
+Implement performance analytics as a live-computed service over existing trades, orders, and positions before introducing any dedicated summary table.
+
+### Reason
+
+The operator surfaces now need durable performance meaning such as win rate, expectancy, drawdown, and daily rollups, but the current schema already contains enough information to derive a first useful analytics layer. Adding a new persistence model now would widen the feature boundary before the usefulness of the metrics has been validated.
+
+### Consequence
+
+Performance summary, equity curve, and daily rollups are now computed from persisted trading records at request time and exposed through reporting and API surfaces, while future features can still add persisted run or snapshot models if the live-computed layer proves insufficient.
+
 ## 2026-03-17
 
 ### Decision

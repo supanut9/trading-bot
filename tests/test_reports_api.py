@@ -148,6 +148,8 @@ def test_reports_dashboard_renders_html_snapshot(tmp_path: Path) -> None:
         assert "Stale Live Orders" in response.text
         assert "Backtest Snapshot" in response.text
         assert "Session Summary" in response.text
+        assert "Performance Summary" in response.text
+        assert "Daily Performance" in response.text
         assert "Recent Audit Events" in response.text
         assert "BTC/USDT" in response.text
         assert "Download positions CSV" in response.text
@@ -256,6 +258,21 @@ def test_reports_dashboard_renders_latest_worker_summary(tmp_path: Path) -> None
         assert "Latest Worker Status" in response.text
         assert "Worker Signal" in response.text
         assert "worker-summary-1" in response.text
+    finally:
+        teardown_client(session)
+
+
+def test_reports_dashboard_renders_performance_summary_rows(tmp_path: Path) -> None:
+    client, session, settings = build_client(tmp_path)
+    try:
+        seed_execution_data(session)
+        response = client.get("/reports")
+
+        assert response.status_code == 200
+        assert "Performance Summary" in response.text
+        assert "paper" in response.text
+        assert "Expectancy" in response.text
+        assert "Download performance CSV" in response.text
     finally:
         teardown_client(session)
 

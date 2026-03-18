@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from decimal import Decimal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -50,6 +50,58 @@ class TradeResponse(BaseModel):
     price: Decimal
     fee_amount: Decimal | None
     fee_asset: str | None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class PerformanceSummaryResponse(BaseModel):
+    mode: str
+    total_realized_pnl: Decimal
+    total_unrealized_pnl: Decimal
+    total_fees: Decimal
+    net_pnl: Decimal
+    trade_count: int
+    closed_trade_count: int
+    winning_trades: int
+    losing_trades: int
+    win_rate_pct: Decimal | None = None
+    average_win: Decimal | None = None
+    average_loss: Decimal | None = None
+    profit_factor: Decimal | None = None
+    expectancy: Decimal | None = None
+    max_drawdown: Decimal
+    open_position_count: int
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class PerformanceEquityCurvePointResponse(BaseModel):
+    mode: str
+    recorded_at: datetime
+    net_pnl: Decimal
+    drawdown: Decimal
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class PerformanceDailyRowResponse(BaseModel):
+    mode: str
+    trade_date: date
+    trade_count: int
+    closed_trade_count: int
+    winning_trades: int
+    losing_trades: int
+    realized_pnl: Decimal
+    fees: Decimal
+    net_pnl: Decimal
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class PerformanceAnalyticsResponse(BaseModel):
+    summaries: list[PerformanceSummaryResponse]
+    equity_curve: list[PerformanceEquityCurvePointResponse]
+    daily_rows: list[PerformanceDailyRowResponse]
 
     model_config = ConfigDict(from_attributes=True)
 

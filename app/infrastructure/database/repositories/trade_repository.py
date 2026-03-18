@@ -1,9 +1,25 @@
+from dataclasses import dataclass
+from datetime import datetime
 from decimal import Decimal
 
 from sqlalchemy import Select, select
 from sqlalchemy.orm import Session
 
+from app.infrastructure.database.models.order import OrderRecord
 from app.infrastructure.database.models.trade import TradeRecord
+
+
+@dataclass(frozen=True, slots=True)
+class TradeAnalyticsRow:
+    id: int
+    created_at: datetime
+    exchange: str
+    symbol: str
+    side: str
+    quantity: Decimal
+    price: Decimal
+    fee_amount: Decimal | None
+    mode: str
 
 
 class TradeRepository:
@@ -26,6 +42,27 @@ class TradeRepository:
             TradeRecord.order_id == order_id
         )
         return self._session.execute(statement).scalars().all()
+
+    def list_analytics_rows(self) -> list[TradeAnalyticsRow]:
+        statement = (
+            select(TradeRecord, OrderRecord.mode)
+            .join(OrderRecord, OrderRecord.id == TradeRecord.order_id, isouter=True)
+            .order_by(TradeRecord.created_at.asc(), TradeRecord.id.asc())
+        )
+        return [
+            TradeAnalyticsRow(
+                id=trade.id,
+                created_at=trade.created_at,
+                exchange=trade.exchange,
+                symbol=trade.symbol,
+                side=trade.side,
+                quantity=trade.quantity,
+                price=trade.price,
+                fee_amount=trade.fee_amount,
+                mode=mode or "paper",
+            )
+            for trade, mode in self._session.execute(statement).all()
+        ]
 
     def create(
         self,
