@@ -59,7 +59,29 @@ Before merge:
 
 `main` should receive changes through PRs only, and PRs should clear review feedback before merge.
 
+## Current Delivery Status
+
+Completed on `main`:
+
+- Phase 1 through Phase 10
+
+Current repo baseline:
+
+- paper-trading-first runtime with deterministic backtesting, bounded operator controls, reporting UI, operator console, performance analytics, deployment packaging, and live-readiness groundwork
+
+Recommended next feature queue:
+
+1. `feature/project-status-alignment`
+2. `feature/live-order-state-hardening`
+3. `feature/live-risk-safety-controls`
+4. `feature/operator-recovery-timeline`
+5. `feature/observability-and-deploy-hardening`
+
 ## Phase 1
+
+Status:
+
+- completed on `main`
 
 - bootstrap AI-operable repository
 - define project rules and docs
@@ -68,12 +90,20 @@ Before merge:
 
 ## Phase 2
 
+Status:
+
+- completed on `main`
+
 - implement configuration loading
 - add database models and session management
 - define exchange abstraction
 - implement market data service
 
 ## Phase 3
+
+Status:
+
+- completed on `main`
 
 - define strategy interface
 - document EMA crossover strategy
@@ -82,12 +112,20 @@ Before merge:
 
 ## Phase 4
 
+Status:
+
+- completed on `main`
+
 - implement paper execution flow
 - add status and position endpoints
 - add notifications
 - improve test coverage
 
 ## Phase 5
+
+Status:
+
+- completed on `main`
 
 - harden live operations around exchange state visibility
 - add scheduled reconciliation and startup resync paths
@@ -96,12 +134,20 @@ Before merge:
 
 ## Phase 6
 
+Status:
+
+- completed on `main`
+
 - detect and surface stale live orders that remain open too long
 - expose operator recovery tools for unresolved live order state
 - strengthen live-state reporting and audit visibility
 - reduce manual ambiguity during live incident handling
 
 ## Phase 7
+
+Status:
+
+- completed on `main`
 
 - add deployment-oriented runbook hardening
 - define alerting and operator response expectations
@@ -110,6 +156,10 @@ Before merge:
 
 ## Phase 8
 
+Status:
+
+- completed on `main`
+
 - package the API and worker for reproducible deployment
 - define deployment-time environment expectations and examples
 - add bounded smoke-check tooling for post-deploy verification
@@ -117,12 +167,20 @@ Before merge:
 
 ## Phase 9
 
+Status:
+
+- completed on `main`
+
 - strengthen runtime reliability and operator diagnostics
 - improve structured logging and failure correlation across API and worker paths
 - tighten startup validation for deployment misconfiguration
 - add bounded health or readiness checks for unattended operation
 
 ## Phase 10
+
+Status:
+
+- completed on `main`
 
 - add an operator-facing UX inside the current FastAPI app
 - surface live price and current market context without requiring raw API calls

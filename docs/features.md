@@ -24,7 +24,7 @@ Delivery rule:
 
 Status:
 
-- implemented locally
+- implemented on `main`
 
 Scope:
 
@@ -45,7 +45,7 @@ Main outputs:
 
 Status:
 
-- implemented locally
+- implemented on `main`
 
 Scope:
 
@@ -58,14 +58,14 @@ Scope:
 Main outputs:
 
 - local database workflow
-- initial tables for candles, orders, trades, and positions
+- initial tables for candles, orders, trades, positions, and later audit support
 - `docs/data-model.md`
 
 ### 3. `feature/market-data`
 
 Status:
 
-- implemented locally
+- implemented on `main`
 
 Scope:
 
@@ -84,7 +84,7 @@ Main outputs:
 
 Status:
 
-- implemented on branch
+- implemented on `main`
 
 Scope:
 
@@ -102,25 +102,25 @@ Main outputs:
 
 Status:
 
-- implemented on branch
+- implemented on `main`
 
 Scope:
 
 - main-branch merge policy
-- GitHub Actions CI workflow
-- branch protection alignment with CI checks
+- CI workflow and validation expectations
+- branch protection alignment with checks and review resolution
 
 Main outputs:
 
 - documented merge rules for `main`
-- automated lint and test checks on pull requests and pushes
-- branch protection ready to require CI checks
+- automated lint and test checks
+- branch protection ready workflow
 
 ### 6. `feature/risk-engine`
 
 Status:
 
-- implemented on branch
+- implemented on `main`
 
 Scope:
 
@@ -138,7 +138,7 @@ Main outputs:
 
 Status:
 
-- implemented on branch
+- implemented on `main`
 
 Scope:
 
@@ -156,7 +156,7 @@ Main outputs:
 
 Status:
 
-- implemented on branch
+- implemented on `main`
 
 Scope:
 
@@ -169,13 +169,12 @@ Main outputs:
 - worker pipeline from candles to execution
 - startup and runtime orchestration
 - idempotent signal execution by candle via `client_order_id`
-- updated runbook for local operation
 
 ### 9. `feature/api-operations`
 
 Status:
 
-- implemented on branch
+- implemented on `main`
 
 Scope:
 
@@ -191,7 +190,7 @@ Main outputs:
 
 Status:
 
-- implemented on branch
+- implemented on `main`
 
 Scope:
 
@@ -209,7 +208,7 @@ Main outputs:
 
 Status:
 
-- implemented on branch
+- implemented on `main`
 
 Scope:
 
@@ -227,18 +226,17 @@ Main outputs:
 
 Status:
 
-- implemented on branch
+- implemented on `main`
 
 Scope:
 
 - configurable outbound notifications for key runtime outcomes
 - worker notifications for executions and risk rejections
-- backtest notifications for completion and skipped runs
-- notification sender tests and operational documentation
+- backtest and later market-sync notifications
 
 Main outputs:
 
-- notification event formatter and sender abstraction
+- notification sender abstraction
 - optional webhook delivery path
 - runtime notifications for worker and backtest workflows
 
@@ -246,101 +244,65 @@ Main outputs:
 
 Status:
 
-- implemented on branch
+- implemented on `main`
 
 Scope:
 
 - bounded operator-triggered control endpoints
 - manual worker cycle execution with current runtime settings
 - manual backtest execution with current runtime settings
-- tests and docs for safe manual control usage
 
 Main outputs:
 
 - API endpoints for manual worker and backtest triggers
-- application service that closes DB sessions before notification delivery
+- bounded control flow that uses current runtime configuration only
 - response models for control outcomes
 
 ### 14. `feature/reporting-exports`
 
 Status:
 
-- implemented on branch
+- implemented on `main`
 
 Scope:
 
 - export operational data in reviewer-friendly formats
 - CSV exports for positions and trades
 - CSV export for on-demand backtest summary
-- tests and docs for report download behavior
 
 Main outputs:
 
-- `/reports` API endpoints for CSV exports
+- `/reports` CSV endpoints
 - export service for operational and backtest report formatting
-- API tests for CSV payload shape and headers
 
-### 15. `feature/review-gating`
-
-Status:
-
-- implemented on branch
-
-Scope:
-
-- tighten PR review merge handling
-- document review and merge expectations
-
-Main outputs:
-
-- review workflow documentation updates
-
-### 16. `feature/scheduled-jobs`
+### 15. `feature/scheduled-jobs`
 
 Status:
 
-- implemented on branch
+- implemented on `main`
 
 Scope:
 
 - move recurring runtime behavior into explicit job modules
 - keep worker cycle as a scheduled job
 - add optional recurring backtest summary execution behind config
-- tests and docs for scheduling behavior
 
 Main outputs:
 
 - interval scheduler and job modules under `app/jobs`
 - worker entrypoint wired through scheduled jobs instead of inline looping
-- optional scheduled backtest summary with safe default disabled
 
-### 17. `feature/review-gating-strict`
-
-Status:
-
-- implemented on branch
-
-Scope:
-
-- refine PR review merge handling
-- update workflow docs for stricter review resolution expectations
-
-Main outputs:
-
-- updated merge-gate documentation
-
-### 18. `feature/market-sync-adapter`
+### 16. `feature/market-sync-adapter`
 
 Status:
 
-- implemented on branch
+- implemented on `main`
 
 Scope:
 
 - add an exchange adapter for recent closed candle sync
-- keep exchange-specific fetch logic outside strategy and application decision code
 - let the worker optionally sync candles before evaluation
-- add tests and runbook coverage for the new sync path
+- keep exchange fetch logic outside strategy modules
 
 Main outputs:
 
@@ -348,531 +310,236 @@ Main outputs:
 - market-data sync service
 - worker integration with safe sync failure handling
 
-### 19. `feature/reporting-ui`
+### 17. `feature/reporting-ui`
 
 Status:
 
-- implemented on branch
+- implemented on `main`
 
 Scope:
 
-- add a human-friendly reporting page without introducing a separate frontend stack
+- add a human-friendly reporting page without a separate frontend stack
 - reuse existing operational and backtest services for dashboard data
-- keep CSV exports available for download from the reporting surface
-- add API tests and runbook coverage for the dashboard route
+- keep CSV exports available from the reporting surface
 
 Main outputs:
 
 - server-rendered `/reports` dashboard
 - reporting dashboard aggregation service
-- updated operator docs for HTML and CSV report access
 
-### 20. `feature/notification-hardening`
+### 18. `feature/notification-hardening`
 
 Status:
 
-- implemented on branch
+- implemented on `main`
 
 Scope:
 
 - tighten outbound notification delivery semantics for webhook channels
-- extend notifications to market sync outcomes
-- keep notification failures non-blocking while making them more explicit
-- add tests and runbook coverage for hardened notification behavior
+- extend notifications to market-sync outcomes
+- keep failures non-blocking while making them explicit
 
 Main outputs:
 
-- webhook sender that treats non-`2xx` responses as delivery failures
-- market sync notifications from manual control execution
-- updated notification and operational tests
+- webhook sender that treats non-`2xx` responses as failures
+- market-sync notifications from manual control execution
 
-### 21. `feature/execution-audit-feed`
+### 19. `feature/execution-audit-feed`
 
 Status:
 
-- implemented on branch
+- implemented on `main`
 
 Scope:
 
 - persist compact audit events for control outcomes and notification delivery
-- expose recent audit events through the reporting surface
-- keep the audit model lightweight and review-oriented rather than building full log ingestion
-- add tests and docs for the new audit feed behavior
+- expose recent audit events through reporting
+- keep the audit model lightweight and review-oriented
 
 Main outputs:
 
 - `audit_events` persistence model and application service
 - audit recording from control flows and notification delivery
-- reporting dashboard and CSV export for recent audit events
+- audit reporting and CSV export
 
-### 22. `feature/live-execution-guardrails`
+### 20. `feature/live-execution-guardrails`
 
 Status:
 
-- implemented on branch
+- implemented on `main`
 
 Scope:
 
 - make execution-mode configuration explicit and internally consistent
-- refuse explicit live-mode execution safely until a real live executor exists
 - expose execution mode through status and operator docs
-- add tests for invalid config states and live-mode refusal behavior
+- keep live trading disabled by default and fail safely when unsupported or misconfigured
 
 Main outputs:
 
 - settings validation for execution-mode flags
-- safe worker refusal path for unsupported live execution
+- safe live-mode refusal or gating behavior
 - status visibility and tests for execution mode
 
-### 23. `feature/exchange-order-adapter`
+### 21. `feature/exchange-order-adapter`
 
 Status:
 
-- implemented on branch
+- implemented on `main`
 
 Scope:
 
 - introduce a replaceable execution adapter boundary for the worker
 - keep paper execution as the default concrete implementation
-- route explicit live mode through a deliberate unsupported adapter until exchange order routing exists
-- add tests and docs for adapter selection behavior
+- route explicit live mode through a separate adapter path
 
 Main outputs:
 
 - execution factory for worker orchestration
-- unsupported live execution adapter
-- tests for adapter selection and worker execution-unavailable behavior
+- paper and live execution adapter boundary
 
-### 24. `feature/live-order-routing`
+### 22. `feature/live-order-routing`
 
 Status:
 
-- implemented on branch
+- implemented on `main`
 
 Scope:
 
 - add a signed live order client for the configured exchange
-- keep validate-only routing available so signed requests can be exercised safely before full live execution
-- wire credentials and request settings through configuration without enabling live trading by default
-- add unit tests for signed order submission behavior
+- keep validate-only routing available so signed requests can be exercised safely
+- wire credentials and request settings through configuration
 
 Main outputs:
 
 - Binance spot order client for signed market-order routing
 - factory support for live order clients
-- tests for validate-only and submitted-order request handling
 
-### 25. `feature/live-execution-service`
+### 23. `feature/live-execution-service`
 
 Status:
 
-- implemented on branch
+- implemented on `main`
 
 Scope:
 
 - submit live orders through the signed routing client from the execution boundary
 - persist accepted live orders locally without inventing trades or position fills
 - keep local runtime state unchanged until explicit fill reconciliation exists
-- add tests and docs for safe live order submission behavior
 
 Main outputs:
 
 - live execution service behind the execution factory
 - persisted local live orders with exchange order ids
-- worker and control behavior for submitted live orders
 
-### 26. `feature/live-fill-reconciliation`
+### 24. `feature/live-fill-reconciliation`
 
 Status:
 
-- implemented on branch
+- implemented on `main`
 
 Scope:
 
 - reconcile recent live exchange orders back into local runtime state
 - create local trades and position updates only after confirmed remote filled status
 - keep reconciliation bounded to recent open live orders and expose it through an operator control
-- add tests and docs for idempotent reconciliation behavior
 
 Main outputs:
 
 - live fill reconciliation service
 - signed exchange order-status lookup support
 - `POST /controls/live-reconcile`
-- tests for filled, open, and already-reconciled live orders
 
-## Next Recommended Feature
-
-`feature/production-ops-runbook`
-
-Reason:
-
-- reconciliation alerting is now in place, and the remaining planned step in this slice is tightening the production operating runbook
-
-## Next Expansion Slice
-
-### 27. `feature/exchange-balance-sync`
+### 25. `feature/live-order-recovery`
 
 Status:
 
-- implemented on branch
+- implemented on `main`
 
 Scope:
 
-- fetch exchange account balances through the configured live client
-- persist or expose a bounded operational view of quote and base asset availability
-- surface balance visibility through status or reporting without changing execution behavior
-- add tests and runbook updates for operator verification of funded live mode
+- fetch exchange balances for operator visibility
+- add scheduled live reconciliation and startup state sync
+- expose live cancel, stale-order detection, recovery reporting, and alerting
 
 Main outputs:
 
-- exchange balance client support
-- operator-facing balance visibility
-- tests for balance parsing and API exposure
-
-### 28. `feature/scheduled-live-reconciliation`
-
-Status:
-
-- implemented on branch
-
-Scope:
-
-- run live fill reconciliation as an optional scheduled job
-- keep manual reconciliation as the bounded control fallback
-- add safe logging and audit events for scheduled reconciliation outcomes
-- add tests and runbook updates for recurring reconciliation behavior
-
-Main outputs:
-
-- optional scheduled live reconciliation job
-- audit visibility for reconciliation outcomes
-- tests for scheduler integration
-
-### 29. `feature/startup-state-sync`
-
-Status:
-
-- implemented on branch
-
-Scope:
-
-- sync recent live order state on worker startup before new execution is attempted
-- reduce drift between exchange state and local state after restarts or deploys
-- keep startup sync bounded to recent relevant live orders
-- add tests and runbook updates for restart behavior
-
-Main outputs:
-
-- startup reconciliation path
-- safer worker restart semantics for live mode
-- tests for startup sync behavior
-
-### 30. `feature/live-order-cancel-control`
-
-Status:
-
-- implemented on branch
-
-Scope:
-
-- add a bounded operator control to cancel a submitted live order by local or exchange id
-- update local order state from confirmed exchange cancel responses
-- keep cancellation manual and explicit rather than automatic
-- add tests and runbook updates for cancel workflow
-
-Main outputs:
-
-- exchange cancel-order client support
+- exchange balance visibility
+- optional scheduled reconciliation and startup sync
 - `POST /controls/live-cancel`
-- tests for cancel success and failure handling
-
-### 31. `feature/stale-live-order-detection`
-
-Status:
-
-- implemented on branch
-
-Scope:
-
-- detect live orders that remain open beyond a bounded age threshold
-- surface stale-order visibility through status, reporting, or audit paths
-- keep detection read-only and avoid automatic cancellation behavior
-- add tests and runbook updates for stale-order inspection
-
-Main outputs:
-
-- stale live order classifier
-- operator-facing stale-order visibility
-- tests for stale-order threshold behavior
-
-### 32. `feature/live-order-recovery-report`
-
-Status:
-
-- implemented on branch
-
-Scope:
-
-- add a compact operator report for unresolved live orders and latest reconciliation state
-- combine local order status, exchange ids, and recent audit context in one review surface
-- keep the report read-only and focused on incident handling
-- add tests and docs for recovery review workflow
-
-Main outputs:
-
-- live order recovery report
-- reporting or CSV visibility for unresolved live state
-- tests for recovery report output
-
-### 33. `feature/reconciliation-alerting`
-
-Status:
-
-- implemented on branch
-
-Scope:
-
-- emit notifications for failed startup sync, failed scheduled reconciliation, or stale-order detection
-- keep alerting bounded to operational failure events rather than strategy outcomes
-- add tests and runbook guidance for alert-triggered operator response
-- preserve existing notification optionality and channel settings
-
-Main outputs:
-
+- stale live order visibility and live recovery export
 - live-ops alert notifications
-- tests for reconciliation and stale-order alert formatting
-- runbook guidance for alert handling
 
-### 34. `feature/production-ops-runbook`
+### 26. `feature/deployment-hardening`
 
 Status:
 
-- implemented on branch
+- implemented on `main`
 
 Scope:
 
-- document deployment, restart, rollback, and recovery expectations for live-capable operation
-- define minimum production readiness checks before enabling live mode
-- tighten runbook guidance around logs, alerts, backups, and restart semantics
-- keep this feature documentation-only unless a missing operational script is clearly required
+- document production operations and readiness expectations
+- package API and worker for reproducible deployment
+- define deploy-time environment baselines and smoke checks
 
 Main outputs:
 
 - production operations runbook
-- readiness checklist for live deployment
-- documented recovery workflow
-
-### 35. `feature/deployment-packaging`
-
-Status:
-
-- implemented on branch
-
-Scope:
-
-- package the API and worker for reproducible deployment from the repository
-- define the runtime image or compose expectations needed outside local development
-- keep environment injection external so secrets are still provided only through environment variables
-- add tests or verification notes for the packaging path where practical
-
-Main outputs:
-
 - deployable runtime packaging
-- documented deployment build path
-- verification guidance for packaged startup
-
-### 36. `feature/deployment-env-baseline`
-
-Status:
-
-- implemented on branch
-
-Scope:
-
-- provide an explicit deployment-oriented environment template separate from ad hoc local setup
-- document required and optional variables by runtime role where that reduces operator ambiguity
-- keep the feature documentation-first unless light validation code is clearly needed
-- align deployment configuration expectations with the existing runbook and live safety rules
-
-Main outputs:
-
 - deployment environment baseline
-- clearer role-specific config expectations
-- reduced config drift between API and worker runtime
+- bounded post-deploy smoke-check workflow
 
-### 37. `feature/post-deploy-smoke-check`
-
-Status:
-
-- implemented on branch
-
-Scope:
-
-- add a bounded smoke-check path for API and worker deployment verification
-- focus on health, status, config sanity, and non-destructive live-state checks
-- avoid introducing execution-triggering behavior into the smoke-check path
-- document when operators should run the smoke check during deploy or rollback
-
-Main outputs:
-
-- post-deploy smoke-check workflow
-- non-destructive deployment verification
-- operator-facing validation guidance
-
-### 38. `feature/runtime-reliability-telemetry`
+### 27. `feature/runtime-reliability`
 
 Status:
 
-- implemented on branch
+- implemented on `main`
 
 Scope:
 
-- improve structured logging and diagnostic correlation for unattended runtime behavior
-- tighten startup validation around deployment misconfiguration and missing dependencies
-- keep the work focused on observability and reliability rather than new trading behavior
-- add tests for new validation or logging-facing helpers where practical
+- improve structured logging and startup validation for unattended runtime behavior
+- expose latest read-only exchange price through existing operator surfaces
+- keep the work focused on reliability and visibility rather than new trading behavior
 
 Main outputs:
 
 - stronger runtime diagnostics
 - clearer startup validation failures
-- improved operator troubleshooting signals
+- latest price visibility in status, reports, and console
 
-### 39. `feature/live-price-status`
-
-Status:
-
-- implemented on branch
-
-Scope:
-
-- fetch a read-only latest market price from the configured exchange
-- expose the latest price through the existing status and reporting surfaces
-- keep the feature bounded to operator visibility without changing strategy or execution logic
-- add tests for exchange parsing and status exposure
-
-Main outputs:
-
-- latest price visibility
-- exchange-backed market status context
-- tests for live price fetch behavior
-
-### 40. `feature/operator-paper-trading-console`
+### 28. `feature/operator-console-and-performance`
 
 Status:
 
-- implemented on branch
+- implemented on `main`
 
 Scope:
 
-- add one operator-facing page inside the FastAPI app for local paper-trading workflows
-- show current status, latest price, positions, trades, and recent audit events
-- allow bounded operator actions such as one worker cycle, one backtest, and market sync
-- preserve the current architecture instead of introducing a separate frontend app
+- add an operator-facing page inside the FastAPI app for paper-trading workflows
+- provide deterministic demo scenarios for local verification
+- extend the console with richer live-capable controls
+- add session summary, performance analytics, and equity-curve reporting
 
 Main outputs:
 
-- operator paper-trading console
-- reduced manual API workflow for local testing
-- integrated status and control surface
+- `GET /console`
+- `POST /market-data/demo-scenarios/{scenario_name}`
+- richer console controls for market sync, backtest, reconcile, and cancel
+- reporting summary cards
+- `GET /performance/summary`
+- `GET /performance/daily.csv`
+- `GET /performance/equity.csv`
+- `/reports` equity-curve section
 
-### 41. `feature/demo-scenario-loader`
+## Current Recommended Queue
 
-Status:
+These are the next bounded features after the current `main` baseline:
 
-- implemented on branch
-
-Scope:
-
-- provide preset candle scenarios that can be loaded without hand-writing JSON
-- focus on operator demo workflows such as no-action, buy crossover, and sell crossover paths
-- keep scenarios deterministic and local-only
-- add tests and runbook guidance for scenario loading
-
-Main outputs:
-
-- demo candle presets
-- easier local paper-trading verification
-- reduced manual test payload work
-
-### 42. `feature/operator-control-panel`
-
-Status:
-
-- implemented on branch
-
-Scope:
-
-- extend the operator UX with bounded controls for market sync, backtest, reconcile, and cancel actions
-- require explicit operator initiation and keep the controls aligned with existing safety rules
-- improve operator feedback for successful and failed control runs
-- avoid adding any automatic execution behavior in the UI layer
-
-Main outputs:
-
-- richer operator controls
-- better UI feedback for control results
-- safer local and operator-driven workflows
-
-### 43. `feature/session-summary-dashboard`
-
-Status:
-
-- implemented on branch
-
-Scope:
-
-- add a compact operator summary over latest worker result, PnL, trades, positions, and stale live state
-- keep the dashboard focused on operational clarity rather than historical analytics depth
-- reuse existing reporting data where possible instead of widening persistence
-- add tests for the new summary rendering behavior where practical
-
-Main outputs:
-
-- clearer at-a-glance operator state
-- PnL and trade summary visibility
-- better session-level understanding
-
-### 44. `feature/performance-analytics-core`
-
-Status:
-
-- implemented on branch
-
-Scope:
-
-- derive operator-facing performance metrics from persisted trading data
-- separate paper and live metrics without adding a new summary table first
-- expose summary and daily rollups through reporting surfaces and API endpoints
-- avoid widening the stack into a separate BI or analytics service
-
-Main outputs:
-
-- performance analytics service
-- reporting dashboard performance section
-- performance summary API endpoint and daily CSV export
-- tests for metric calculations and API exposure
-
-### 45. `feature/performance-equity-reporting`
-
-Status:
-
-- in progress
-
-Scope:
-
-- expose the computed equity curve through the reporting deck instead of only the JSON API
-- add an export-friendly CSV for equity-curve review and plotting
-- keep performance analytics live-computed from existing trading records
-- add tests and docs for the new reporting surface
-
-Main outputs:
-
-- reporting dashboard equity-curve section
-- performance equity CSV export endpoint
-- updated operator docs for equity review
+1. `feature/project-status-alignment`
+2. `feature/live-order-state-hardening`
+3. `feature/live-risk-safety-controls`
+4. `feature/operator-recovery-timeline`
+5. `feature/observability-and-deploy-hardening`
 
 Current next feature:
 
-- `feature/performance-equity-reporting`
+- `feature/project-status-alignment`

@@ -13,7 +13,7 @@ Build a reliable trading bot platform with:
 
 ## Current Phase
 
-Core trading flow with backtesting, paper execution, operational controls, reporting exports, and review gating.
+Operator-facing paper-trading platform with backtesting, reporting, performance analytics, deployment hardening, and live-readiness groundwork.
 
 ## V1 Scope
 
@@ -72,14 +72,25 @@ The API now exposes basic operational visibility endpoints:
 
 - `GET /health`
 - `GET /status`
+- `GET /console`
 - `GET /positions`
+- `GET /performance/summary`
+- `GET /performance/daily.csv`
+- `GET /performance/equity.csv`
 - `GET /trades`
 - `POST /market-data/candles`
+- `POST /market-data/demo-scenarios/{scenario_name}`
+- `POST /controls/market-sync`
 - `POST /controls/worker-cycle`
 - `POST /controls/backtest`
+- `POST /controls/live-reconcile`
+- `POST /controls/live-cancel`
+- `GET /reports`
 - `GET /reports/positions.csv`
 - `GET /reports/trades.csv`
 - `GET /reports/backtest-summary.csv`
+- `GET /reports/audit.csv`
+- `GET /reports/live-recovery.csv`
 
 ## Notifications
 
@@ -202,5 +213,6 @@ Use:
 
 - `GET /status`
 - `GET /reports`
+- `GET /console`
 
 This price is informational only. Strategy and execution behavior remain candle-based.

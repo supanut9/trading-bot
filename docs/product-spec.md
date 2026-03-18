@@ -12,6 +12,24 @@ Build a maintainable trading bot that supports research, backtesting, paper trad
 - paper trading only
 - API endpoints for health, status, positions, trades, candle ingestion, market sync, reporting UI, and bounded manual controls
 
+## Current Milestone
+
+Current baseline on `main`:
+
+- paper-trading-first runtime with deterministic backtesting, paper execution, notifications, and bounded operator controls
+- server-rendered reporting and console surfaces inside the FastAPI app
+- performance analytics, equity-curve reporting, and CSV exports
+- deployment packaging, smoke checks, and startup validation
+- live-readiness groundwork for submission, reconciliation, cancel, stale-order visibility, and recovery reporting while keeping live trading disabled by default
+
+Next implementation queue:
+
+1. `feature/project-status-alignment`
+2. `feature/live-order-state-hardening`
+3. `feature/live-risk-safety-controls`
+4. `feature/operator-recovery-timeline`
+5. `feature/observability-and-deploy-hardening`
+
 ## Initial Market And Strategy
 
 - exchange: Binance-compatible abstraction
