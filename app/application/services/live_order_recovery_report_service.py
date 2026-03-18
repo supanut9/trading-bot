@@ -1,3 +1,4 @@
+import json
 from dataclasses import dataclass
 from datetime import datetime
 
@@ -22,7 +23,17 @@ class RecoveryOrderView:
 @dataclass(frozen=True, slots=True)
 class LiveOrderRecoveryReport:
     unresolved_orders: list[RecoveryOrderView]
-    recovery_events: list[AuditEventView]
+    recovery_events: list["RecoveryEventView"]
+
+
+@dataclass(frozen=True, slots=True)
+class RecoveryEventView:
+    created_at: datetime
+    event_type: str
+    source: str
+    status: str
+    detail: str
+    context: str
 
 
 class LiveOrderRecoveryReportService:
@@ -52,7 +63,7 @@ class LiveOrderRecoveryReportService:
             for order in unresolved_records
         ]
         recovery_events = [
-            event
+            self._to_recovery_event_view(event)
             for event in self._audit.list_recent(limit=50)
             if event.event_type in self._recovery_event_types
             and event.source in self._recovery_sources
@@ -61,6 +72,47 @@ class LiveOrderRecoveryReportService:
             unresolved_orders=unresolved_orders,
             recovery_events=recovery_events,
         )
+
+    def _to_recovery_event_view(self, event: AuditEventView) -> RecoveryEventView:
+        payload: dict[str, object] = {}
+        if event.payload_json:
+            payload = json.loads(event.payload_json)
+        return RecoveryEventView(
+            created_at=event.created_at,
+            event_type=event.event_type,
+            source=event.source,
+            status=event.status,
+            detail=event.detail,
+            context=self._event_context(event.event_type, payload),
+        )
+
+    @staticmethod
+    def _event_context(event_type: str, payload: dict[str, object]) -> str:
+        if event_type == "live_reconcile":
+            return LiveOrderRecoveryReportService._format_fields(
+                [
+                    ("reconciled", payload.get("reconciled_count")),
+                    ("filled", payload.get("filled_count")),
+                    ("review_required", payload.get("review_required_count")),
+                ]
+            )
+        if event_type == "live_cancel":
+            return LiveOrderRecoveryReportService._format_fields(
+                [
+                    ("order_id", payload.get("order_id")),
+                    ("client_order_id", payload.get("client_order_id")),
+                    ("exchange_order_id", payload.get("exchange_order_id")),
+                    ("order_status", payload.get("order_status")),
+                ]
+            )
+        return "-"
+
+    @staticmethod
+    def _format_fields(fields: list[tuple[str, object]]) -> str:
+        values = [f"{name}={value}" for name, value in fields if value not in {None, ""}]
+        if not values:
+            return "-"
+        return " ".join(values)
 
     @staticmethod
     def _next_action(status: str) -> str:
@@ -72,9 +124,9 @@ class LiveOrderRecoveryReportService:
 
     @staticmethod
     def latest_event_summary(
-        events: list[AuditEventView],
-    ) -> tuple[datetime | None, str | None, str | None]:
+        events: list[RecoveryEventView],
+    ) -> tuple[datetime | None, str | None, str | None, str | None]:
         if not events:
-            return None, None, None
+            return None, None, None, None
         latest = events[0]
-        return latest.created_at, latest.event_type, latest.status
+        return latest.created_at, latest.event_type, latest.status, latest.context
