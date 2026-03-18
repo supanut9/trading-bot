@@ -270,9 +270,12 @@ def test_reports_dashboard_renders_performance_summary_rows(tmp_path: Path) -> N
 
         assert response.status_code == 200
         assert "Performance Summary" in response.text
+        assert "Equity Curve" in response.text
         assert "paper" in response.text
         assert "Expectancy" in response.text
-        assert "Download performance CSV" in response.text
+        assert 'aria-label="paper equity curve"' in response.text
+        assert "Download daily performance CSV" in response.text
+        assert "Download equity curve CSV" in response.text
     finally:
         teardown_client(session)
 

@@ -15,6 +15,7 @@ from app.application.services.operational_control_service import (
 from app.application.services.operations_service import OperationsService, PositionView, TradeView
 from app.application.services.performance_analytics_service import (
     DailyPerformanceRow,
+    EquityCurvePoint,
     PerformanceAnalyticsService,
     PerformanceSummary,
 )
@@ -56,6 +57,7 @@ class ReportingDashboard:
     latest_worker_signal_action: str | None
     latest_worker_client_order_id: str | None
     performance_summaries: list[PerformanceSummary]
+    performance_equity_curve: list[EquityCurvePoint]
     performance_daily_rows: list[DailyPerformanceRow]
     backtest: BacktestControlResult
     audit_events: list[AuditEventView]
@@ -142,6 +144,7 @@ class ReportingDashboardService:
             latest_worker_signal_action=latest_worker_signal_action,
             latest_worker_client_order_id=latest_worker_client_order_id,
             performance_summaries=analytics.summaries,
+            performance_equity_curve=analytics.equity_curve,
             performance_daily_rows=analytics.daily_rows[:7],
             backtest=backtest,
             audit_events=audit_events,
