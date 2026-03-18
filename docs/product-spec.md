@@ -24,11 +24,10 @@ Current baseline on `main`:
 
 Next implementation queue:
 
-1. `feature/live-operator-halt-control`
-2. `feature/recovery-audit-timeline`
-3. `feature/live-order-duplication-guardrails`
-4. `feature/recovery-filters-and-search`
-5. `feature/runtime-log-correlation`
+1. `feature/recovery-audit-timeline`
+2. `feature/live-order-duplication-guardrails`
+3. `feature/recovery-filters-and-search`
+4. `feature/runtime-log-correlation`
 
 ## Initial Market And Strategy
 
@@ -56,6 +55,7 @@ Next implementation queue:
 - mark uncertain exchange outcomes as `review_required` instead of silently treating them as ordinary open or terminal states
 - expose exchange-side base and quote asset balances for the configured live symbol through the status surface
 - block new live entries when live trading is halted by configuration while leaving recovery controls available
+- allow operators to halt or resume live entry through a bounded persisted control without restarting the runtime
 - bound live entries by configured max order notional and max position quantity limits
 - optionally run recurring live reconciliation jobs so local runtime state can catch up with exchange fills without manual control calls
 - run startup live reconciliation before new live worker execution so restarts fail closed on uncertain exchange state

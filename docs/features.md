@@ -601,16 +601,34 @@ Main outputs:
 - runtime and scheduled-job logs that include `live_safety_status`
 - smoke checks that validate live safety fields and startup-sync readiness for live worker mode
 
+### 33. `feature/live-operator-halt-control`
+
+Status:
+
+- implemented on branch
+
+Scope:
+
+- promote live-entry halt from startup-only configuration into an explicit operator control
+- persist the halt state so API, console, and worker execution use the same value
+- keep the feature bounded to live-entry halt without widening into broader live control mutation
+
+Main outputs:
+
+- `runtime_controls` persistence for `live_trading_halted`
+- `POST /controls/live-halt`
+- console actions to halt or resume live entry
+- worker and status surfaces that resolve live halt from persisted operator state first
+
 ## Current Recommended Queue
 
 These are the next bounded features after the current `main` baseline:
 
-1. `feature/live-operator-halt-control`
-2. `feature/recovery-audit-timeline`
-3. `feature/live-order-duplication-guardrails`
-4. `feature/recovery-filters-and-search`
-5. `feature/runtime-log-correlation`
+1. `feature/recovery-audit-timeline`
+2. `feature/live-order-duplication-guardrails`
+3. `feature/recovery-filters-and-search`
+4. `feature/runtime-log-correlation`
 
 Current next feature:
 
-- `feature/live-operator-halt-control`
+- `feature/recovery-audit-timeline`

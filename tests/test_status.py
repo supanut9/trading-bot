@@ -1,8 +1,16 @@
 from decimal import Decimal
+from pathlib import Path
 
 from fastapi.testclient import TestClient
 
 from app.config import Settings, get_settings
+from app.infrastructure.database.base import Base
+from app.infrastructure.database.models.runtime_control import RuntimeControlRecord
+from app.infrastructure.database.session import (
+    create_engine_from_settings,
+    create_session_factory,
+    get_session,
+)
 from app.main import app
 
 
@@ -96,3 +104,47 @@ def test_status_endpoint_returns_live_account_balances_when_enabled(monkeypatch)
         {"asset": "BTC", "free": "0.005", "locked": "0.001"},
         {"asset": "USDT", "free": "250.00", "locked": "0"},
     ]
+
+
+def test_status_endpoint_prefers_runtime_halt_control_when_present(tmp_path: Path) -> None:
+    settings = Settings(
+        DATABASE_URL=f"sqlite:///{tmp_path / 'status.db'}",
+        PAPER_TRADING=False,
+        LIVE_TRADING_ENABLED=True,
+        EXCHANGE_API_KEY="key",
+        EXCHANGE_API_SECRET="secret",
+        LIVE_TRADING_HALTED=False,
+    )
+    engine = create_engine_from_settings(settings)
+    Base.metadata.create_all(bind=engine)
+    session_factory = create_session_factory(settings)
+    session = session_factory()
+    session.add(
+        RuntimeControlRecord(
+            control_name="live_trading_halted",
+            bool_value=True,
+            updated_by="test.status",
+        )
+    )
+    session.commit()
+
+    def override_get_session():
+        try:
+            yield session
+        finally:
+            pass
+
+    app.dependency_overrides[get_settings] = lambda: settings
+    app.dependency_overrides[get_session] = override_get_session
+
+    try:
+        client = TestClient(app)
+        response = client.get("/status")
+    finally:
+        app.dependency_overrides.clear()
+        session.close()
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["live_trading_halted"] is True
+    assert payload["live_safety_status"] == "halted"

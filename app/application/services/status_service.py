@@ -1,6 +1,9 @@
 from sqlalchemy import text
+from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.orm import Session
 
 from app.application.services.exchange_balance_service import ExchangeBalanceService
+from app.application.services.live_operator_control_service import LiveOperatorControlService
 from app.config import Settings
 from app.infrastructure.database.session import create_engine_from_settings
 from app.infrastructure.exchanges.factory import (
@@ -10,11 +13,13 @@ from app.infrastructure.exchanges.factory import (
 
 
 class StatusService:
-    def __init__(self, settings: Settings) -> None:
+    def __init__(self, settings: Settings, *, session: Session | None = None) -> None:
         self._settings = settings
+        self._session = session
 
     def get_status(self) -> dict[str, str | bool | list[dict[str, str]]]:
         database_status = self._get_database_status()
+        effective_live_halt = self._effective_live_trading_halted()
         latest_price_status = "unavailable"
         latest_price: str | None = None
         try:
@@ -52,8 +57,8 @@ class StatusService:
             "execution_mode": self._settings.execution_mode,
             "paper_trading": self._settings.paper_trading,
             "live_trading_enabled": self._settings.live_trading_enabled,
-            "live_trading_halted": self._settings.live_trading_halted,
-            "live_safety_status": self._live_safety_status(),
+            "live_trading_halted": effective_live_halt,
+            "live_safety_status": self._live_safety_status(effective_live_halt),
             "live_max_order_notional": (
                 format(self._settings.live_max_order_notional, "f")
                 if self._settings.live_max_order_notional is not None
@@ -75,12 +80,27 @@ class StatusService:
             "account_balances": account_balances,
         }
 
-    def _live_safety_status(self) -> str:
+    def _live_safety_status(self, live_trading_halted: bool) -> str:
         if not self._settings.live_trading_enabled:
             return "disabled"
-        if self._settings.live_trading_halted:
+        if live_trading_halted:
             return "halted"
         return "enabled"
+
+    def _effective_live_trading_halted(self) -> bool:
+        if self._session is None:
+            return self._settings.live_trading_halted
+        try:
+            return (
+                LiveOperatorControlService(
+                    self._session,
+                    self._settings,
+                )
+                .get_live_trading_halt_state()
+                .halted
+            )
+        except SQLAlchemyError:
+            return self._settings.live_trading_halted
 
     def _get_database_status(self) -> str:
         try:

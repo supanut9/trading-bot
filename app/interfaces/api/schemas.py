@@ -207,6 +207,20 @@ class LiveReconcileControlResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class LiveHaltControlRequest(BaseModel):
+    halted: bool
+
+
+class LiveHaltControlResponse(BaseModel):
+    status: str
+    detail: str
+    live_trading_halted: bool
+    changed: bool
+    notified: bool
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class LiveCancelControlRequest(BaseModel):
     order_id: int | None = None
     client_order_id: str | None = None

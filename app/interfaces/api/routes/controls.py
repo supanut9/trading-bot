@@ -8,6 +8,8 @@ from app.interfaces.api.schemas import (
     BacktestControlResponse,
     LiveCancelControlRequest,
     LiveCancelControlResponse,
+    LiveHaltControlRequest,
+    LiveHaltControlResponse,
     LiveReconcileControlResponse,
     MarketSyncControlResponse,
     WorkerControlResponse,
@@ -80,6 +82,26 @@ def run_live_reconcile(
         session_factory=session_factory,
     ).run_live_reconcile(source="api.control")
     return LiveReconcileControlResponse.model_validate(result)
+
+
+@router.post(
+    "/live-halt",
+    response_model=LiveHaltControlResponse,
+    status_code=status.HTTP_200_OK,
+)
+def run_live_halt(
+    request: LiveHaltControlRequest,
+    settings: Settings = settings_dependency,
+    session_factory: sessionmaker[Session] = session_factory_dependency,
+) -> LiveHaltControlResponse:
+    result = OperationalControlService(
+        settings,
+        session_factory=session_factory,
+    ).run_live_halt(
+        halted=request.halted,
+        source="api.control",
+    )
+    return LiveHaltControlResponse.model_validate(result)
 
 
 @router.post(

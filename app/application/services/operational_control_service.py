@@ -10,6 +10,7 @@ from app.application.services.backtest_service import BacktestResult, BacktestSe
 from app.application.services.live_fill_reconciliation_service import (
     LiveFillReconciliationService,
 )
+from app.application.services.live_operator_control_service import LiveOperatorControlService
 from app.application.services.live_order_state import (
     CANCELABLE_LIVE_ORDER_STATUSES,
     resolve_cancellation_state,
@@ -92,6 +93,15 @@ class LiveCancelControlResult:
     client_order_id: str | None
     exchange_order_id: str | None
     order_status: str | None
+    notified: bool = False
+
+
+@dataclass(frozen=True, slots=True)
+class LiveHaltControlResult:
+    status: str
+    detail: str
+    live_trading_halted: bool
+    changed: bool
     notified: bool = False
 
 
@@ -406,6 +416,50 @@ class OperationalControlService:
                     "reconciled_count": control_result.reconciled_count,
                     "filled_count": control_result.filled_count,
                     "review_required_count": control_result.review_required_count,
+                },
+            )
+        return control_result
+
+    def run_live_halt(
+        self,
+        *,
+        halted: bool,
+        source: str = "internal",
+        audit: bool = True,
+    ) -> LiveHaltControlResult:
+        with self._session_factory() as session:
+            control_update = LiveOperatorControlService(
+                session,
+                self._settings,
+            ).set_live_trading_halted(
+                halted=halted,
+                updated_by=source,
+            )
+            session.commit()
+
+        detail = "live entry halted" if halted else "live entry resumed"
+        if not control_update.changed:
+            detail = "live entry halt state unchanged"
+
+        control_result = LiveHaltControlResult(
+            status="completed",
+            detail=detail,
+            live_trading_halted=control_update.current_halted,
+            changed=control_update.changed,
+            notified=False,
+        )
+        if audit:
+            self._audit.record_control_result(
+                control_type="live_halt",
+                source=source,
+                status=control_result.status,
+                detail=control_result.detail,
+                settings=self._settings,
+                payload={
+                    "previous_halted": control_update.previous_halted,
+                    "live_trading_halted": control_result.live_trading_halted,
+                    "changed": control_result.changed,
+                    "updated_by": control_update.updated_by,
                 },
             )
         return control_result

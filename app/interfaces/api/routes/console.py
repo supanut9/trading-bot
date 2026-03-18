@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from app.application.services.operational_control_service import (
     BacktestControlResult,
     LiveCancelControlResult,
+    LiveHaltControlResult,
     LiveReconcileControlResult,
     MarketSyncControlResult,
     OperationalControlService,
@@ -59,6 +60,10 @@ def _render_action_form(action: str, label: str, note: str) -> str:
     """
 
 
+def _render_live_toggle_form(action: str, label: str, note: str) -> str:
+    return _render_action_form(action, label, note)
+
+
 def _render_live_cancel_form() -> str:
     return """
         <form method="post" action="/console/actions/live-cancel" class="action-form">
@@ -87,6 +92,7 @@ def _render_action_result(
         | BacktestControlResult
         | MarketSyncControlResult
         | LiveReconcileControlResult
+        | LiveHaltControlResult
         | LiveCancelControlResult
     ),
 ) -> str:
@@ -136,6 +142,13 @@ def _render_action_result(
                 ("Reconciled Count", str(result.reconciled_count)),
                 ("Filled Count", str(result.filled_count)),
                 ("Review Required Count", str(result.review_required_count)),
+            ]
+        )
+    elif isinstance(result, LiveHaltControlResult):
+        rows.extend(
+            [
+                ("Live Trading Halted", "yes" if result.live_trading_halted else "no"),
+                ("Changed", "yes" if result.changed else "no"),
             ]
         )
     else:
@@ -226,6 +239,7 @@ def _render_console_page(
         | BacktestControlResult
         | MarketSyncControlResult
         | LiveReconcileControlResult
+        | LiveHaltControlResult
         | LiveCancelControlResult
         | None
     ) = None,
@@ -235,6 +249,10 @@ def _render_console_page(
     cards = "".join(
         [
             _render_metric_card("Execution Mode", mode_label, accent=True),
+            _render_metric_card(
+                "Live Entry Halt",
+                "halted" if dashboard.live_trading_halted else "active",
+            ),
             _render_metric_card("Latest Price", latest_price_label),
             _render_metric_card("Open Positions", str(dashboard.position_count)),
             _render_metric_card("Recent Trades", str(dashboard.trade_count)),
@@ -267,6 +285,17 @@ def _render_console_page(
     )
     action_forms = "".join(
         [
+            _render_live_toggle_form(
+                "live-halt",
+                "Halt Live Entry",
+                "Block new live entries while leaving live recovery and "
+                "reporting controls available.",
+            ),
+            _render_live_toggle_form(
+                "live-resume",
+                "Resume Live Entry",
+                "Allow new live entries again using the current runtime configuration.",
+            ),
             _render_action_form(
                 "market-sync",
                 "Sync Market Data",
@@ -615,6 +644,50 @@ def operator_console(
 ) -> HTMLResponse:
     dashboard = _build_dashboard(settings, session_factory)
     return _html_response(_render_console_page(dashboard))
+
+
+@router.post("/actions/live-halt", response_class=HTMLResponse)
+def run_console_live_halt(
+    settings: Settings = settings_dependency,
+    session_factory: sessionmaker[Session] = session_factory_dependency,
+) -> HTMLResponse:
+    result = OperationalControlService(
+        settings,
+        session_factory=session_factory,
+    ).run_live_halt(
+        halted=True,
+        source="api.console",
+    )
+    dashboard = _build_dashboard(settings, session_factory)
+    return _html_response(
+        _render_console_page(
+            dashboard,
+            action_name="Live Halt",
+            action_result=result,
+        )
+    )
+
+
+@router.post("/actions/live-resume", response_class=HTMLResponse)
+def run_console_live_resume(
+    settings: Settings = settings_dependency,
+    session_factory: sessionmaker[Session] = session_factory_dependency,
+) -> HTMLResponse:
+    result = OperationalControlService(
+        settings,
+        session_factory=session_factory,
+    ).run_live_halt(
+        halted=False,
+        source="api.console",
+    )
+    dashboard = _build_dashboard(settings, session_factory)
+    return _html_response(
+        _render_console_page(
+            dashboard,
+            action_name="Live Resume",
+            action_result=result,
+        )
+    )
 
 
 @router.post("/actions/worker-cycle", response_class=HTMLResponse)

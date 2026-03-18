@@ -5,6 +5,7 @@ from decimal import Decimal
 from sqlalchemy.orm import Session
 
 from app.application.services.execution_factory import build_execution_service
+from app.application.services.live_operator_control_service import LiveOperatorControlService
 from app.application.services.market_data_service import MarketDataService
 from app.application.services.market_data_sync_service import MarketDataSyncService
 from app.application.services.paper_execution_service import PaperExecutionRequest
@@ -58,13 +59,16 @@ class WorkerOrchestrationService:
             fast_period=settings.strategy_fast_period,
             slow_period=settings.strategy_slow_period,
         )
+        live_halt_state = LiveOperatorControlService(
+            session, settings
+        ).get_live_trading_halt_state()
         self._risk = risk_service or RiskService(
             RiskLimits(
                 risk_per_trade_pct=Decimal(str(settings.risk_per_trade_pct)),
                 max_open_positions=settings.max_open_positions,
                 max_daily_loss_pct=Decimal(str(settings.max_daily_loss_pct)),
                 paper_trading_only=not settings.live_trading_enabled,
-                live_trading_halted=settings.live_trading_halted,
+                live_trading_halted=live_halt_state.halted,
                 live_max_order_notional=settings.live_max_order_notional,
                 live_max_position_quantity=settings.live_max_position_quantity,
             )
