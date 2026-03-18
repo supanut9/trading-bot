@@ -24,7 +24,8 @@ def main() -> None:
         return
     logger.info(
         "runtime_ready component=%s app=%s env=%s mode=%s exchange=%s symbol=%s "
-        "timeframe=%s database_scheme=%s log_level=%s",
+        "timeframe=%s database_scheme=%s log_level=%s live_safety_status=%s "
+        "live_trading_halted=%s live_max_order_notional=%s live_max_position_quantity=%s",
         context.component,
         context.app,
         context.environment,
@@ -34,6 +35,12 @@ def main() -> None:
         context.timeframe,
         context.database_scheme,
         context.log_level,
+        "disabled"
+        if not settings.live_trading_enabled
+        else ("halted" if settings.live_trading_halted else "enabled"),
+        settings.live_trading_halted,
+        settings.live_max_order_notional,
+        settings.live_max_position_quantity,
     )
     tables = init_database(settings)
     logger.info("worker_database_initialized tables=%s", ",".join(tables))

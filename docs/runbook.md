@@ -207,8 +207,9 @@ Deployment environment baseline:
 Post-deploy smoke checks:
 
 - `make smoke-check-api` verifies `/health`, `/status`, and database reachability against the deployed API
-- `make smoke-check-worker` verifies the deployed worker configuration and database reachability without running a worker cycle
+- `make smoke-check-worker` verifies the deployed worker configuration, database reachability, and live safety posture without running a worker cycle
 - run the smoke checks after deploy and again after rollback before resuming normal operator workflows
+- live-capable smoke checks now fail if `/status` does not match the configured halt flag, configured live limits, or required startup-sync posture
 
 Runtime startup validation:
 

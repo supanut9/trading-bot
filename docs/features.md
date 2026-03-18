@@ -584,16 +584,33 @@ Main outputs:
 - `/reports` recovery queue with `review_required` and `next_action` visibility
 - `/reports` recovery timeline over recent live reconcile and live cancel events
 
+### 32. `feature/observability-and-deploy-hardening`
+
+Status:
+
+- implemented on branch
+
+Scope:
+
+- strengthen unattended-runtime logging around live safety posture
+- tighten post-deploy smoke checks so they validate the configured live safety state
+- keep the feature focused on diagnostics and deploy verification rather than new trading behavior
+
+Main outputs:
+
+- runtime and scheduled-job logs that include `live_safety_status`
+- smoke checks that validate live safety fields and startup-sync readiness for live worker mode
+
 ## Current Recommended Queue
 
 These are the next bounded features after the current `main` baseline:
 
-1. `feature/observability-and-deploy-hardening`
-2. `feature/live-operator-halt-control`
-3. `feature/recovery-audit-timeline`
-4. `feature/live-order-duplication-guardrails`
-5. `feature/recovery-filters-and-search`
+1. `feature/live-operator-halt-control`
+2. `feature/recovery-audit-timeline`
+3. `feature/live-order-duplication-guardrails`
+4. `feature/recovery-filters-and-search`
+5. `feature/runtime-log-correlation`
 
 Current next feature:
 
-- `feature/observability-and-deploy-hardening`
+- `feature/live-operator-halt-control`

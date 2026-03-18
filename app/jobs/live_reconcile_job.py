@@ -38,7 +38,8 @@ class LiveReconcileJob:
         )
         logger.info(
             "scheduled_live_reconcile_completed status=%s detail=%s reconciled_count=%s "
-            "filled_count=%s review_required_count=%s exchange=%s symbol=%s timeframe=%s",
+            "filled_count=%s review_required_count=%s exchange=%s symbol=%s timeframe=%s "
+            "live_safety_status=%s",
             result.status,
             result.detail,
             result.reconciled_count,
@@ -47,5 +48,8 @@ class LiveReconcileJob:
             self._settings.exchange_name,
             self._settings.default_symbol,
             self._settings.default_timeframe,
+            "disabled"
+            if not self._settings.live_trading_enabled
+            else ("halted" if self._settings.live_trading_halted else "enabled"),
         )
         return result

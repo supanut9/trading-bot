@@ -16,6 +16,10 @@ def test_run_api_smoke_check_passes_for_matching_status() -> None:
             "app": settings.app_name,
             "environment": settings.app_env,
             "execution_mode": settings.execution_mode,
+            "live_trading_halted": settings.live_trading_halted,
+            "live_safety_status": "disabled",
+            "live_max_order_notional": None,
+            "live_max_position_quantity": None,
             "exchange": settings.exchange_name,
             "symbol": settings.default_symbol,
             "timeframe": settings.default_timeframe,
@@ -38,6 +42,10 @@ def test_run_api_smoke_check_reports_mismatch() -> None:
             "app": settings.app_name,
             "environment": settings.app_env,
             "execution_mode": settings.execution_mode,
+            "live_trading_halted": settings.live_trading_halted,
+            "live_safety_status": "disabled",
+            "live_max_order_notional": None,
+            "live_max_position_quantity": None,
             "exchange": settings.exchange_name,
             "symbol": settings.default_symbol,
             "timeframe": settings.default_timeframe,
@@ -62,12 +70,81 @@ def test_run_worker_smoke_check_uses_status_service() -> None:
                 "app": settings.app_name,
                 "environment": settings.app_env,
                 "execution_mode": settings.execution_mode,
+                "live_trading_halted": settings.live_trading_halted,
+                "live_safety_status": "disabled",
+                "live_max_order_notional": None,
+                "live_max_position_quantity": None,
                 "database_status": "available",
             }
 
     errors = run_worker_smoke_check(settings, status_service_factory=FakeStatusService)
 
     assert errors == []
+
+
+def test_run_api_smoke_check_requires_live_safety_fields_to_match() -> None:
+    settings = Settings(
+        PAPER_TRADING=False,
+        LIVE_TRADING_ENABLED=True,
+        LIVE_TRADING_HALTED=True,
+        LIVE_MAX_ORDER_NOTIONAL="250",
+        LIVE_MAX_POSITION_QUANTITY="0.02000000",
+        EXCHANGE_API_KEY="key",
+        EXCHANGE_API_SECRET="secret",
+    )
+
+    def fake_fetcher(url: str) -> dict[str, object]:
+        if url.endswith("/health"):
+            return {"status": "ok"}
+        return {
+            "app": settings.app_name,
+            "environment": settings.app_env,
+            "execution_mode": settings.execution_mode,
+            "live_trading_halted": False,
+            "live_safety_status": "enabled",
+            "live_max_order_notional": "250",
+            "live_max_position_quantity": "0.02000000",
+            "exchange": settings.exchange_name,
+            "symbol": settings.default_symbol,
+            "timeframe": settings.default_timeframe,
+            "database_status": "available",
+            "account_balance_status": "available",
+        }
+
+    errors = run_api_smoke_check(settings, base_url="http://127.0.0.1:8000", fetcher=fake_fetcher)
+
+    assert "status.live_trading_halted expected=True actual=False" in errors
+    assert "status.live_safety_status expected='halted' actual='enabled'" in errors
+
+
+def test_run_worker_smoke_check_requires_startup_sync_for_live_worker() -> None:
+    settings = Settings(
+        PAPER_TRADING=False,
+        LIVE_TRADING_ENABLED=True,
+        STARTUP_STATE_SYNC_ENABLED=False,
+        EXCHANGE_API_KEY="key",
+        EXCHANGE_API_SECRET="secret",
+    )
+
+    class FakeStatusService:
+        def __init__(self, active_settings: Settings) -> None:
+            assert active_settings is settings
+
+        def get_status(self) -> dict[str, object]:
+            return {
+                "app": settings.app_name,
+                "environment": settings.app_env,
+                "execution_mode": settings.execution_mode,
+                "live_trading_halted": settings.live_trading_halted,
+                "live_safety_status": "enabled",
+                "live_max_order_notional": None,
+                "live_max_position_quantity": None,
+                "database_status": "available",
+            }
+
+    errors = run_worker_smoke_check(settings, status_service_factory=FakeStatusService)
+
+    assert errors == ["worker live smoke check requires STARTUP_STATE_SYNC_ENABLED=true"]
 
 
 def test_main_returns_nonzero_when_worker_smoke_check_fails(monkeypatch) -> None:
