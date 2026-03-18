@@ -43,6 +43,7 @@ def test_live_reconcile_job_notifies_failure_and_stale_orders(monkeypatch) -> No
                 detail="live reconciliation failed",
                 reconciled_count=0,
                 filled_count=0,
+                review_required_count=0,
                 notified=False,
             )
 

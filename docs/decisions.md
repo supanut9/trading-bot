@@ -530,3 +530,17 @@ The next UX phase needs the system to feel connected to current market context w
 ### Consequence
 
 Status and reporting now fetch the latest public exchange price when available, while strategy and execution behavior remain based on closed candles rather than realtime ticks.
+
+## 2026-03-18
+
+### Decision
+
+Normalize live-order handling around a canonical local state model and treat uncertain exchange outcomes as explicit operator-review state.
+
+### Reason
+
+Live submission, reconciliation, stale-order detection, and cancel flows were previously reusing raw exchange status values directly. That made the operator surfaces depend on exchange-specific wording and left ambiguous cases such as unknown statuses or filled-without-details responses too easy to flatten into ordinary open-order handling.
+
+### Consequence
+
+Live orders now transition through a shared local state model such as `submitted`, `open`, `partially_filled`, `filled`, `canceled`, `rejected`, and `review_required`. Unknown or detail-incomplete exchange responses are surfaced as `review_required`, and recovery exports now include explicit operator-review hints instead of relying on raw status inspection alone.

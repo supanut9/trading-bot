@@ -71,11 +71,11 @@ Current repo baseline:
 
 Recommended next feature queue:
 
-1. `feature/project-status-alignment`
-2. `feature/live-order-state-hardening`
-3. `feature/live-risk-safety-controls`
-4. `feature/operator-recovery-timeline`
-5. `feature/observability-and-deploy-hardening`
+1. `feature/live-risk-safety-controls`
+2. `feature/operator-recovery-timeline`
+3. `feature/observability-and-deploy-hardening`
+4. `feature/live-operator-halt-control`
+5. `feature/recovery-audit-timeline`
 
 ## Phase 1
 

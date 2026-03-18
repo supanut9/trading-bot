@@ -399,6 +399,8 @@ def test_live_recovery_report_exports_unresolved_orders_with_latest_context(
         assert rows[0]["client_order_id"] == "recovery-order-1"
         assert rows[0]["latest_recovery_event_type"] == "live_cancel"
         assert rows[0]["latest_recovery_event_status"] == "completed"
+        assert rows[0]["requires_operator_review"] == "false"
+        assert rows[0]["next_action"] == "reconcile_or_cancel"
     finally:
         teardown_client(session)
 

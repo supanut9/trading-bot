@@ -10,6 +10,11 @@ from app.application.services.backtest_service import BacktestResult, BacktestSe
 from app.application.services.live_fill_reconciliation_service import (
     LiveFillReconciliationService,
 )
+from app.application.services.live_order_state import (
+    CANCELABLE_LIVE_ORDER_STATUSES,
+    resolve_cancellation_state,
+    transition_live_order,
+)
 from app.application.services.market_data_service import MarketDataService
 from app.application.services.market_data_sync_service import MarketDataSyncService
 from app.application.services.notification_service import (
@@ -75,6 +80,7 @@ class LiveReconcileControlResult:
     detail: str
     reconciled_count: int
     filled_count: int
+    review_required_count: int
     notified: bool = False
 
 
@@ -355,6 +361,7 @@ class OperationalControlService:
                 detail="live reconciliation failed",
                 reconciled_count=0,
                 filled_count=0,
+                review_required_count=0,
                 notified=False,
             )
             if audit:
@@ -367,20 +374,25 @@ class OperationalControlService:
                     payload={
                         "reconciled_count": control_result.reconciled_count,
                         "filled_count": control_result.filled_count,
+                        "review_required_count": control_result.review_required_count,
                     },
                 )
             return control_result
 
         reconciled_count = len(results)
         filled_count = sum(1 for result in results if result.trade_created)
+        review_required_count = sum(1 for result in results if result.requires_operator_review)
         detail = "no live orders to reconcile"
         if reconciled_count > 0:
             detail = "live orders reconciled"
+        if review_required_count > 0:
+            detail = "live orders require operator review"
         control_result = LiveReconcileControlResult(
             status="completed",
             detail=detail,
             reconciled_count=reconciled_count,
             filled_count=filled_count,
+            review_required_count=review_required_count,
             notified=False,
         )
         if audit:
@@ -393,6 +405,7 @@ class OperationalControlService:
                 payload={
                     "reconciled_count": control_result.reconciled_count,
                     "filled_count": control_result.filled_count,
+                    "review_required_count": control_result.review_required_count,
                 },
             )
         return control_result
@@ -452,7 +465,7 @@ class OperationalControlService:
                     exchange_order_id=exchange_order_id,
                     order_status=None,
                 )
-            elif order.status not in {"submitting", "submitted", "new", "partially_filled"}:
+            elif order.status not in CANCELABLE_LIVE_ORDER_STATUSES:
                 control_result = LiveCancelControlResult(
                     status="skipped",
                     detail="live order is not cancelable in its current status",
@@ -468,13 +481,14 @@ class OperationalControlService:
                         client_order_id=order.client_order_id,
                         exchange_order_id=order.exchange_order_id,
                     )
-                    order.status = cancellation.status or "canceled"
+                    resolution = resolve_cancellation_state(cancellation.status)
+                    transition_live_order(order, next_status=resolution.status)
                     if cancellation.exchange_order_id:
                         order.exchange_order_id = cancellation.exchange_order_id
                     session.commit()
                     control_result = LiveCancelControlResult(
                         status="completed",
-                        detail="live order canceled",
+                        detail=resolution.detail,
                         order_id=order.id,
                         client_order_id=order.client_order_id,
                         exchange_order_id=order.exchange_order_id,

@@ -26,11 +26,12 @@ class StartupStateSyncJob:
         log_fn = logger.info if result.status == "completed" else logger.warning
         log_fn(
             "startup_state_sync_completed status=%s detail=%s reconciled_count=%s "
-            "filled_count=%s exchange=%s symbol=%s timeframe=%s",
+            "filled_count=%s review_required_count=%s exchange=%s symbol=%s timeframe=%s",
             result.status,
             result.detail,
             result.reconciled_count,
             result.filled_count,
+            result.review_required_count,
             self._settings.exchange_name,
             self._settings.default_symbol,
             self._settings.default_timeframe,

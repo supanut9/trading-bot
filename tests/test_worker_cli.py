@@ -59,6 +59,7 @@ def test_worker_run_once_performs_startup_state_sync_before_live_execution(monke
                 detail="live orders reconciled",
                 reconciled_count=1,
                 filled_count=1,
+                review_required_count=0,
                 notified=False,
             )
 
@@ -109,6 +110,7 @@ def test_worker_run_once_aborts_when_startup_state_sync_fails(monkeypatch) -> No
                 detail="live reconciliation failed",
                 reconciled_count=0,
                 filled_count=0,
+                review_required_count=0,
                 notified=False,
             )
 
@@ -239,6 +241,7 @@ def test_worker_scheduled_mode_registers_live_reconcile_job_when_enabled(
                 detail="no live orders to reconcile",
                 reconciled_count=0,
                 filled_count=0,
+                review_required_count=0,
                 notified=False,
             )
 
@@ -320,6 +323,7 @@ def test_worker_scheduled_mode_runs_startup_state_sync_before_registering_jobs(
                 detail="no live orders to reconcile",
                 reconciled_count=0,
                 filled_count=0,
+                review_required_count=0,
                 notified=False,
             )
 

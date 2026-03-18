@@ -285,6 +285,7 @@ def test_console_live_reconcile_action_renders_summary(tmp_path: Path) -> None:
         assert "live orders reconciled" in response.text
         assert "Reconciled Count" in response.text
         assert "Filled Count" in response.text
+        assert "Review Required Count" in response.text
 
         session = create_session_factory(settings)()
         try:

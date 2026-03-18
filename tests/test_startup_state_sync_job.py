@@ -36,6 +36,7 @@ def test_startup_state_sync_job_notifies_failure(monkeypatch) -> None:
                 detail="live reconciliation failed",
                 reconciled_count=0,
                 filled_count=0,
+                review_required_count=0,
                 notified=False,
             )
 

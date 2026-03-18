@@ -211,8 +211,8 @@ def test_live_reconcile_control_returns_completed_result(monkeypatch) -> None:
 
         def reconcile_recent_live_orders(self):
             return [
-                type("Result", (), {"trade_created": True})(),
-                type("Result", (), {"trade_created": False})(),
+                type("Result", (), {"trade_created": True, "requires_operator_review": False})(),
+                type("Result", (), {"trade_created": False, "requires_operator_review": True})(),
             ]
 
     monkeypatch.setattr(
@@ -234,9 +234,10 @@ def test_live_reconcile_control_returns_completed_result(monkeypatch) -> None:
 
     assert result == LiveReconcileControlResult(
         status="completed",
-        detail="live orders reconciled",
+        detail="live orders require operator review",
         reconciled_count=2,
         filled_count=1,
+        review_required_count=1,
         notified=False,
     )
     assert len(audit.entries) == 1
@@ -272,6 +273,7 @@ def test_live_reconcile_control_returns_failed_result_on_client_error(monkeypatc
         detail="live reconciliation failed",
         reconciled_count=0,
         filled_count=0,
+        review_required_count=0,
         notified=False,
     )
     assert len(audit.entries) == 1

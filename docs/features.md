@@ -530,16 +530,35 @@ Main outputs:
 - `GET /performance/equity.csv`
 - `/reports` equity-curve section
 
+### 29. `feature/live-order-state-hardening`
+
+Status:
+
+- implemented on branch
+
+Scope:
+
+- normalize live-order states into one canonical local model
+- prevent contradictory status transitions across submit, reconcile, and cancel flows
+- surface uncertain exchange outcomes as explicit operator-review state
+
+Main outputs:
+
+- shared live-order state resolution and transition rules
+- canonical statuses such as `open`, `partially_filled`, `filled`, `canceled`, `rejected`, and `review_required`
+- recovery export fields for `requires_operator_review` and `next_action`
+- live reconcile summaries that count review-required orders
+
 ## Current Recommended Queue
 
 These are the next bounded features after the current `main` baseline:
 
-1. `feature/project-status-alignment`
-2. `feature/live-order-state-hardening`
-3. `feature/live-risk-safety-controls`
-4. `feature/operator-recovery-timeline`
-5. `feature/observability-and-deploy-hardening`
+1. `feature/live-risk-safety-controls`
+2. `feature/operator-recovery-timeline`
+3. `feature/observability-and-deploy-hardening`
+4. `feature/live-operator-halt-control`
+5. `feature/recovery-audit-timeline`
 
 Current next feature:
 
-- `feature/project-status-alignment`
+- `feature/live-risk-safety-controls`
