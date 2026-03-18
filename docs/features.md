@@ -768,7 +768,7 @@ Main outputs:
 
 Status:
 
-- implemented on branch
+- implemented on `main`
 
 Scope:
 
@@ -782,12 +782,30 @@ Main outputs:
 - `GET /reports/audit.csv` column for explicit `correlation_id`
 - operator visibility that no longer depends on reading raw payload JSON for common metadata
 
+### 43. `feature/production-readiness-boundary`
+
+Status:
+
+- planned
+
+Scope:
+
+- define the explicit production target as deployed paper trading, not live trading by default
+- document the remaining gap between deployable paper operation and live-capable operation
+- keep the feature bounded to launch criteria, readiness checks, and operational decision points rather than new trading behavior
+
+Main outputs:
+
+- a documented go-live checklist for production paper deployment
+- an explicit live-trading non-readiness statement and gap list
+- aligned roadmap and product-spec language for the current production boundary
+
 ## Current Recommended Queue
 
 These are the next bounded features after the current `main` baseline:
 
-1. `feature/audit-report-columns`
+1. `feature/production-readiness-boundary`
 
 Current next feature:
 
-- `feature/audit-report-columns`
+- `feature/production-readiness-boundary`
