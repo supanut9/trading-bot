@@ -1,10 +1,16 @@
 from contextlib import asynccontextmanager
+from time import perf_counter
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 
 from app.application.services.runtime_startup_service import validate_runtime_startup
 from app.config import get_settings
-from app.core.logger import configure_logging, get_logger
+from app.core.logger import (
+    build_correlation_id,
+    configure_logging,
+    correlation_context,
+    get_logger,
+)
 from app.interfaces.api.routes.console import router as console_router
 from app.interfaces.api.routes.controls import router as controls_router
 from app.interfaces.api.routes.health import router as health_router
@@ -41,6 +47,38 @@ async def lifespan(_: FastAPI):
 
 def create_app() -> FastAPI:
     app = FastAPI(title=settings.app_name, lifespan=lifespan)
+
+    @app.middleware("http")
+    async def add_request_correlation(request: Request, call_next):
+        request_id = request.headers.get("X-Request-ID") or build_correlation_id("req")
+        started_at = perf_counter()
+        request.state.request_id = request_id
+        with correlation_context(request_id):
+            logger.info(
+                "http_request_started method=%s path=%s",
+                request.method,
+                request.url.path,
+            )
+            try:
+                response = await call_next(request)
+            except Exception:
+                logger.exception(
+                    "http_request_failed method=%s path=%s",
+                    request.method,
+                    request.url.path,
+                )
+                raise
+            duration_ms = round((perf_counter() - started_at) * 1000, 2)
+            response.headers["X-Request-ID"] = request_id
+            logger.info(
+                "http_request_completed method=%s path=%s status_code=%s duration_ms=%s",
+                request.method,
+                request.url.path,
+                response.status_code,
+                duration_ms,
+            )
+            return response
+
     app.include_router(console_router)
     app.include_router(controls_router)
     app.include_router(health_router)

@@ -182,6 +182,12 @@ Live order recovery report:
 - `GET /reports/live-recovery.csv` exports unresolved live orders with the latest recovery-event context, `requires_operator_review`, and `next_action`
 - recovery reporting is read-only and is intended to shorten operator review during live incident handling
 
+Runtime log correlation:
+
+- API responses now return `X-Request-ID`; send one if you want to preserve an upstream request id, otherwise the API generates one
+- standard log lines now include `correlation_id`, which matches the request id for API work
+- scheduled worker-cycle, backtest, live-reconcile, and startup-sync runs generate one runtime correlation id per run so related log entries can be grouped quickly
+
 Reconciliation alerting:
 
 - failed startup sync emits a `startup_state_sync.failed` notification when notifications are enabled
@@ -489,3 +495,8 @@ During development, keep these sources of truth separate:
 - application logs for runtime behavior
 
 When debugging the bot, prefer runtime logs first. When explaining why the system is designed a certain way, prefer `docs/decisions.md`.
+
+Current log-correlation rule:
+
+- use `X-Request-ID` from API responses when tracing one request through app logs
+- use the job-generated `correlation_id` when tracing one scheduled worker, reconcile, backtest, or startup-sync run

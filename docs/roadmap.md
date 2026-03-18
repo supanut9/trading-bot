@@ -67,11 +67,11 @@ Completed on `main`:
 
 Current repo baseline:
 
-- paper-trading-first runtime with deterministic backtesting, bounded operator controls, reporting UI, operator console, performance analytics, deployment packaging, and live-readiness groundwork
+- paper-trading-first runtime with deterministic backtesting, bounded operator controls, reporting UI, operator console, performance analytics, deployment packaging, live-readiness groundwork, and correlated runtime logging
 
 Recommended next feature queue:
 
-1. `feature/runtime-log-correlation`
+1. `feature/notification-correlation-context`
 
 ## Phase 1
 

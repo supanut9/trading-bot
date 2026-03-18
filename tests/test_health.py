@@ -11,6 +11,7 @@ def test_health_endpoint_returns_ok() -> None:
 
     assert response.status_code == 200
     assert response.json() == {"status": "ok"}
+    assert "X-Request-ID" in response.headers
 
 
 def test_api_startup_validation_failure_prevents_app_start(monkeypatch) -> None:
