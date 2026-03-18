@@ -42,6 +42,12 @@ def _render_card(label: str, value: str) -> str:
     )
 
 
+def _display_value(value: object | None) -> str:
+    if value in {None, ""}:
+        return "-"
+    return str(value)
+
+
 def _build_recovery_filters(
     *,
     order_status: str | None,
@@ -345,12 +351,18 @@ def _render_dashboard(service: ReportingDashboardService) -> str:
                 f"<td>{event.event_type}</td>"
                 f"<td>{event.source}</td>"
                 f"<td>{event.status}</td>"
+                f"<td>{_display_value(event.exchange)}</td>"
+                f"<td>{_display_value(event.symbol)}</td>"
+                f"<td>{_display_value(event.timeframe)}</td>"
+                f"<td>{_display_value(event.channel)}</td>"
+                f"<td>{_display_value(event.related_event_type)}</td>"
+                f"<td>{_display_value(event.correlation_id)}</td>"
                 f"<td>{event.detail}</td>"
                 "</tr>"
             )
             for event in dashboard.audit_events
         )
-        or '<tr><td colspan="5">No audit events recorded.</td></tr>'
+        or '<tr><td colspan="11">No audit events recorded.</td></tr>'
     )
     notification_delivery_rows = (
         "".join(
@@ -1042,6 +1054,12 @@ def _render_dashboard(service: ReportingDashboardService) -> str:
                 <th>Event</th>
                 <th>Source</th>
                 <th>Status</th>
+                <th>Exchange</th>
+                <th>Symbol</th>
+                <th>Timeframe</th>
+                <th>Channel</th>
+                <th>Related Event</th>
+                <th>Correlation</th>
                 <th>Detail</th>
               </tr>
             </thead>

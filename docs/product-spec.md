@@ -89,6 +89,7 @@ Next implementation queue:
 - verify live safety posture and live worker startup-sync readiness in smoke-check output before trusting a deployment
 - validate deployment-critical runtime settings and database connectivity during API, worker, and backtest startup
 - expose the latest read-only exchange price through status and reporting surfaces for operator visibility
+- render explicit market, delivery, and correlation columns in the generic audit reporting slice so operators can inspect audit metadata without opening raw payload JSON
 - enforce PR merge readiness with CI and resolved review feedback
 
 ## Current Risk Policy Baseline

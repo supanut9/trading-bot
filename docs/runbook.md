@@ -199,7 +199,9 @@ Notification delivery reporting:
 Audit reporting:
 
 - `GET /reports` now includes an audit filter form for `audit_event_type`, `audit_status`, `audit_source`, and `audit_search`
+- the recent-audit table now includes explicit columns for exchange, symbol, timeframe, channel, related event type, and correlation id when available
 - `GET /reports/audit.csv` supports the same audit filter parameters
+- `GET /reports/audit.csv` also exports `correlation_id` as a first-class column instead of requiring payload parsing
 - the audit CSV export link preserves the same active audit filters shown in the dashboard
 
 Reconciliation alerting:

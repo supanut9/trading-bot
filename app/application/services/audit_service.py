@@ -24,6 +24,7 @@ class AuditEventView:
     timeframe: str | None
     channel: str | None
     related_event_type: str | None
+    correlation_id: str | None
     payload_json: str | None
 
 
@@ -159,6 +160,7 @@ class AuditService:
 
     @staticmethod
     def _to_view(record: Any) -> AuditEventView:
+        correlation_id = AuditService._extract_correlation_id(record.payload_json)
         return AuditEventView(
             id=record.id,
             created_at=record.created_at,
@@ -171,6 +173,7 @@ class AuditService:
             timeframe=record.timeframe,
             channel=record.channel,
             related_event_type=record.related_event_type,
+            correlation_id=correlation_id,
             payload_json=record.payload_json,
         )
 
@@ -179,3 +182,18 @@ class AuditService:
         if value is None:
             return None
         return str(value)
+
+    @staticmethod
+    def _extract_correlation_id(payload_json: str | None) -> str | None:
+        if payload_json is None:
+            return None
+        try:
+            payload = json.loads(payload_json)
+        except (TypeError, ValueError):
+            return None
+        if not isinstance(payload, dict):
+            return None
+        correlation_id = payload.get("correlation_id")
+        if correlation_id in {None, ""}:
+            return None
+        return str(correlation_id)

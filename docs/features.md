@@ -764,6 +764,24 @@ Main outputs:
 - filtered recent-audit table in the reporting deck
 - audit CSV link that preserves active event, status, source, and search filters
 
+### 42. `feature/audit-report-columns`
+
+Status:
+
+- implemented on branch
+
+Scope:
+
+- expose richer audit metadata directly in the generic audit reporting slice
+- keep the feature read-only and reuse existing persisted audit fields plus payload correlation ids
+- avoid widening into new audit writes or new persistence models
+
+Main outputs:
+
+- `/reports` recent-audit table columns for market, delivery, and correlation metadata
+- `GET /reports/audit.csv` column for explicit `correlation_id`
+- operator visibility that no longer depends on reading raw payload JSON for common metadata
+
 ## Current Recommended Queue
 
 These are the next bounded features after the current `main` baseline:

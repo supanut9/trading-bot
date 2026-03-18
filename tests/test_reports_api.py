@@ -396,6 +396,54 @@ def test_audit_report_exports_recent_events_csv(tmp_path: Path) -> None:
         assert rows[0]["event_type"] == "notification_delivery"
         assert rows[0]["source"] == "notification"
         assert rows[0]["status"] == "sent"
+        assert rows[0]["correlation_id"] == ""
+    finally:
+        teardown_client(session)
+
+
+def test_audit_report_surfaces_explicit_metadata_columns(tmp_path: Path) -> None:
+    client, session, settings = build_client(tmp_path)
+    try:
+        AuditService(session=session).record_notification_delivery(
+            source="notification",
+            channel="webhook",
+            status="failed",
+            detail="worker.executed delivery failed",
+            related_event_type="worker.executed",
+            payload={
+                "event_type": "worker.executed",
+                "correlation_id": "worker-cycle-123",
+                "metadata": {
+                    "exchange": settings.exchange_name,
+                    "symbol": settings.default_symbol,
+                    "timeframe": settings.default_timeframe,
+                },
+            },
+        )
+        session.commit()
+
+        dashboard_response = client.get("/reports")
+        csv_response = client.get("/reports/audit.csv")
+
+        assert dashboard_response.status_code == 200
+        assert "Related Event" in dashboard_response.text
+        assert "Correlation" in dashboard_response.text
+        assert "binance" in dashboard_response.text
+        assert "BTC/USDT" in dashboard_response.text
+        assert "1h" in dashboard_response.text
+        assert "webhook" in dashboard_response.text
+        assert "worker.executed" in dashboard_response.text
+        assert "worker-cycle-123" in dashboard_response.text
+
+        assert csv_response.status_code == 200
+        rows = read_csv_rows(csv_response.text)
+        assert len(rows) == 1
+        assert rows[0]["exchange"] == "binance"
+        assert rows[0]["symbol"] == "BTC/USDT"
+        assert rows[0]["timeframe"] == "1h"
+        assert rows[0]["channel"] == "webhook"
+        assert rows[0]["related_event_type"] == "worker.executed"
+        assert rows[0]["correlation_id"] == "worker-cycle-123"
     finally:
         teardown_client(session)
 
