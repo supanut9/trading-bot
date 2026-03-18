@@ -11,12 +11,16 @@ class RiskLimits:
     max_open_positions: int
     max_daily_loss_pct: Decimal
     paper_trading_only: bool = True
+    live_trading_halted: bool = False
+    live_max_order_notional: Decimal | None = None
+    live_max_position_quantity: Decimal | None = None
 
 
 @dataclass(frozen=True, slots=True)
 class PortfolioState:
     account_equity: Decimal
     open_positions: int
+    current_position_quantity: Decimal
     daily_realized_loss_pct: Decimal
     trading_mode: Literal["paper", "live"]
 

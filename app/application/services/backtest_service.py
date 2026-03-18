@@ -176,6 +176,7 @@ class BacktestService:
         return PortfolioState(
             account_equity=current_equity,
             open_positions=1 if position_quantity > Decimal("0") else 0,
+            current_position_quantity=position_quantity,
             daily_realized_loss_pct=daily_realized_loss_pct,
             trading_mode="paper",
         )

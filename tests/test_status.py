@@ -17,6 +17,10 @@ def test_status_endpoint_returns_bootstrap_configuration() -> None:
     assert payload["execution_mode"] == "paper"
     assert payload["paper_trading"] is True
     assert payload["live_trading_enabled"] is False
+    assert payload["live_trading_halted"] is False
+    assert payload["live_safety_status"] == "disabled"
+    assert payload["live_max_order_notional"] is None
+    assert payload["live_max_position_quantity"] is None
     assert payload["database_status"] in {"available", "unavailable"}
     assert payload["latest_price_status"] in {"available", "unavailable"}
     assert payload["account_balance_status"] == "disabled"
@@ -29,6 +33,9 @@ def test_status_endpoint_returns_live_account_balances_when_enabled(monkeypatch)
         LIVE_TRADING_ENABLED=True,
         EXCHANGE_API_KEY="key",
         EXCHANGE_API_SECRET="secret",
+        LIVE_TRADING_HALTED=True,
+        LIVE_MAX_ORDER_NOTIONAL=Decimal("250"),
+        LIVE_MAX_POSITION_QUANTITY=Decimal("0.02000000"),
     )
 
     class FakeClient:
@@ -78,6 +85,10 @@ def test_status_endpoint_returns_live_account_balances_when_enabled(monkeypatch)
     assert response.status_code == 200
     payload = response.json()
     assert payload["execution_mode"] == "live"
+    assert payload["live_trading_halted"] is True
+    assert payload["live_safety_status"] == "halted"
+    assert payload["live_max_order_notional"] == "250"
+    assert payload["live_max_position_quantity"] == "0.02000000"
     assert payload["latest_price_status"] == "available"
     assert payload["latest_price"] == "104321.55"
     assert payload["account_balance_status"] == "available"

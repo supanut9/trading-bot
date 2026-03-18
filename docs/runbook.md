@@ -144,6 +144,8 @@ Live execution behavior:
 - explicit live mode now submits orders through the live execution service when exchange credentials are configured
 - accepted live orders are persisted locally with mode `live`, canonical local status, and exchange order id when available
 - local trades and positions are not updated from live submission alone; they are updated only after explicit fill reconciliation confirms a remote filled status
+- new live entries can be blocked by `LIVE_TRADING_HALTED=true` without disabling reconcile, cancel, or reporting workflows
+- live entry sizing is bounded by `LIVE_MAX_ORDER_NOTIONAL` and `LIVE_MAX_POSITION_QUANTITY`
 
 Live fill reconciliation:
 
@@ -183,6 +185,7 @@ Reconciliation alerting:
 Live balance visibility:
 
 - `GET /status` includes `account_balance_status` and `account_balances`
+- `GET /status` also includes `live_safety_status`, `live_trading_halted`, `live_max_order_notional`, and `live_max_position_quantity`
 - balance visibility is read-only and only attempts exchange lookup when live trading is enabled
 - the snapshot is filtered to the configured symbol's base and quote assets so operators can verify funded live mode quickly
 
@@ -238,6 +241,9 @@ Optional worker tuning variables:
 - `RISK_PER_TRADE_PCT`
 - `MAX_OPEN_POSITIONS`
 - `MAX_DAILY_LOSS_PCT`
+- `LIVE_TRADING_HALTED`
+- `LIVE_MAX_ORDER_NOTIONAL`
+- `LIVE_MAX_POSITION_QUANTITY`
 - `WORKER_POLL_INTERVAL_SECONDS`
 - `MARKET_DATA_SYNC_ENABLED`
 - `MARKET_DATA_SYNC_LIMIT`

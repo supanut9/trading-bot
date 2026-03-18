@@ -1,3 +1,4 @@
+from decimal import Decimal
 from functools import lru_cache
 from typing import Literal
 
@@ -32,6 +33,15 @@ class Settings(BaseSettings):
     risk_per_trade_pct: float = Field(default=0.01, alias="RISK_PER_TRADE_PCT")
     max_open_positions: int = Field(default=1, alias="MAX_OPEN_POSITIONS")
     max_daily_loss_pct: float = Field(default=0.03, alias="MAX_DAILY_LOSS_PCT")
+    live_trading_halted: bool = Field(default=False, alias="LIVE_TRADING_HALTED")
+    live_max_order_notional: Decimal | None = Field(
+        default=None,
+        alias="LIVE_MAX_ORDER_NOTIONAL",
+    )
+    live_max_position_quantity: Decimal | None = Field(
+        default=None,
+        alias="LIVE_MAX_POSITION_QUANTITY",
+    )
     worker_poll_interval_seconds: int = Field(default=60, alias="WORKER_POLL_INTERVAL_SECONDS")
     worker_run_once: bool = Field(default=True, alias="WORKER_RUN_ONCE")
     market_data_sync_enabled: bool = Field(default=False, alias="MARKET_DATA_SYNC_ENABLED")
@@ -97,6 +107,15 @@ class Settings(BaseSettings):
             raise ValueError(
                 "EXCHANGE_API_KEY and EXCHANGE_API_SECRET are required when live trading is enabled"
             )
+        if self.live_max_order_notional is not None and self.live_max_order_notional <= Decimal(
+            "0"
+        ):
+            raise ValueError("LIVE_MAX_ORDER_NOTIONAL must be positive when provided")
+        if (
+            self.live_max_position_quantity is not None
+            and self.live_max_position_quantity <= Decimal("0")
+        ):
+            raise ValueError("LIVE_MAX_POSITION_QUANTITY must be positive when provided")
         return self
 
     @property
