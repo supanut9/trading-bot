@@ -558,3 +558,17 @@ The runtime could already submit live orders once credentials and live mode were
 ### Consequence
 
 Live entry now respects `LIVE_TRADING_HALTED`, `LIVE_MAX_ORDER_NOTIONAL`, and `LIVE_MAX_POSITION_QUANTITY`. These controls block new live buys while leaving reconcile, cancel, and reporting paths available, and `/status` now exposes the active live safety posture and configured limits.
+
+## 2026-03-18
+
+### Decision
+
+Promote live recovery into explicit queue and timeline panels inside the reporting deck rather than leaving it as counters plus a CSV-only workflow.
+
+### Reason
+
+The system already tracked unresolved live orders, recovery events, `review_required`, and `next_action`, but operators still had to infer the recovery story from summary counts or export data. The safer next step was to expose the same bounded information directly in the reporting UI instead of adding more mutation paths.
+
+### Consequence
+
+`/reports` now shows a recovery queue for unresolved live orders and a recovery timeline for recent live reconcile or live cancel events. Operators can inspect recovery state inline before deciding whether to reconcile again, cancel, or investigate exchange state manually.

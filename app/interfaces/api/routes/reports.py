@@ -180,6 +180,37 @@ def _render_dashboard(service: ReportingDashboardService) -> str:
         )
         or '<tr><td colspan="5">No stale live orders detected.</td></tr>'
     )
+    recovery_order_rows = (
+        "".join(
+            (
+                "<tr>"
+                f"<td>{item.order.id}</td>"
+                f"<td>{item.order.symbol}</td>"
+                f"<td>{item.order.side}</td>"
+                f"<td>{item.order.status}</td>"
+                f"<td>{'yes' if item.requires_operator_review else 'no'}</td>"
+                f"<td>{item.next_action}</td>"
+                "</tr>"
+            )
+            for item in dashboard.recovery_orders
+        )
+        or '<tr><td colspan="6">No unresolved live orders in the recovery queue.</td></tr>'
+    )
+    recovery_event_rows = (
+        "".join(
+            (
+                "<tr>"
+                f"<td>{event.created_at.isoformat()}</td>"
+                f"<td>{event.event_type}</td>"
+                f"<td>{event.source}</td>"
+                f"<td>{event.status}</td>"
+                f"<td>{event.detail}</td>"
+                "</tr>"
+            )
+            for event in dashboard.recovery_events
+        )
+        or '<tr><td colspan="5">No recent recovery events recorded.</td></tr>'
+    )
     audit_rows = (
         "".join(
             (
@@ -530,6 +561,37 @@ def _render_dashboard(service: ReportingDashboardService) -> str:
               </tr>
             </thead>
             <tbody>{stale_orders_rows}</tbody>
+          </table>
+        </div>
+        <div class="panel">
+          <h2>Recovery Queue</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>Order ID</th>
+                <th>Symbol</th>
+                <th>Side</th>
+                <th>Status</th>
+                <th>Review Required</th>
+                <th>Next Action</th>
+              </tr>
+            </thead>
+            <tbody>{recovery_order_rows}</tbody>
+          </table>
+        </div>
+        <div class="panel">
+          <h2>Recovery Timeline</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>When</th>
+                <th>Event</th>
+                <th>Source</th>
+                <th>Status</th>
+                <th>Detail</th>
+              </tr>
+            </thead>
+            <tbody>{recovery_event_rows}</tbody>
           </table>
         </div>
         <div class="panel">

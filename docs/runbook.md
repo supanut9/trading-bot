@@ -173,6 +173,7 @@ Stale live order visibility:
 Live order recovery report:
 
 - `GET /reports` now includes a compact recovery summary over unresolved live orders and recent recovery events
+- `GET /reports` also includes a recovery queue with `review_required` and `next_action` columns plus a recovery timeline of recent live reconcile and live cancel events
 - `GET /reports/live-recovery.csv` exports unresolved live orders with the latest recovery-event context, `requires_operator_review`, and `next_action`
 - recovery reporting is read-only and is intended to shorten operator review during live incident handling
 

@@ -71,11 +71,11 @@ Current repo baseline:
 
 Recommended next feature queue:
 
-1. `feature/operator-recovery-timeline`
-2. `feature/observability-and-deploy-hardening`
-3. `feature/live-operator-halt-control`
-4. `feature/recovery-audit-timeline`
-5. `feature/live-order-duplication-guardrails`
+1. `feature/observability-and-deploy-hardening`
+2. `feature/live-operator-halt-control`
+3. `feature/recovery-audit-timeline`
+4. `feature/live-order-duplication-guardrails`
+5. `feature/recovery-filters-and-search`
 
 ## Phase 1
 

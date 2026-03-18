@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from app.application.services.audit_service import AuditEventView, AuditService
 from app.application.services.live_order_recovery_report_service import (
     LiveOrderRecoveryReportService,
+    RecoveryOrderView,
 )
 from app.application.services.operational_control_service import (
     BacktestControlResult,
@@ -46,6 +47,8 @@ class ReportingDashboard:
     positions: list[PositionView]
     trades: list[TradeView]
     stale_live_orders: list[StaleLiveOrderView]
+    recovery_orders: list[RecoveryOrderView]
+    recovery_events: list[AuditEventView]
     unresolved_live_orders: int
     recovery_event_count: int
     latest_recovery_event_at: str | None
@@ -131,6 +134,8 @@ class ReportingDashboardService:
             positions=positions,
             trades=trades,
             stale_live_orders=stale_live_orders,
+            recovery_orders=recovery_report.unresolved_orders[:10],
+            recovery_events=recovery_report.recovery_events,
             unresolved_live_orders=len(recovery_report.unresolved_orders),
             recovery_event_count=len(recovery_report.recovery_events),
             latest_recovery_event_at=(
