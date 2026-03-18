@@ -28,6 +28,12 @@ Current baseline on `main`:
 - audit-report filters in the dashboard with a matching filtered audit CSV export link
 - audit-report columns in the dashboard and audit CSV so operators can inspect key metadata without parsing payload JSON
 
+Current production boundary:
+
+- production deployment target: paper trading
+- non-target for current production readiness: live trading with exchange-facing execution
+- live capabilities remain groundwork until the runbook live-capable checklist is completed operationally, not just in code
+
 Next implementation queue:
 
 1. `feature/production-readiness-boundary`

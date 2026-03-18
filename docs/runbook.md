@@ -364,6 +364,30 @@ make init-db
 
 ## Production Readiness
 
+Current production target:
+
+- deployed paper trading with PostgreSQL, startup validation, smoke checks, reporting, and bounded operator controls
+- live trading remains a separate higher bar and should stay disabled by default until the live-capable checklist below is satisfied end to end
+
+Paper-production go-live checklist:
+
+- deploy only from merged `main`
+- PostgreSQL is in use and reachable from both API and worker runtimes
+- API and worker use the intended deployment env files rather than local bootstrap defaults
+- `GET /health`, `GET /status`, `GET /console`, and `GET /reports` all respond as expected in the deployed environment
+- `make smoke-check-api` and `make smoke-check-worker` or their deployed equivalents pass after release
+- market-data sync, one bounded worker cycle, and one bounded backtest have been exercised successfully against the deployed stack
+- reporting surfaces show expected positions, trades, audit events, and latest runtime status after the verification run
+- notification delivery is configured and tested if operators rely on alerts during paper operation
+- operators know the bounded controls they may use in production: market sync, worker cycle, backtest, live halt, live reconcile, and live cancel
+- rollback steps, backup ownership, and on-call review surfaces are documented for the deployed environment
+
+Paper-production operator conclusion:
+
+- the deployment is suitable for unattended or semi-attended paper trading
+- runtime visibility is good enough to detect failures without direct database inspection
+- live trading is still disabled and is not implied by paper-production readiness
+
 Minimum checks before enabling live mode:
 
 - `main` is green on the latest merged change and no required checks are failing
@@ -396,6 +420,12 @@ Expected operator conclusion before enabling live mode:
 - reconciliation succeeds or clearly reports no unresolved work
 - no unexplained stale live orders remain
 - alerts are routed to an observed destination
+
+Live-trading gap rule:
+
+- treat live trading as not production-ready by default even when the code paths exist
+- do not use paper-production readiness as evidence that exchange-facing execution is safe enough
+- if any live prerequisite above is missing or untested, keep `LIVE_TRADING_ENABLED=false`
 
 ## Deployment And Restart
 

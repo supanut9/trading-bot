@@ -461,6 +461,20 @@ The system now has bounded live controls, reconciliation, stale-order review, an
 
 The repository now documents a concrete readiness checklist and recovery workflow, and live-capable operation should be considered incomplete unless PostgreSQL persistence, backups, startup sync, scheduled reconciliation, and alert routing are all in place.
 
+## 2026-03-19
+
+### Decision
+
+Set the current production target to deployed paper trading and document live trading as a separate non-ready boundary.
+
+### Reason
+
+The repository now has enough packaging, controls, reporting, smoke checks, and startup validation to support a controlled paper deployment, but the presence of live execution code paths would be easy to misread as approval for real-money use. Operators need an explicit boundary that distinguishes production paper operation from live-capable operation.
+
+### Consequence
+
+The runbook and product spec now describe deployed paper trading as the current production target, add a paper-production go-live checklist, and keep live trading behind a separate checklist and explicit non-readiness rule until the higher operational bar is satisfied.
+
 ## 2026-03-18
 
 ### Decision
