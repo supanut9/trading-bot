@@ -67,11 +67,11 @@ Completed on `main`:
 
 Current repo baseline:
 
-- paper-trading-first runtime with deterministic backtesting, bounded operator controls, reporting UI, operator console, performance analytics, deployment packaging, live-readiness groundwork, correlated runtime logging, correlation-aware notifications, notification-delivery reporting, and notification-delivery filters
+- paper-trading-first runtime with deterministic backtesting, bounded operator controls, reporting UI, operator console, performance analytics, deployment packaging, live-readiness groundwork, correlated runtime logging, correlation-aware notifications, notification-delivery reporting, notification-delivery filters, and audit-report filters
 
 Recommended next feature queue:
 
-1. `feature/audit-report-filters`
+1. `feature/audit-report-columns`
 
 ## Phase 1
 

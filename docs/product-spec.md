@@ -25,10 +25,11 @@ Current baseline on `main`:
 - notification payloads that carry the active runtime correlation id when alerts are emitted from a correlated run
 - notification-delivery reporting in the dashboard and a dedicated CSV export for delivery audit rows
 - notification-delivery filters in the dashboard with a matching filtered CSV export link
+- audit-report filters in the dashboard with a matching filtered audit CSV export link
 
 Next implementation queue:
 
-1. `feature/audit-report-filters`
+1. `feature/audit-report-columns`
 
 ## Initial Market And Strategy
 

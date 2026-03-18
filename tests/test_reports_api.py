@@ -400,6 +400,106 @@ def test_audit_report_exports_recent_events_csv(tmp_path: Path) -> None:
         teardown_client(session)
 
 
+def test_reports_dashboard_filters_audit_events_and_preserves_export_link(
+    tmp_path: Path,
+) -> None:
+    client, session, settings = build_client(tmp_path)
+    try:
+        audit = AuditService(session=session)
+        audit.record_control_result(
+            control_type="worker_cycle",
+            source="api.control",
+            status="executed",
+            detail="signal executed in paper mode",
+            settings=settings,
+            payload={"notified": False},
+        )
+        audit.record_notification_delivery(
+            source="notification",
+            channel="webhook",
+            status="failed",
+            detail="worker.executed delivery failed",
+            related_event_type="worker.executed",
+            payload={
+                "event_type": "worker.executed",
+                "metadata": {
+                    "exchange": settings.exchange_name,
+                    "symbol": settings.default_symbol,
+                    "timeframe": settings.default_timeframe,
+                },
+            },
+        )
+        session.commit()
+
+        response = client.get(
+            "/reports?audit_event_type=notification_delivery"
+            "&audit_status=failed"
+            "&audit_source=notification"
+            "&audit_search=worker.executed"
+        )
+
+        assert response.status_code == 200
+        assert "Audit Filters" in response.text
+        assert "Audit filters: event_type=notification_delivery status=failed" in response.text
+        assert "worker.executed delivery failed" in response.text
+        assert (
+            "/reports/audit.csv?audit_event_type=notification_delivery"
+            "&audit_status=failed"
+            "&audit_source=notification"
+            "&audit_search=worker.executed"
+        ) in response.text
+    finally:
+        teardown_client(session)
+
+
+def test_audit_report_exports_filtered_rows(tmp_path: Path) -> None:
+    client, session, settings = build_client(tmp_path)
+    try:
+        audit = AuditService(session=session)
+        audit.record_control_result(
+            control_type="worker_cycle",
+            source="api.control",
+            status="executed",
+            detail="signal executed in paper mode",
+            settings=settings,
+            payload={"notified": False},
+        )
+        audit.record_notification_delivery(
+            source="notification",
+            channel="webhook",
+            status="failed",
+            detail="worker.executed delivery failed",
+            related_event_type="worker.executed",
+            payload={
+                "event_type": "worker.executed",
+                "metadata": {
+                    "exchange": settings.exchange_name,
+                    "symbol": settings.default_symbol,
+                    "timeframe": settings.default_timeframe,
+                },
+            },
+        )
+        session.commit()
+
+        response = client.get(
+            "/reports/audit.csv?audit_event_type=notification_delivery"
+            "&audit_status=failed"
+            "&audit_source=notification"
+            "&audit_search=worker.executed"
+        )
+
+        assert response.status_code == 200
+        assert response.headers["content-disposition"] == 'attachment; filename="audit.csv"'
+        rows = read_csv_rows(response.text)
+        assert len(rows) == 1
+        assert rows[0]["event_type"] == "notification_delivery"
+        assert rows[0]["status"] == "failed"
+        assert rows[0]["source"] == "notification"
+        assert rows[0]["detail"] == "worker.executed delivery failed"
+    finally:
+        teardown_client(session)
+
+
 def test_reports_dashboard_renders_notification_delivery_summary(tmp_path: Path) -> None:
     client, session, settings = build_client(tmp_path)
     try:

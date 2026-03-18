@@ -196,6 +196,12 @@ Notification delivery reporting:
 - the notification-delivery CSV export supports filtering by `notification_status`, `notification_channel`, and `notification_related_event_type`
 - `GET /reports` also includes a notification-delivery filter form, and the export link preserves the same active notification filters
 
+Audit reporting:
+
+- `GET /reports` now includes an audit filter form for `audit_event_type`, `audit_status`, `audit_source`, and `audit_search`
+- `GET /reports/audit.csv` supports the same audit filter parameters
+- the audit CSV export link preserves the same active audit filters shown in the dashboard
+
 Reconciliation alerting:
 
 - failed startup sync emits a `startup_state_sync.failed` notification when notifications are enabled
