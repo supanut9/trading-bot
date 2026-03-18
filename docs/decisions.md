@@ -656,3 +656,17 @@ The runtime already emitted structured-ish logs, but API incidents and scheduled
 ### Consequence
 
 Standard log lines now include `correlation_id`. API requests preserve `X-Request-ID` when provided or generate one when absent, and scheduled worker, backtest, live-reconcile, and startup-sync jobs each run under a generated correlation id so related log entries can be followed end to end in the existing logs.
+
+## 2026-03-18
+
+### Decision
+
+Preserve the active runtime correlation id in outbound notification payloads and notification-delivery audit records.
+
+### Reason
+
+Runtime log correlation improved traceability inside the process, but alerts and webhook payloads still lost that link once they left the runtime boundary. Operators needed the same identifier in notifications so a failed reconcile alert or stale-order warning could be tied back to one request or one scheduled run immediately.
+
+### Consequence
+
+`NotificationEvent` now carries an optional top-level `correlation_id`. When notifications are emitted inside a correlated API request or scheduled job, the payload and notification-delivery audit record include that id; when they are emitted without an active runtime context, the field stays empty rather than inventing a synthetic value.

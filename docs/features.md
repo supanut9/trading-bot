@@ -692,12 +692,30 @@ Main outputs:
 - API middleware that preserves or generates `X-Request-ID`
 - scheduled worker, reconcile, backtest, and startup-sync jobs that log under one run id each
 
+### 38. `feature/notification-correlation-context`
+
+Status:
+
+- implemented on branch
+
+Scope:
+
+- carry the active runtime correlation id into notification events and delivery audit payloads
+- keep the change bounded to payload traceability without adding new channels or alert rules
+- preserve compatibility when notifications are emitted outside a correlated runtime context
+
+Main outputs:
+
+- notification payloads with top-level `correlation_id`
+- webhook and log notification senders that emit the same correlation id already present in runtime logs
+- tests covering correlated and non-correlated notification delivery paths
+
 ## Current Recommended Queue
 
 These are the next bounded features after the current `main` baseline:
 
-1. `feature/notification-correlation-context`
+1. `feature/notification-delivery-reporting`
 
 Current next feature:
 
-- `feature/notification-correlation-context`
+- `feature/notification-delivery-reporting`
