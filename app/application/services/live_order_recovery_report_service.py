@@ -27,6 +27,14 @@ class LiveOrderRecoveryReport:
 
 
 @dataclass(frozen=True, slots=True)
+class RecoveryReportFilters:
+    order_status: str | None = None
+    requires_review: bool | None = None
+    event_type: str | None = None
+    search: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class RecoveryEventView:
     created_at: datetime
     event_type: str
@@ -49,7 +57,9 @@ class LiveOrderRecoveryReportService:
         *,
         order_limit: int = 25,
         audit_limit: int = 10,
+        filters: RecoveryReportFilters | None = None,
     ) -> LiveOrderRecoveryReport:
+        active_filters = filters or RecoveryReportFilters()
         unresolved_records = self._orders.list_live_orders_by_status(
             statuses=UNRESOLVED_LIVE_ORDER_STATUSES,
             limit=order_limit,
@@ -62,16 +72,84 @@ class LiveOrderRecoveryReportService:
             )
             for order in unresolved_records
         ]
+        unresolved_orders = self._filter_orders(unresolved_orders, active_filters)
         recovery_events = [
             self._to_recovery_event_view(event)
             for event in self._audit.list_recent(limit=50)
             if event.event_type in self._recovery_event_types
             and event.source in self._recovery_sources
         ][:audit_limit]
+        recovery_events = self._filter_events(recovery_events, active_filters)
         return LiveOrderRecoveryReport(
             unresolved_orders=unresolved_orders,
             recovery_events=recovery_events,
         )
+
+    @staticmethod
+    def _filter_orders(
+        orders: list[RecoveryOrderView],
+        filters: RecoveryReportFilters,
+    ) -> list[RecoveryOrderView]:
+        filtered = orders
+        if filters.order_status is not None:
+            filtered = [order for order in filtered if order.order.status == filters.order_status]
+        if filters.requires_review is not None:
+            filtered = [
+                order
+                for order in filtered
+                if order.requires_operator_review == filters.requires_review
+            ]
+        if not filters.search:
+            return filtered
+        term = filters.search.strip().lower()
+        if not term:
+            return filtered
+        return [
+            order
+            for order in filtered
+            if term
+            in " ".join(
+                [
+                    str(order.order.id),
+                    order.order.symbol,
+                    order.order.side,
+                    order.order.status,
+                    order.order.client_order_id or "",
+                    order.order.exchange_order_id or "",
+                    order.next_action,
+                ]
+            ).lower()
+        ]
+
+    @staticmethod
+    def _filter_events(
+        events: list[RecoveryEventView],
+        filters: RecoveryReportFilters,
+    ) -> list[RecoveryEventView]:
+        filtered = events
+        if filters.event_type is not None:
+            filtered = [event for event in filtered if event.event_type == filters.event_type]
+        if filters.order_status is not None:
+            filtered = [event for event in filtered if event.status == filters.order_status]
+        if not filters.search:
+            return filtered
+        term = filters.search.strip().lower()
+        if not term:
+            return filtered
+        return [
+            event
+            for event in filtered
+            if term
+            in " ".join(
+                [
+                    event.event_type,
+                    event.source,
+                    event.status,
+                    event.detail,
+                    event.context,
+                ]
+            ).lower()
+        ]
 
     def _to_recovery_event_view(self, event: AuditEventView) -> RecoveryEventView:
         payload: dict[str, object] = {}

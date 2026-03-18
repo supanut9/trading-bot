@@ -656,13 +656,30 @@ Main outputs:
 - worker and controls responses that return `duplicate_live_order`
 - test coverage for live execution, worker orchestration, and control API duplicate-order behavior
 
+### 36. `feature/recovery-filters-and-search`
+
+Status:
+
+- implemented on branch
+
+Scope:
+
+- add read-only recovery filtering to the reporting deck and recovery CSV export
+- narrow operator review to the current incident instead of the whole recovery backlog
+- avoid overlapping with broader observability or log-correlation work
+
+Main outputs:
+
+- `/reports` recovery filter form and query parameters
+- filtered recovery queue and recovery timeline views
+- `live-recovery.csv` export that preserves the same active recovery filters
+
 ## Current Recommended Queue
 
 These are the next bounded features after the current `main` baseline:
 
-1. `feature/recovery-filters-and-search`
-2. `feature/runtime-log-correlation`
+1. `feature/runtime-log-correlation`
 
 Current next feature:
 
-- `feature/recovery-filters-and-search`
+- `feature/runtime-log-correlation`

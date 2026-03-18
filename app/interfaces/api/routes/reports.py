@@ -1,11 +1,13 @@
 from collections import defaultdict
 from decimal import Decimal
 from typing import Annotated
+from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import HTMLResponse, Response
 from sqlalchemy.orm import Session, sessionmaker
 
+from app.application.services.live_order_recovery_report_service import RecoveryReportFilters
 from app.application.services.performance_analytics_service import EquityCurvePoint
 from app.application.services.reporting_dashboard_service import (
     ReportingDashboard,
@@ -37,6 +39,36 @@ def _render_card(label: str, value: str) -> str:
     return (
         f'<div class="card"><div class="label">{label}</div><div class="value">{value}</div></div>'
     )
+
+
+def _build_recovery_filters(
+    *,
+    order_status: str | None,
+    requires_review: bool | None,
+    event_type: str | None,
+    search: str | None,
+) -> RecoveryReportFilters:
+    return RecoveryReportFilters(
+        order_status=order_status.strip() if order_status and order_status.strip() else None,
+        requires_review=requires_review,
+        event_type=event_type.strip() if event_type and event_type.strip() else None,
+        search=search.strip() if search and search.strip() else None,
+    )
+
+
+def _recovery_query_string(filters: RecoveryReportFilters) -> str:
+    query: dict[str, str] = {}
+    if filters.order_status is not None:
+        query["recovery_order_status"] = filters.order_status
+    if filters.requires_review is not None:
+        query["recovery_requires_review"] = str(filters.requires_review).lower()
+    if filters.event_type is not None:
+        query["recovery_event_type"] = filters.event_type
+    if filters.search is not None:
+        query["recovery_search"] = filters.search
+    if not query:
+        return ""
+    return f"?{urlencode(query)}"
 
 
 def _render_equity_curve_panels(dashboard: ReportingDashboard) -> str:
@@ -100,6 +132,23 @@ def _render_equity_curve_panels(dashboard: ReportingDashboard) -> str:
 
 def _render_dashboard(service: ReportingDashboardService) -> str:
     dashboard = service.build_dashboard()
+    recovery_query = _recovery_query_string(dashboard.recovery_filters)
+    selected_requires_review = ""
+    if dashboard.recovery_filters.requires_review is True:
+        selected_requires_review = "review-only"
+    elif dashboard.recovery_filters.requires_review is False:
+        selected_requires_review = "non-review"
+    recovery_order_status_value = dashboard.recovery_filters.order_status or ""
+    recovery_event_type_value = dashboard.recovery_filters.event_type or ""
+    recovery_search_value = dashboard.recovery_filters.search or ""
+    recovery_requires_review_value = (
+        str(dashboard.recovery_filters.requires_review)
+        if dashboard.recovery_filters.requires_review is not None
+        else "-"
+    )
+    recovery_any_selected = "selected" if selected_requires_review == "" else ""
+    recovery_review_selected = "selected" if selected_requires_review == "review-only" else ""
+    recovery_non_review_selected = "selected" if selected_requires_review == "non-review" else ""
     performance_rows = (
         "".join(
             (
@@ -287,6 +336,23 @@ def _render_dashboard(service: ReportingDashboardService) -> str:
         ]
     )
     net_pnl = dashboard.total_realized_pnl + dashboard.total_unrealized_pnl
+    recovery_filter_summary = "Recovery filters: none."
+    if any(
+        value is not None
+        for value in (
+            dashboard.recovery_filters.order_status,
+            dashboard.recovery_filters.requires_review,
+            dashboard.recovery_filters.event_type,
+            dashboard.recovery_filters.search,
+        )
+    ):
+        recovery_filter_summary = (
+            "Recovery filters: "
+            f"order_status={dashboard.recovery_filters.order_status or '-'} "
+            f"requires_review={recovery_requires_review_value} "
+            f"event_type={dashboard.recovery_filters.event_type or '-'} "
+            f"search={dashboard.recovery_filters.search or '-'}."
+        )
 
     return f"""<!DOCTYPE html>
 <html lang="en">
@@ -437,6 +503,45 @@ def _render_dashboard(service: ReportingDashboardService) -> str:
         border: 1px solid var(--ink);
         background: var(--accent-soft);
       }}
+      .filter-form {{
+        display: grid;
+        gap: 12px;
+      }}
+      .filter-form label {{
+        display: grid;
+        gap: 6px;
+      }}
+      .filter-form span {{
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--muted);
+      }}
+      .filter-form input, .filter-form select {{
+        width: 100%;
+        border: 1px solid var(--line);
+        padding: 10px 12px;
+        font: inherit;
+        color: var(--ink);
+        background: #fff;
+      }}
+      .filter-actions {{
+        display: flex;
+        gap: 12px;
+        align-items: center;
+      }}
+      .filter-actions button {{
+        border: 0;
+        padding: 10px 16px;
+        font: inherit;
+        font-weight: 700;
+        color: white;
+        background: var(--accent);
+        cursor: pointer;
+      }}
+      .filter-actions a {{
+        color: var(--ink);
+      }}
       table {{
         width: 100%;
         border-collapse: collapse;
@@ -472,7 +577,7 @@ def _render_dashboard(service: ReportingDashboardService) -> str:
           <a href="/reports/trades.csv">Download trades CSV</a>
           <a href="/reports/backtest-summary.csv">Download backtest CSV</a>
           <a href="/reports/audit.csv">Download audit CSV</a>
-          <a href="/reports/live-recovery.csv">Download live recovery CSV</a>
+          <a href="/reports/live-recovery.csv{recovery_query}">Download live recovery CSV</a>
           <a href="/performance/daily.csv">Download daily performance CSV</a>
           <a href="/performance/equity.csv">Download equity curve CSV</a>
         </div>
@@ -566,6 +671,48 @@ def _render_dashboard(service: ReportingDashboardService) -> str:
           </table>
         </div>
         <div class="panel">
+          <h2>Recovery Filters</h2>
+          <p>{recovery_filter_summary}</p>
+          <form method="get" action="/reports" class="filter-form">
+            <label>
+              <span>Order Status</span>
+              <input
+                type="text"
+                name="recovery_order_status"
+                value="{recovery_order_status_value}"
+              />
+            </label>
+            <label>
+              <span>Event Type</span>
+              <input
+                type="text"
+                name="recovery_event_type"
+                value="{recovery_event_type_value}"
+              />
+            </label>
+            <label>
+              <span>Review Mode</span>
+              <select name="recovery_requires_review">
+                <option value="" {recovery_any_selected}>Any</option>
+                <option value="true" {recovery_review_selected}>Review Required</option>
+                <option value="false" {recovery_non_review_selected}>No Review Required</option>
+              </select>
+            </label>
+            <label>
+              <span>Search</span>
+              <input
+                type="text"
+                name="recovery_search"
+                value="{recovery_search_value}"
+              />
+            </label>
+            <div class="filter-actions">
+              <button type="submit">Apply Filters</button>
+              <a href="/reports">Clear</a>
+            </div>
+          </form>
+        </div>
+        <div class="panel">
           <h2>Recovery Queue</h2>
           <table>
             <thead>
@@ -653,12 +800,23 @@ def reports_dashboard(
     session: Session = session_dependency,
     settings: Settings = settings_dependency,
     session_factory: sessionmaker[Session] = session_factory_dependency,
+    recovery_order_status: str | None = None,
+    recovery_requires_review: bool | None = None,
+    recovery_event_type: str | None = None,
+    recovery_search: str | None = None,
 ) -> HTMLResponse:
+    filters = _build_recovery_filters(
+        order_status=recovery_order_status,
+        requires_review=recovery_requires_review,
+        event_type=recovery_event_type,
+        search=recovery_search,
+    )
     content = _render_dashboard(
         ReportingDashboardService(
             session,
             settings,
             session_factory=session_factory,
+            recovery_filters=filters,
         )
     )
     return _html_response(content)
@@ -717,10 +875,20 @@ def export_live_recovery(
     session: Session = session_dependency,
     settings: Settings = settings_dependency,
     session_factory: sessionmaker[Session] = session_factory_dependency,
+    recovery_order_status: str | None = None,
+    recovery_requires_review: bool | None = None,
+    recovery_event_type: str | None = None,
+    recovery_search: str | None = None,
 ) -> Response:
+    filters = _build_recovery_filters(
+        order_status=recovery_order_status,
+        requires_review=recovery_requires_review,
+        event_type=recovery_event_type,
+        search=recovery_search,
+    )
     content = ReportingExportService(
         session,
         settings,
         session_factory=session_factory,
-    ).export_live_recovery_csv()
+    ).export_live_recovery_csv(filters=filters)
     return _csv_response("live-recovery.csv", content)

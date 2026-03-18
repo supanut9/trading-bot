@@ -9,6 +9,7 @@ from app.application.services.live_order_recovery_report_service import (
     LiveOrderRecoveryReportService,
     RecoveryEventView,
     RecoveryOrderView,
+    RecoveryReportFilters,
 )
 from app.application.services.operational_control_service import (
     BacktestControlResult,
@@ -42,6 +43,7 @@ class ReportingDashboard:
     database_status: str
     latest_price_status: str
     latest_price: str | None
+    recovery_filters: RecoveryReportFilters
     position_count: int
     trade_count: int
     total_realized_pnl: Decimal
@@ -76,6 +78,7 @@ class ReportingDashboardService:
         settings: Settings,
         *,
         session_factory: sessionmaker[Session] | None = None,
+        recovery_filters: RecoveryReportFilters | None = None,
     ) -> None:
         self._session = session
         self._operations = OperationsService(session)
@@ -85,6 +88,7 @@ class ReportingDashboardService:
         self._performance = PerformanceAnalyticsService(session)
         self._settings = settings
         self._session_factory = session_factory
+        self._recovery_filters = recovery_filters or RecoveryReportFilters()
 
     def build_dashboard(self) -> ReportingDashboard:
         status = StatusService(self._settings, session=self._session).get_status()
@@ -94,7 +98,11 @@ class ReportingDashboardService:
             threshold_minutes=self._settings.stale_live_order_threshold_minutes,
             limit=10,
         )
-        recovery_report = self._recovery_report.build_report(order_limit=25, audit_limit=10)
+        recovery_report = self._recovery_report.build_report(
+            order_limit=25,
+            audit_limit=10,
+            filters=self._recovery_filters,
+        )
         (
             latest_recovery_at,
             latest_recovery_type,
@@ -129,6 +137,7 @@ class ReportingDashboardService:
             latest_price=(
                 str(status["latest_price"]) if status["latest_price"] is not None else None
             ),
+            recovery_filters=self._recovery_filters,
             position_count=len(positions),
             trade_count=len(trades),
             total_realized_pnl=sum(

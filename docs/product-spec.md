@@ -24,8 +24,7 @@ Current baseline on `main`:
 
 Next implementation queue:
 
-1. `feature/recovery-filters-and-search`
-2. `feature/runtime-log-correlation`
+1. `feature/runtime-log-correlation`
 
 ## Initial Market And Strategy
 
@@ -63,6 +62,7 @@ Next implementation queue:
 - expose a compact recovery report for unresolved live orders and recent reconciliation or cancel context
 - render a recovery queue and recovery timeline inside the reporting surface so operators can inspect unresolved live state without correlating raw audit rows manually
 - render recovery timeline context from audit payloads so operators can see reconcile counts and cancel identifiers inline
+- allow operators to filter recovery queue and timeline views by status, review state, event type, and search terms
 - emit optional live-operations alerts for failed startup sync, failed scheduled reconciliation, and stale live orders
 - document deployment, restart, rollback, backup, and alert-response expectations before live-capable operation
 - emit optional notifications for worker execution, risk rejection, backtest outcomes, and market sync outcomes

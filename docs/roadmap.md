@@ -71,8 +71,7 @@ Current repo baseline:
 
 Recommended next feature queue:
 
-1. `feature/recovery-filters-and-search`
-2. `feature/runtime-log-correlation`
+1. `feature/runtime-log-correlation`
 
 ## Phase 1
 
