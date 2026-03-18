@@ -572,3 +572,17 @@ The system already tracked unresolved live orders, recovery events, `review_requ
 ### Consequence
 
 `/reports` now shows a recovery queue for unresolved live orders and a recovery timeline for recent live reconcile or live cancel events. Operators can inspect recovery state inline before deciding whether to reconcile again, cancel, or investigate exchange state manually.
+
+## 2026-03-18
+
+### Decision
+
+Tighten deploy verification around the configured live safety posture and include that same posture in unattended runtime logs.
+
+### Reason
+
+The repository already had startup validation and bounded smoke checks, but deploy verification still did not confirm whether the runtime was actually exposing the intended live halt and live limit settings. Operators also needed those same safety signals in background runtime logs so a restart or scheduled job could be interpreted without separately querying status.
+
+### Consequence
+
+Smoke checks now compare the configured live safety fields against `/status` and require startup sync readiness for live worker mode. Worker and scheduled-job logs now include `live_safety_status`, making deploy and incident review less dependent on manual cross-checking.

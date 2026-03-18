@@ -30,6 +30,30 @@ def run_api_smoke_check(
         ("status.app", status.get("app"), settings.app_name),
         ("status.environment", status.get("environment"), settings.app_env),
         ("status.execution_mode", status.get("execution_mode"), settings.execution_mode),
+        (
+            "status.live_trading_halted",
+            status.get("live_trading_halted"),
+            settings.live_trading_halted,
+        ),
+        (
+            "status.live_safety_status",
+            status.get("live_safety_status"),
+            _expected_live_safety_status(settings),
+        ),
+        (
+            "status.live_max_order_notional",
+            status.get("live_max_order_notional"),
+            format(settings.live_max_order_notional, "f")
+            if settings.live_max_order_notional is not None
+            else None,
+        ),
+        (
+            "status.live_max_position_quantity",
+            status.get("live_max_position_quantity"),
+            format(settings.live_max_position_quantity, "f")
+            if settings.live_max_position_quantity is not None
+            else None,
+        ),
         ("status.exchange", status.get("exchange"), settings.exchange_name),
         ("status.symbol", status.get("symbol"), settings.default_symbol),
         ("status.timeframe", status.get("timeframe"), settings.default_timeframe),
@@ -66,13 +90,48 @@ def run_worker_smoke_check(
         ("status.app", status.get("app"), settings.app_name),
         ("status.environment", status.get("environment"), settings.app_env),
         ("status.execution_mode", status.get("execution_mode"), settings.execution_mode),
+        (
+            "status.live_trading_halted",
+            status.get("live_trading_halted"),
+            settings.live_trading_halted,
+        ),
+        (
+            "status.live_safety_status",
+            status.get("live_safety_status"),
+            _expected_live_safety_status(settings),
+        ),
+        (
+            "status.live_max_order_notional",
+            status.get("live_max_order_notional"),
+            format(settings.live_max_order_notional, "f")
+            if settings.live_max_order_notional is not None
+            else None,
+        ),
+        (
+            "status.live_max_position_quantity",
+            status.get("live_max_position_quantity"),
+            format(settings.live_max_position_quantity, "f")
+            if settings.live_max_position_quantity is not None
+            else None,
+        ),
         ("status.database_status", status.get("database_status"), "available"),
     ]
-    return [
+    errors = [
         f"{field} expected={expected!r} actual={actual!r}"
         for field, actual, expected in checks
         if actual != expected
     ]
+    if settings.live_trading_enabled and not settings.startup_state_sync_enabled:
+        errors.append("worker live smoke check requires STARTUP_STATE_SYNC_ENABLED=true")
+    return errors
+
+
+def _expected_live_safety_status(settings: Settings) -> str:
+    if not settings.live_trading_enabled:
+        return "disabled"
+    if settings.live_trading_halted:
+        return "halted"
+    return "enabled"
 
 
 def build_parser() -> argparse.ArgumentParser:

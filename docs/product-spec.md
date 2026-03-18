@@ -24,11 +24,11 @@ Current baseline on `main`:
 
 Next implementation queue:
 
-1. `feature/observability-and-deploy-hardening`
-2. `feature/live-operator-halt-control`
-3. `feature/recovery-audit-timeline`
-4. `feature/live-order-duplication-guardrails`
-5. `feature/recovery-filters-and-search`
+1. `feature/live-operator-halt-control`
+2. `feature/recovery-audit-timeline`
+3. `feature/live-order-duplication-guardrails`
+4. `feature/recovery-filters-and-search`
+5. `feature/runtime-log-correlation`
 
 ## Initial Market And Strategy
 
@@ -81,6 +81,7 @@ Next implementation queue:
 - package API and worker runtime entrypoints into one deployable repository image
 - provide explicit environment baselines for local development, deployed API runtime, and deployed worker runtime
 - provide bounded post-deploy smoke checks for API and worker roles without triggering execution
+- verify live safety posture and live worker startup-sync readiness in smoke-check output before trusting a deployment
 - validate deployment-critical runtime settings and database connectivity during API, worker, and backtest startup
 - expose the latest read-only exchange price through status and reporting surfaces for operator visibility
 - enforce PR merge readiness with CI and resolved review feedback
