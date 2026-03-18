@@ -103,6 +103,36 @@ def _notification_query_string(filters: AuditEventFilters) -> str:
     return f"?{urlencode(query)}"
 
 
+def _build_audit_filters(
+    *,
+    event_type: str | None,
+    status: str | None,
+    source: str | None,
+    search: str | None,
+) -> AuditEventFilters:
+    return AuditEventFilters(
+        event_type=event_type.strip() if event_type and event_type.strip() else None,
+        status=status.strip() if status and status.strip() else None,
+        source=source.strip() if source and source.strip() else None,
+        search=search.strip().lower() if search and search.strip() else None,
+    )
+
+
+def _audit_query_string(filters: AuditEventFilters) -> str:
+    query: dict[str, str] = {}
+    if filters.event_type is not None:
+        query["audit_event_type"] = filters.event_type
+    if filters.status is not None:
+        query["audit_status"] = filters.status
+    if filters.source is not None:
+        query["audit_source"] = filters.source
+    if filters.search is not None:
+        query["audit_search"] = filters.search
+    if not query:
+        return ""
+    return f"?{urlencode(query)}"
+
+
 def _render_equity_curve_panels(dashboard: ReportingDashboard) -> str:
     points_by_mode: dict[str, list[EquityCurvePoint]] = defaultdict(list)
     for point in dashboard.performance_equity_curve:
@@ -166,6 +196,7 @@ def _render_dashboard(service: ReportingDashboardService) -> str:
     dashboard = service.build_dashboard()
     recovery_query = _recovery_query_string(dashboard.recovery_filters)
     notification_query = _notification_query_string(dashboard.notification_filters)
+    audit_query = _audit_query_string(dashboard.audit_filters)
     selected_requires_review = ""
     if dashboard.recovery_filters.requires_review is True:
         selected_requires_review = "review-only"
@@ -187,6 +218,10 @@ def _render_dashboard(service: ReportingDashboardService) -> str:
     notification_status_value = dashboard.notification_filters.status or ""
     notification_channel_value = dashboard.notification_filters.channel or ""
     notification_related_event_type_value = dashboard.notification_filters.related_event_type or ""
+    audit_event_type_value = dashboard.audit_filters.event_type or ""
+    audit_status_value = dashboard.audit_filters.status or ""
+    audit_source_value = dashboard.audit_filters.source or ""
+    audit_search_value = dashboard.audit_filters.search or ""
     recovery_any_selected = "selected" if selected_requires_review == "" else ""
     recovery_review_selected = "selected" if selected_requires_review == "review-only" else ""
     recovery_non_review_selected = "selected" if selected_requires_review == "non-review" else ""
@@ -440,6 +475,23 @@ def _render_dashboard(service: ReportingDashboardService) -> str:
             f"channel={dashboard.notification_filters.channel or '-'} "
             f"related_event_type={dashboard.notification_filters.related_event_type or '-'}."
         )
+    audit_filter_summary = "Audit filters: none."
+    if any(
+        value is not None
+        for value in (
+            dashboard.audit_filters.event_type,
+            dashboard.audit_filters.status,
+            dashboard.audit_filters.source,
+            dashboard.audit_filters.search,
+        )
+    ):
+        audit_filter_summary = (
+            "Audit filters: "
+            f"event_type={dashboard.audit_filters.event_type or '-'} "
+            f"status={dashboard.audit_filters.status or '-'} "
+            f"source={dashboard.audit_filters.source or '-'} "
+            f"search={dashboard.audit_filters.search or '-'}."
+        )
 
     return f"""<!DOCTYPE html>
 <html lang="en">
@@ -664,7 +716,7 @@ def _render_dashboard(service: ReportingDashboardService) -> str:
           <a href="/reports/positions.csv">Download positions CSV</a>
           <a href="/reports/trades.csv">Download trades CSV</a>
           <a href="/reports/backtest-summary.csv">Download backtest CSV</a>
-          <a href="/reports/audit.csv">Download audit CSV</a>
+          <a href="/reports/audit.csv{audit_query}">Download audit CSV</a>
           <a href="/reports/notification-delivery.csv{notification_query}">
             Download notification delivery CSV
           </a>
@@ -760,6 +812,83 @@ def _render_dashboard(service: ReportingDashboardService) -> str:
             </thead>
             <tbody>{stale_orders_rows}</tbody>
           </table>
+        </div>
+        <div class="panel">
+          <h2>Audit Filters</h2>
+          <p>{audit_filter_summary}</p>
+          <form method="get" action="/reports" class="filter-form">
+            <input
+              type="hidden"
+              name="recovery_order_status"
+              value="{recovery_order_status_value}"
+            />
+            <input
+              type="hidden"
+              name="recovery_event_type"
+              value="{recovery_event_type_value}"
+            />
+            <input
+              type="hidden"
+              name="recovery_search"
+              value="{recovery_search_value}"
+            />
+            <input
+              type="hidden"
+              name="recovery_requires_review"
+              value="{recovery_requires_review_query_value}"
+            />
+            <input
+              type="hidden"
+              name="notification_status"
+              value="{notification_status_value}"
+            />
+            <input
+              type="hidden"
+              name="notification_channel"
+              value="{notification_channel_value}"
+            />
+            <input
+              type="hidden"
+              name="notification_related_event_type"
+              value="{notification_related_event_type_value}"
+            />
+            <label>
+              <span>Event Type</span>
+              <input
+                type="text"
+                name="audit_event_type"
+                value="{audit_event_type_value}"
+              />
+            </label>
+            <label>
+              <span>Status</span>
+              <input
+                type="text"
+                name="audit_status"
+                value="{audit_status_value}"
+              />
+            </label>
+            <label>
+              <span>Source</span>
+              <input
+                type="text"
+                name="audit_source"
+                value="{audit_source_value}"
+              />
+            </label>
+            <label>
+              <span>Search</span>
+              <input
+                type="text"
+                name="audit_search"
+                value="{audit_search_value}"
+              />
+            </label>
+            <div class="filter-actions">
+              <button type="submit">Apply Filters</button>
+              <a href="/reports">Clear</a>
+            </div>
+          </form>
         </div>
         <div class="panel">
           <h2>Notification Delivery Filters</h2>
@@ -967,6 +1096,10 @@ def reports_dashboard(
     notification_status: str | None = None,
     notification_channel: str | None = None,
     notification_related_event_type: str | None = None,
+    audit_event_type: str | None = None,
+    audit_status: str | None = None,
+    audit_source: str | None = None,
+    audit_search: str | None = None,
 ) -> HTMLResponse:
     recovery_filters = _build_recovery_filters(
         order_status=recovery_order_status,
@@ -979,6 +1112,12 @@ def reports_dashboard(
         channel=notification_channel,
         related_event_type=notification_related_event_type,
     )
+    audit_filters = _build_audit_filters(
+        event_type=audit_event_type,
+        status=audit_status,
+        source=audit_source,
+        search=audit_search,
+    )
     content = _render_dashboard(
         ReportingDashboardService(
             session,
@@ -986,6 +1125,7 @@ def reports_dashboard(
             session_factory=session_factory,
             recovery_filters=recovery_filters,
             notification_filters=notification_filters,
+            audit_filters=audit_filters,
         )
     )
     return _html_response(content)
@@ -1030,12 +1170,22 @@ def export_audit_events(
     settings: Settings = settings_dependency,
     session_factory: sessionmaker[Session] = session_factory_dependency,
     limit: Annotated[int, Query(ge=1, le=500)] = 100,
+    audit_event_type: str | None = None,
+    audit_status: str | None = None,
+    audit_source: str | None = None,
+    audit_search: str | None = None,
 ) -> Response:
+    filters = _build_audit_filters(
+        event_type=audit_event_type,
+        status=audit_status,
+        source=audit_source,
+        search=audit_search,
+    )
     content = ReportingExportService(
         session,
         settings,
         session_factory=session_factory,
-    ).export_audit_events_csv(limit=limit)
+    ).export_audit_events_csv(limit=limit, filters=filters)
     return _csv_response("audit.csv", content)
 
 

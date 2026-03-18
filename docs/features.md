@@ -746,12 +746,30 @@ Main outputs:
 - filtered notification-delivery panel in the reporting deck
 - notification-delivery CSV link that preserves the active filter query string
 
+### 41. `feature/audit-report-filters`
+
+Status:
+
+- implemented on branch
+
+Scope:
+
+- add generic audit filters to the reporting dashboard
+- preserve the active audit filter slice in the audit CSV export link
+- keep the feature bounded to read-only filtering without changing audit writes
+
+Main outputs:
+
+- `/reports` audit filter form and summary
+- filtered recent-audit table in the reporting deck
+- audit CSV link that preserves active event, status, source, and search filters
+
 ## Current Recommended Queue
 
 These are the next bounded features after the current `main` baseline:
 
-1. `feature/audit-report-filters`
+1. `feature/audit-report-columns`
 
 Current next feature:
 
-- `feature/audit-report-filters`
+- `feature/audit-report-columns`

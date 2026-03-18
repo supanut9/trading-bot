@@ -698,3 +698,17 @@ The dedicated notification-delivery CSV export could already be filtered, but op
 ### Consequence
 
 `/reports` now accepts notification-delivery filters for status, channel, and related event type. The notification-delivery panel and its CSV export link use the same active filter slice, while the generic recent-audit table remains unchanged as a broader context view.
+
+## 2026-03-19
+
+### Decision
+
+Promote filtering into the generic audit reporting slice after narrowing recovery and notification-delivery views.
+
+### Reason
+
+The dashboard still showed the recent audit table as an unfiltered backlog, even though recovery and notification-delivery reporting already supported narrower slices. Operators needed the same read-only narrowing for the broader audit feed so they could isolate one workflow or one failure mode without leaving the reporting deck.
+
+### Consequence
+
+`/reports` and `/reports/audit.csv` now accept audit filters for event type, status, source, and free-text search. The recent-audit table and audit CSV export link use the same active filter slice, while notification-delivery and recovery filters remain independent.

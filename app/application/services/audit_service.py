@@ -31,8 +31,10 @@ class AuditEventView:
 class AuditEventFilters:
     event_type: str | None = None
     status: str | None = None
+    source: str | None = None
     channel: str | None = None
     related_event_type: str | None = None
+    search: str | None = None
 
 
 class AuditService:
@@ -59,8 +61,10 @@ class AuditService:
                     limit=limit,
                     event_type=active_filters.event_type,
                     status=active_filters.status,
+                    source=active_filters.source,
                     channel=active_filters.channel,
                     related_event_type=active_filters.related_event_type,
+                    search=active_filters.search,
                 )
             )
         ]
