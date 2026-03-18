@@ -26,10 +26,11 @@ Current baseline on `main`:
 - notification-delivery reporting in the dashboard and a dedicated CSV export for delivery audit rows
 - notification-delivery filters in the dashboard with a matching filtered CSV export link
 - audit-report filters in the dashboard with a matching filtered audit CSV export link
+- audit-report columns in the dashboard and audit CSV so operators can inspect key metadata without parsing payload JSON
 
 Next implementation queue:
 
-1. `feature/audit-report-columns`
+1. `feature/production-readiness-boundary`
 
 ## Initial Market And Strategy
 
