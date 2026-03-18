@@ -728,12 +728,30 @@ Main outputs:
 - `GET /reports/notification-delivery.csv`
 - export filtering by delivery status, channel, and related event type
 
+### 40. `feature/notification-delivery-filters`
+
+Status:
+
+- implemented on branch
+
+Scope:
+
+- add notification-delivery filters to the reporting dashboard
+- preserve the active notification-delivery filter slice in the CSV export link
+- keep the feature bounded to dashboard/read-only filtering without changing audit storage
+
+Main outputs:
+
+- `/reports` notification-delivery filter form and summary
+- filtered notification-delivery panel in the reporting deck
+- notification-delivery CSV link that preserves the active filter query string
+
 ## Current Recommended Queue
 
 These are the next bounded features after the current `main` baseline:
 
-1. `feature/notification-delivery-filters`
+1. `feature/audit-report-filters`
 
 Current next feature:
 
-- `feature/notification-delivery-filters`
+- `feature/audit-report-filters`

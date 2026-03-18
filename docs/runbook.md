@@ -194,6 +194,7 @@ Notification delivery reporting:
 - `GET /reports` now includes notification-delivery summary cards and a recent delivery table
 - `GET /reports/notification-delivery.csv` exports notification-delivery audit rows
 - the notification-delivery CSV export supports filtering by `notification_status`, `notification_channel`, and `notification_related_event_type`
+- `GET /reports` also includes a notification-delivery filter form, and the export link preserves the same active notification filters
 
 Reconciliation alerting:
 

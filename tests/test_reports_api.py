@@ -433,6 +433,62 @@ def test_reports_dashboard_renders_notification_delivery_summary(tmp_path: Path)
         teardown_client(session)
 
 
+def test_reports_dashboard_filters_notification_delivery_and_preserves_export_link(
+    tmp_path: Path,
+) -> None:
+    client, session, settings = build_client(tmp_path)
+    try:
+        audit = AuditService(session=session)
+        audit.record_notification_delivery(
+            source="notification",
+            channel="webhook",
+            status="failed",
+            detail="worker.executed delivery failed",
+            related_event_type="worker.executed",
+            payload={
+                "event_type": "worker.executed",
+                "metadata": {
+                    "exchange": settings.exchange_name,
+                    "symbol": settings.default_symbol,
+                    "timeframe": settings.default_timeframe,
+                },
+            },
+        )
+        audit.record_notification_delivery(
+            source="notification",
+            channel="log",
+            status="sent",
+            detail="backtest.completed delivery sent",
+            related_event_type="backtest.completed",
+            payload={
+                "event_type": "backtest.completed",
+                "metadata": {
+                    "exchange": settings.exchange_name,
+                    "symbol": settings.default_symbol,
+                    "timeframe": settings.default_timeframe,
+                },
+            },
+        )
+        session.commit()
+
+        response = client.get(
+            "/reports?notification_status=failed"
+            "&notification_channel=webhook"
+            "&notification_related_event_type=worker.executed"
+        )
+
+        assert response.status_code == 200
+        assert "Notification delivery filters: status=failed channel=webhook" in response.text
+        assert "worker.executed delivery failed" in response.text
+        assert (
+            "/reports/notification-delivery.csv?notification_status=failed"
+            "&notification_channel=webhook"
+            "&notification_related_event_type=worker.executed"
+        ) in response.text
+    finally:
+        teardown_client(session)
+
+
 def test_notification_delivery_report_exports_filtered_rows(tmp_path: Path) -> None:
     client, session, settings = build_client(tmp_path)
     try:
