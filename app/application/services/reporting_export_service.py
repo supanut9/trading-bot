@@ -3,7 +3,7 @@ from io import StringIO
 
 from sqlalchemy.orm import Session, sessionmaker
 
-from app.application.services.audit_service import AuditService
+from app.application.services.audit_service import AuditEventFilters, AuditService
 from app.application.services.live_order_recovery_report_service import (
     LiveOrderRecoveryReportService,
     RecoveryReportFilters,
@@ -133,7 +133,12 @@ class ReportingExportService:
         )
         return output.getvalue()
 
-    def export_audit_events_csv(self, *, limit: int = 100) -> str:
+    def export_audit_events_csv(
+        self,
+        *,
+        limit: int = 100,
+        filters: AuditEventFilters | None = None,
+    ) -> str:
         output = StringIO()
         writer = csv.writer(output)
         writer.writerow(
@@ -152,7 +157,7 @@ class ReportingExportService:
                 "payload_json",
             ]
         )
-        for event in self._audit.list_recent(limit=limit):
+        for event in self._audit.list_recent(limit=limit, filters=filters):
             writer.writerow(
                 [
                     event.id,
@@ -166,6 +171,52 @@ class ReportingExportService:
                     event.timeframe,
                     event.channel,
                     event.related_event_type,
+                    event.payload_json,
+                ]
+            )
+        return output.getvalue()
+
+    def export_notification_delivery_csv(
+        self,
+        *,
+        limit: int = 100,
+        filters: AuditEventFilters | None = None,
+    ) -> str:
+        output = StringIO()
+        writer = csv.writer(output)
+        writer.writerow(
+            [
+                "id",
+                "created_at",
+                "status",
+                "channel",
+                "related_event_type",
+                "detail",
+                "exchange",
+                "symbol",
+                "timeframe",
+                "payload_json",
+            ]
+        )
+        active_filters = filters or AuditEventFilters()
+        delivery_filters = AuditEventFilters(
+            event_type="notification_delivery",
+            status=active_filters.status,
+            channel=active_filters.channel,
+            related_event_type=active_filters.related_event_type,
+        )
+        for event in self._audit.list_recent(limit=limit, filters=delivery_filters):
+            writer.writerow(
+                [
+                    event.id,
+                    event.created_at.isoformat(),
+                    event.status,
+                    event.channel,
+                    event.related_event_type,
+                    event.detail,
+                    event.exchange,
+                    event.symbol,
+                    event.timeframe,
                     event.payload_json,
                 ]
             )

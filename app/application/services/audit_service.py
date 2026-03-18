@@ -27,6 +27,14 @@ class AuditEventView:
     payload_json: str | None
 
 
+@dataclass(frozen=True, slots=True)
+class AuditEventFilters:
+    event_type: str | None = None
+    status: str | None = None
+    channel: str | None = None
+    related_event_type: str | None = None
+
+
 class AuditService:
     def __init__(
         self,
@@ -37,11 +45,23 @@ class AuditService:
         self._session = session
         self._session_factory = session_factory
 
-    def list_recent(self, *, limit: int = 50) -> list[AuditEventView]:
+    def list_recent(
+        self,
+        *,
+        limit: int = 50,
+        filters: AuditEventFilters | None = None,
+    ) -> list[AuditEventView]:
+        active_filters = filters or AuditEventFilters()
         return [
             self._to_view(record)
             for record in self._with_repository(
-                lambda repository: repository.list_recent(limit=limit)
+                lambda repository: repository.list_filtered(
+                    limit=limit,
+                    event_type=active_filters.event_type,
+                    status=active_filters.status,
+                    channel=active_filters.channel,
+                    related_event_type=active_filters.related_event_type,
+                )
             )
         ]
 

@@ -152,6 +152,7 @@ def test_reports_dashboard_renders_html_snapshot(tmp_path: Path) -> None:
         assert "Daily Performance" in response.text
         assert "Recovery Queue" in response.text
         assert "Recovery Timeline" in response.text
+        assert "Notification Delivery" in response.text
         assert "Recent Audit Events" in response.text
         assert "BTC/USDT" in response.text
         assert "Download positions CSV" in response.text
@@ -395,6 +396,95 @@ def test_audit_report_exports_recent_events_csv(tmp_path: Path) -> None:
         assert rows[0]["event_type"] == "notification_delivery"
         assert rows[0]["source"] == "notification"
         assert rows[0]["status"] == "sent"
+    finally:
+        teardown_client(session)
+
+
+def test_reports_dashboard_renders_notification_delivery_summary(tmp_path: Path) -> None:
+    client, session, settings = build_client(tmp_path)
+    try:
+        AuditService(session=session).record_notification_delivery(
+            source="notification",
+            channel="webhook",
+            status="failed",
+            detail="live_reconcile.failed delivery failed",
+            related_event_type="live_reconcile.failed",
+            payload={
+                "event_type": "live_reconcile.failed",
+                "correlation_id": "live-reconcile-123",
+                "metadata": {
+                    "exchange": settings.exchange_name,
+                    "symbol": settings.default_symbol,
+                    "timeframe": settings.default_timeframe,
+                },
+            },
+        )
+        session.commit()
+
+        response = client.get("/reports")
+
+        assert response.status_code == 200
+        assert "Notification Deliveries" in response.text
+        assert "Notification Failures" in response.text
+        assert "Latest notification delivery: failed via webhook" in response.text
+        assert "live_reconcile.failed" in response.text
+        assert "Download notification delivery CSV" in response.text
+    finally:
+        teardown_client(session)
+
+
+def test_notification_delivery_report_exports_filtered_rows(tmp_path: Path) -> None:
+    client, session, settings = build_client(tmp_path)
+    try:
+        audit = AuditService(session=session)
+        audit.record_notification_delivery(
+            source="notification",
+            channel="webhook",
+            status="failed",
+            detail="worker.executed delivery failed",
+            related_event_type="worker.executed",
+            payload={
+                "event_type": "worker.executed",
+                "metadata": {
+                    "exchange": settings.exchange_name,
+                    "symbol": settings.default_symbol,
+                    "timeframe": settings.default_timeframe,
+                },
+            },
+        )
+        audit.record_notification_delivery(
+            source="notification",
+            channel="log",
+            status="sent",
+            detail="backtest.completed delivery sent",
+            related_event_type="backtest.completed",
+            payload={
+                "event_type": "backtest.completed",
+                "metadata": {
+                    "exchange": settings.exchange_name,
+                    "symbol": settings.default_symbol,
+                    "timeframe": settings.default_timeframe,
+                },
+            },
+        )
+        session.commit()
+
+        response = client.get(
+            "/reports/notification-delivery.csv?notification_status=failed"
+            "&notification_channel=webhook"
+            "&notification_related_event_type=worker.executed"
+        )
+
+        assert response.status_code == 200
+        assert response.headers["content-disposition"] == (
+            'attachment; filename="notification-delivery.csv"'
+        )
+        rows = read_csv_rows(response.text)
+        assert len(rows) == 1
+        assert rows[0]["status"] == "failed"
+        assert rows[0]["channel"] == "webhook"
+        assert rows[0]["related_event_type"] == "worker.executed"
+        assert rows[0]["detail"] == "worker.executed delivery failed"
     finally:
         teardown_client(session)
 

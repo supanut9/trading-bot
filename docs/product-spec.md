@@ -23,10 +23,11 @@ Current baseline on `main`:
 - live-readiness groundwork for submission, reconciliation, cancel, stale-order visibility, and recovery reporting while keeping live trading disabled by default
 - runtime log correlation across API requests and scheduled worker jobs via shared request and run ids
 - notification payloads that carry the active runtime correlation id when alerts are emitted from a correlated run
+- notification-delivery reporting in the dashboard and a dedicated CSV export for delivery audit rows
 
 Next implementation queue:
 
-1. `feature/notification-delivery-reporting`
+1. `feature/notification-delivery-filters`
 
 ## Initial Market And Strategy
 
