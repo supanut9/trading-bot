@@ -447,6 +447,129 @@ def test_live_recovery_report_exports_unresolved_orders_with_latest_context(
         teardown_client(session)
 
 
+def test_reports_dashboard_filters_recovery_views_by_search_and_review_flag(
+    tmp_path: Path,
+) -> None:
+    client, session, settings = build_client(tmp_path)
+    try:
+        session.add_all(
+            [
+                OrderRecord(
+                    exchange="binance",
+                    symbol="BTC/USDT",
+                    side="buy",
+                    order_type="market",
+                    status="review_required",
+                    mode="live",
+                    quantity=Decimal("0.001"),
+                    client_order_id="search-target-order",
+                    exchange_order_id="target-1",
+                    created_at=datetime(2026, 1, 1, 0, tzinfo=UTC),
+                    updated_at=datetime(2026, 1, 1, 0, tzinfo=UTC),
+                ),
+                OrderRecord(
+                    exchange="binance",
+                    symbol="BTC/USDT",
+                    side="buy",
+                    order_type="market",
+                    status="submitted",
+                    mode="live",
+                    quantity=Decimal("0.001"),
+                    client_order_id="other-order",
+                    exchange_order_id="other-1",
+                    created_at=datetime(2026, 1, 1, 1, tzinfo=UTC),
+                    updated_at=datetime(2026, 1, 1, 1, tzinfo=UTC),
+                ),
+            ]
+        )
+        AuditService(session=session).record_control_result(
+            control_type="live_cancel",
+            source="api.control",
+            status="completed",
+            detail="live order canceled",
+            settings=settings,
+            payload={"client_order_id": "search-target-order"},
+        )
+        AuditService(session=session).record_control_result(
+            control_type="live_reconcile",
+            source="job.live_reconcile",
+            status="completed",
+            detail="live orders reconciled",
+            settings=settings,
+            payload={"reconciled_count": 2},
+        )
+        session.commit()
+
+        response = client.get(
+            "/reports?recovery_requires_review=true&recovery_event_type=live_cancel&recovery_search=search-target"
+        )
+
+        assert response.status_code == 200
+        assert "search-target-order" in response.text
+        assert "other-order" not in response.text
+        assert "live_cancel" in response.text
+        assert "Recovery filters:" in response.text
+        assert 'value="search-target"' in response.text
+        assert "Download live recovery CSV" in response.text
+    finally:
+        teardown_client(session)
+
+
+def test_live_recovery_report_exports_filtered_rows(tmp_path: Path) -> None:
+    client, session, settings = build_client(tmp_path)
+    try:
+        session.add_all(
+            [
+                OrderRecord(
+                    exchange="binance",
+                    symbol="BTC/USDT",
+                    side="buy",
+                    order_type="market",
+                    status="review_required",
+                    mode="live",
+                    quantity=Decimal("0.001"),
+                    client_order_id="filtered-order",
+                    exchange_order_id="filtered-1",
+                    created_at=datetime(2026, 1, 1, 0, tzinfo=UTC),
+                    updated_at=datetime(2026, 1, 1, 0, tzinfo=UTC),
+                ),
+                OrderRecord(
+                    exchange="binance",
+                    symbol="BTC/USDT",
+                    side="buy",
+                    order_type="market",
+                    status="submitted",
+                    mode="live",
+                    quantity=Decimal("0.001"),
+                    client_order_id="excluded-order",
+                    exchange_order_id="excluded-1",
+                    created_at=datetime(2026, 1, 1, 1, tzinfo=UTC),
+                    updated_at=datetime(2026, 1, 1, 1, tzinfo=UTC),
+                ),
+            ]
+        )
+        AuditService(session=session).record_control_result(
+            control_type="live_cancel",
+            source="api.control",
+            status="completed",
+            detail="live order canceled",
+            settings=settings,
+            payload={"client_order_id": "filtered-order"},
+        )
+        session.commit()
+
+        response = client.get(
+            "/reports/live-recovery.csv?recovery_requires_review=true&recovery_search=filtered-order"
+        )
+
+        assert response.status_code == 200
+        rows = read_csv_rows(response.text)
+        assert len(rows) == 1
+        assert rows[0]["client_order_id"] == "filtered-order"
+    finally:
+        teardown_client(session)
+
+
 def test_positions_report_does_not_require_backtest_notification_config(tmp_path: Path) -> None:
     client, session, settings = build_client(tmp_path)
     try:

@@ -628,3 +628,17 @@ Paper execution already used candle-derived `client_order_id` values to avoid du
 ### Consequence
 
 Live execution now checks for unresolved same-side live orders before submitting to the exchange. When one exists, worker and controls surfaces return `duplicate_live_order` and skip the external submission entirely, leaving reconciliation and cancel workflows to resolve the existing order first.
+
+## 2026-03-18
+
+### Decision
+
+Add server-side recovery filters and search to the reporting deck and recovery export before expanding into broader runtime log tooling.
+
+### Reason
+
+The recovery queue and timeline had become readable, but operators still had to scan the full unresolved backlog and recent recovery activity even when they were only investigating one order or one event class. The next safe improvement was narrower read-only filtering, not more mutation paths.
+
+### Consequence
+
+`/reports` and `/reports/live-recovery.csv` now accept recovery filters for order status, review-required state, event type, and free-text search. The reporting deck preserves those filters in the CSV export link so operators can narrow the same incident slice in both the UI and export path.

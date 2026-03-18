@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from app.application.services.audit_service import AuditService
 from app.application.services.live_order_recovery_report_service import (
     LiveOrderRecoveryReportService,
+    RecoveryReportFilters,
 )
 from app.application.services.operational_control_service import OperationalControlService
 from app.application.services.operations_service import OperationsService
@@ -170,8 +171,12 @@ class ReportingExportService:
             )
         return output.getvalue()
 
-    def export_live_recovery_csv(self) -> str:
-        report = self._recovery.build_report(order_limit=50, audit_limit=10)
+    def export_live_recovery_csv(
+        self,
+        *,
+        filters: RecoveryReportFilters | None = None,
+    ) -> str:
+        report = self._recovery.build_report(order_limit=50, audit_limit=10, filters=filters)
         latest_at, latest_type, latest_status, latest_context = self._recovery.latest_event_summary(
             report.recovery_events
         )
