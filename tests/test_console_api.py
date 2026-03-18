@@ -30,6 +30,7 @@ def build_client(tmp_path: Path) -> tuple[TestClient, Settings]:
         DATABASE_URL=f"sqlite:///{tmp_path / 'console_api.db'}",
         STRATEGY_FAST_PERIOD=3,
         STRATEGY_SLOW_PERIOD=5,
+        MARKET_DATA_SYNC_ENABLED=False,
         NOTIFICATION_CHANNEL="none",
     )
     engine = create_engine_from_settings(settings)
@@ -117,6 +118,11 @@ def test_console_renders_operator_snapshot(tmp_path: Path) -> None:
         assert "Paper Trading Actions" in response.text
         assert "Run Worker Cycle" in response.text
         assert "Run Backtest" in response.text
+        assert 'name="strategy_name"' in response.text
+        assert 'name="timeframe"' in response.text
+        assert 'name="fast_period"' in response.text
+        assert 'name="slow_period"' in response.text
+        assert 'name="starting_equity"' in response.text
         assert "Sync Market Data" in response.text
         assert "Halt Live Entry" in response.text
         assert "Resume Live Entry" in response.text
@@ -166,14 +172,51 @@ def test_console_backtest_action_renders_completed_summary(tmp_path: Path) -> No
     try:
         store_closes(settings, [10, 10, 10, 10, 10, 9, 9, 9, 20])
 
-        response = client.post("/console/actions/backtest")
+        response = client.post(
+            "/console/actions/backtest",
+            data={
+                "strategy_name": "ema_crossover",
+                "symbol": settings.default_symbol,
+                "timeframe": settings.default_timeframe,
+                "fast_period": 3,
+                "slow_period": 5,
+                "starting_equity": "12000",
+            },
+        )
 
         assert response.status_code == 200
         assert "Backtest" in response.text
         assert "backtest completed" in response.text
+        assert "Strategy" in response.text
+        assert "EMA Crossover" in response.text or "ema_crossover" in response.text
+        assert "Timeframe" in response.text
+        assert "12000.00000000" in response.text
         assert "Candle Count" in response.text
         assert "Ending Equity" in response.text
-        assert "10000.00000000" in response.text
+        assert "Executions" in response.text
+        assert 'value="12000.00000000"' in response.text or 'value="12000"' in response.text
+    finally:
+        teardown_client()
+
+
+def test_console_backtest_action_renders_failed_validation_feedback(tmp_path: Path) -> None:
+    client, settings = build_client(tmp_path)
+    try:
+        response = client.post(
+            "/console/actions/backtest",
+            data={
+                "strategy_name": "ema_crossover",
+                "symbol": settings.default_symbol,
+                "timeframe": settings.default_timeframe,
+                "fast_period": 5,
+                "slow_period": 5,
+                "starting_equity": "10000",
+            },
+        )
+
+        assert response.status_code == 200
+        assert "fast period must be smaller than slow period" in response.text
+        assert 'value="5"' in response.text
     finally:
         teardown_client()
 

@@ -9,7 +9,7 @@ from app.config import Settings
 
 
 def test_build_runtime_startup_context_includes_runtime_summary() -> None:
-    settings = Settings()
+    settings = Settings(DATABASE_URL="sqlite:///./runtime_startup_test.db")
 
     context = build_runtime_startup_context(settings, "worker")
 
@@ -21,7 +21,7 @@ def test_build_runtime_startup_context_includes_runtime_summary() -> None:
 
 
 def test_validate_runtime_settings_rejects_sqlite_outside_local() -> None:
-    settings = Settings(APP_ENV="production")
+    settings = Settings(APP_ENV="production", DATABASE_URL="sqlite:///./runtime_startup_test.db")
 
     errors = validate_runtime_settings(settings, "worker")
 
@@ -77,7 +77,7 @@ def test_validate_runtime_startup_checks_database_connectivity(monkeypatch) -> N
 
 
 def test_validate_runtime_startup_raises_on_invalid_settings(monkeypatch) -> None:
-    settings = Settings(APP_ENV="production")
+    settings = Settings(APP_ENV="production", DATABASE_URL="sqlite:///./runtime_startup_test.db")
     called = {"db": False}
 
     def fail_if_called(_settings: Settings) -> None:

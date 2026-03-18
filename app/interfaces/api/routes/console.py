@@ -1,4 +1,6 @@
+from decimal import Decimal
 from html import escape
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, Form
 from fastapi.responses import HTMLResponse
@@ -6,6 +8,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from app.application.services.operational_control_service import (
     BacktestControlResult,
+    BacktestRunOptions,
     LiveCancelControlResult,
     LiveHaltControlResult,
     LiveReconcileControlResult,
@@ -56,6 +59,75 @@ def _render_action_form(action: str, label: str, note: str) -> str:
         <form method="post" action="/console/actions/{escape(action)}" class="action-form">
           <button type="submit">{escape(label)}</button>
           <p>{escape(note)}</p>
+        </form>
+    """
+
+
+def _render_backtest_form(
+    settings: Settings,
+    result: BacktestControlResult | None = None,
+) -> str:
+    strategy_name = result.strategy_name if result is not None else "ema_crossover"
+    symbol = result.symbol if result is not None else settings.default_symbol
+    timeframe = result.timeframe if result is not None else settings.default_timeframe
+    fast_period = str(result.fast_period if result is not None else settings.strategy_fast_period)
+    slow_period = str(result.slow_period if result is not None else settings.strategy_slow_period)
+    starting_equity = str(
+        result.starting_equity_input if result is not None else settings.paper_account_equity
+    )
+    return f"""
+        <form method="post" action="/console/actions/backtest" class="action-form">
+          <button type="submit">Run Backtest</button>
+          <p>
+            Choose market and EMA inputs, then replay stored candles with the
+            current paper-risk model.
+          </p>
+          <label class="field">
+            <span>Strategy</span>
+            <select name="strategy_name">
+              <option
+                value="ema_crossover"
+                {" selected" if strategy_name == "ema_crossover" else ""}
+              >
+                EMA Crossover
+              </option>
+            </select>
+          </label>
+          <label class="field">
+            <span>Symbol</span>
+            <input type="text" name="symbol" value="{escape(symbol)}" />
+          </label>
+          <label class="field">
+            <span>Timeframe</span>
+            <input type="text" name="timeframe" value="{escape(timeframe)}" />
+          </label>
+          <label class="field">
+            <span>Fast Period</span>
+            <input
+              type="text"
+              name="fast_period"
+              inputmode="numeric"
+              value="{escape(fast_period)}"
+            />
+          </label>
+          <label class="field">
+            <span>Slow Period</span>
+            <input
+              type="text"
+              name="slow_period"
+              inputmode="numeric"
+              value="{escape(slow_period)}"
+            />
+          </label>
+          <label class="field">
+            <span>Starting Equity</span>
+            <input
+              type="text"
+              name="starting_equity"
+              inputmode="decimal"
+              value="{escape(starting_equity)}"
+            />
+          </label>
         </form>
     """
 
@@ -116,6 +188,13 @@ def _render_action_result(
     elif isinstance(result, BacktestControlResult):
         rows.extend(
             [
+                ("Strategy", result.strategy_name),
+                ("Exchange", result.exchange),
+                ("Symbol", result.symbol),
+                ("Timeframe", result.timeframe),
+                ("Fast Period", str(result.fast_period)),
+                ("Slow Period", str(result.slow_period)),
+                ("Starting Equity Input", str(result.starting_equity_input)),
                 ("Candle Count", str(result.candle_count)),
                 ("Required Candles", str(result.required_candles)),
                 ("Ending Equity", str(result.ending_equity or "-")),
@@ -164,6 +243,29 @@ def _render_action_result(
     rendered_rows = "".join(
         f"<tr><th>{escape(label)}</th><td>{escape(value)}</td></tr>" for label, value in rows
     )
+    extra = ""
+    if isinstance(result, BacktestControlResult):
+        execution_rows = (
+            "".join(
+                (
+                    "<tr>"
+                    f"<td>{escape(execution.action)}</td>"
+                    f"<td>{escape(str(execution.price))}</td>"
+                    f"<td>{escape(str(execution.quantity))}</td>"
+                    f"<td>{escape(str(execution.realized_pnl))}</td>"
+                    f"<td>{escape(execution.reason)}</td>"
+                    "</tr>"
+                )
+                for execution in result.executions
+            )
+            or '<tr><td colspan="5">No executions recorded for this run.</td></tr>'
+        )
+        extra = (
+            '<h3 class="subtable-title">Executions</h3>'
+            "<table><thead><tr><th>Action</th><th>Price</th><th>Quantity</th>"
+            "<th>Realized PnL</th><th>Reason</th></tr></thead>"
+            f"<tbody>{execution_rows}</tbody></table>"
+        )
     return f"""
       <section class="panel result-panel">
         <div class="panel-kicker">Last Action</div>
@@ -171,6 +273,7 @@ def _render_action_result(
         <table>
           <tbody>{rendered_rows}</tbody>
         </table>
+        {extra}
       </section>
     """
 
@@ -231,6 +334,7 @@ def _render_audit_rows(dashboard: ReportingDashboard) -> str:
 
 
 def _render_console_page(
+    settings: Settings,
     dashboard: ReportingDashboard,
     *,
     action_name: str | None = None,
@@ -307,10 +411,9 @@ def _render_console_page(
                 "Evaluate the latest candle set, apply risk checks, and execute once "
                 "with current mode.",
             ),
-            _render_action_form(
-                "backtest",
-                "Run Backtest",
-                "Replay stored candles with the configured strategy and risk parameters.",
+            _render_backtest_form(
+                settings,
+                action_result if isinstance(action_result, BacktestControlResult) else None,
             ),
             _render_action_form(
                 "live-reconcile",
@@ -511,8 +614,21 @@ def _render_console_page(
         color: var(--ink);
         background: rgba(255, 255, 255, 0.92);
       }}
+      .field select {{
+        width: 100%;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 10px 12px;
+        font: inherit;
+        color: var(--ink);
+        background: rgba(255, 255, 255, 0.92);
+      }}
       .result-panel {{
         background: linear-gradient(180deg, rgba(203, 92, 50, 0.08), rgba(255,255,255,0.96));
+      }}
+      .subtable-title {{
+        margin: 18px 0 8px;
+        font-size: 1rem;
       }}
       table {{
         width: 100%;
@@ -643,7 +759,7 @@ def operator_console(
     session_factory: sessionmaker[Session] = session_factory_dependency,
 ) -> HTMLResponse:
     dashboard = _build_dashboard(settings, session_factory)
-    return _html_response(_render_console_page(dashboard))
+    return _html_response(_render_console_page(settings, dashboard))
 
 
 @router.post("/actions/live-halt", response_class=HTMLResponse)
@@ -661,6 +777,7 @@ def run_console_live_halt(
     dashboard = _build_dashboard(settings, session_factory)
     return _html_response(
         _render_console_page(
+            settings,
             dashboard,
             action_name="Live Halt",
             action_result=result,
@@ -683,6 +800,7 @@ def run_console_live_resume(
     dashboard = _build_dashboard(settings, session_factory)
     return _html_response(
         _render_console_page(
+            settings,
             dashboard,
             action_name="Live Resume",
             action_result=result,
@@ -702,6 +820,7 @@ def run_console_worker_cycle(
     dashboard = _build_dashboard(settings, session_factory)
     return _html_response(
         _render_console_page(
+            settings,
             dashboard,
             action_name="Worker Cycle",
             action_result=result,
@@ -721,6 +840,7 @@ def run_console_market_sync(
     dashboard = _build_dashboard(settings, session_factory)
     return _html_response(
         _render_console_page(
+            settings,
             dashboard,
             action_name="Market Sync",
             action_result=result,
@@ -730,16 +850,33 @@ def run_console_market_sync(
 
 @router.post("/actions/backtest", response_class=HTMLResponse)
 def run_console_backtest(
+    strategy_name: Annotated[str, Form()] = "ema_crossover",
+    symbol: Annotated[str, Form()] = "",
+    timeframe: Annotated[str, Form()] = "",
+    fast_period: Annotated[int, Form()] = 0,
+    slow_period: Annotated[int, Form()] = 0,
+    starting_equity: Annotated[Decimal, Form()] = Decimal("0"),
     settings: Settings = settings_dependency,
     session_factory: sessionmaker[Session] = session_factory_dependency,
 ) -> HTMLResponse:
     result = OperationalControlService(
         settings,
         session_factory=session_factory,
-    ).run_backtest(source="api.console")
+    ).run_backtest(
+        options=BacktestRunOptions(
+            strategy_name=strategy_name,
+            symbol=symbol,
+            timeframe=timeframe,
+            fast_period=fast_period,
+            slow_period=slow_period,
+            starting_equity=starting_equity,
+        ),
+        source="api.console",
+    )
     dashboard = _build_dashboard(settings, session_factory)
     return _html_response(
         _render_console_page(
+            settings,
             dashboard,
             action_name="Backtest",
             action_result=result,
@@ -759,6 +896,7 @@ def run_console_live_reconcile(
     dashboard = _build_dashboard(settings, session_factory)
     return _html_response(
         _render_console_page(
+            settings,
             dashboard,
             action_name="Live Reconcile",
             action_result=result,
@@ -801,6 +939,7 @@ def run_console_live_cancel(
     dashboard = _build_dashboard(settings, session_factory)
     return _html_response(
         _render_console_page(
+            settings,
             dashboard,
             action_name="Live Cancel",
             action_result=result,

@@ -1,8 +1,11 @@
 from decimal import Decimal
 from pathlib import Path
+from types import SimpleNamespace
 
 from fastapi.testclient import TestClient
+from sqlalchemy.exc import SQLAlchemyError
 
+from app.application.services.status_service import StatusService
 from app.config import Settings, get_settings
 from app.infrastructure.database.base import Base
 from app.infrastructure.database.models.runtime_control import RuntimeControlRecord
@@ -35,8 +38,12 @@ def test_status_endpoint_returns_bootstrap_configuration() -> None:
     assert payload["account_balances"] == []
 
 
-def test_status_endpoint_returns_live_account_balances_when_enabled(monkeypatch) -> None:
+def test_status_endpoint_returns_live_account_balances_when_enabled(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
     settings = Settings(
+        DATABASE_URL=f"sqlite:///{tmp_path / 'status_live.db'}",
         PAPER_TRADING=False,
         LIVE_TRADING_ENABLED=True,
         EXCHANGE_API_KEY="key",
@@ -82,13 +89,27 @@ def test_status_endpoint_returns_live_account_balances_when_enabled(monkeypatch)
         "app.application.services.status_service.build_market_data_exchange_client",
         lambda _settings: FakeMarketDataClient(),
     )
+
+    engine = create_engine_from_settings(settings)
+    Base.metadata.create_all(bind=engine)
+    session_factory = create_session_factory(settings)
+    session = session_factory()
+
+    def override_get_session():
+        try:
+            yield session
+        finally:
+            pass
+
     app.dependency_overrides[get_settings] = lambda: settings
+    app.dependency_overrides[get_session] = override_get_session
 
     try:
         client = TestClient(app)
         response = client.get("/status")
     finally:
         app.dependency_overrides.clear()
+        session.close()
 
     assert response.status_code == 200
     payload = response.json()
@@ -148,3 +169,29 @@ def test_status_endpoint_prefers_runtime_halt_control_when_present(tmp_path: Pat
     payload = response.json()
     assert payload["live_trading_halted"] is True
     assert payload["live_safety_status"] == "halted"
+
+
+def test_status_service_rolls_back_failed_runtime_control_lookup(monkeypatch) -> None:
+    settings = Settings(LIVE_TRADING_HALTED=True)
+
+    class FakeSession:
+        def __init__(self) -> None:
+            self.rollback_calls = 0
+
+        def rollback(self) -> None:
+            self.rollback_calls += 1
+
+    def raise_sqlalchemy_error(self) -> SimpleNamespace:
+        raise SQLAlchemyError("runtime control lookup failed")
+
+    monkeypatch.setattr(
+        "app.application.services.live_operator_control_service."
+        "LiveOperatorControlService.get_live_trading_halt_state",
+        raise_sqlalchemy_error,
+    )
+
+    session = FakeSession()
+    halted = StatusService(settings, session=session)._effective_live_trading_halted()
+
+    assert halted is True
+    assert session.rollback_calls == 1

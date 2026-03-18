@@ -171,6 +171,13 @@ class BacktestControlResponse(BaseModel):
     status: str
     detail: str
     notified: bool
+    strategy_name: str
+    exchange: str
+    symbol: str
+    timeframe: str
+    fast_period: int
+    slow_period: int
+    starting_equity_input: Decimal
     candle_count: int
     required_candles: int
     starting_equity: Decimal | None = None
@@ -181,8 +188,29 @@ class BacktestControlResponse(BaseModel):
     total_trades: int | None = None
     winning_trades: int | None = None
     losing_trades: int | None = None
+    executions: list["BacktestExecutionResponse"] = Field(default_factory=list)
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class BacktestExecutionResponse(BaseModel):
+    action: str
+    price: Decimal
+    quantity: Decimal
+    realized_pnl: Decimal
+    reason: str
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class BacktestControlRequest(BaseModel):
+    strategy_name: str = "ema_crossover"
+    exchange: str | None = None
+    symbol: str | None = None
+    timeframe: str | None = None
+    fast_period: int | None = None
+    slow_period: int | None = None
+    starting_equity: Decimal | None = None
 
 
 class MarketSyncControlResponse(BaseModel):

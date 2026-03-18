@@ -475,6 +475,20 @@ The repository now has enough packaging, controls, reporting, smoke checks, and 
 
 The runbook and product spec now describe deployed paper trading as the current production target, add a paper-production go-live checklist, and keep live trading behind a separate checklist and explicit non-readiness rule until the higher operational bar is satisfied.
 
+## 2026-03-19
+
+### Decision
+
+Expose parameterized backtest inputs through the operator console and control API instead of forcing all replays to use the current runtime defaults.
+
+### Reason
+
+The original console made backtesting feel static because operators could only click one fixed action and then infer why a run skipped or produced no trades. The next bounded improvement was to reuse the existing service layer while allowing explicit replay inputs such as symbol, timeframe, EMA periods, and starting equity.
+
+### Consequence
+
+`/console` now includes a real backtest form, `/controls/backtest` accepts explicit replay options, and backtest results show the chosen inputs plus execution rows so operators can understand what actually ran without leaving the FastAPI app.
+
 ## 2026-03-18
 
 ### Decision
