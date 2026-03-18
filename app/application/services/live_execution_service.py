@@ -3,6 +3,10 @@ from decimal import Decimal
 
 from sqlalchemy.orm import Session
 
+from app.application.services.live_order_state import (
+    resolve_submission_state,
+    transition_live_order,
+)
 from app.application.services.paper_execution_service import PaperExecutionRequest
 from app.infrastructure.database.models.order import OrderRecord
 from app.infrastructure.database.models.position import PositionRecord
@@ -73,7 +77,8 @@ class LiveExecutionService:
                 client_order_id=request.client_order_id,
             )
         )
-        order.status = submission.status
+        resolution = resolve_submission_state(submission.status)
+        transition_live_order(order, next_status=resolution.status)
         order.exchange_order_id = submission.exchange_order_id
         self._session.commit()
 

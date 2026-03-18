@@ -191,22 +191,26 @@ class ReportingExportService:
                 "latest_recovery_event_at",
                 "latest_recovery_event_type",
                 "latest_recovery_event_status",
+                "requires_operator_review",
+                "next_action",
             ]
         )
         for order in report.unresolved_orders:
             writer.writerow(
                 [
-                    order.id,
-                    order.exchange,
-                    order.symbol,
-                    order.side,
-                    order.status,
-                    order.client_order_id,
-                    order.exchange_order_id,
-                    order.updated_at.isoformat(),
+                    order.order.id,
+                    order.order.exchange,
+                    order.order.symbol,
+                    order.order.side,
+                    order.order.status,
+                    order.order.client_order_id,
+                    order.order.exchange_order_id,
+                    order.order.updated_at.isoformat(),
                     latest_at.isoformat() if latest_at is not None else None,
                     latest_type,
                     latest_status,
+                    str(order.requires_operator_review).lower(),
+                    order.next_action,
                 ]
             )
         return output.getvalue()

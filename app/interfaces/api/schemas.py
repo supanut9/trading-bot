@@ -197,6 +197,7 @@ class LiveReconcileControlResponse(BaseModel):
     detail: str
     reconciled_count: int
     filled_count: int
+    review_required_count: int
     notified: bool
 
     model_config = ConfigDict(from_attributes=True)

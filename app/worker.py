@@ -43,10 +43,11 @@ def main() -> None:
         if startup_sync.status != "completed":
             logger.warning(
                 "worker_startup_aborted reason=startup_state_sync_failed detail=%s "
-                "reconciled_count=%s filled_count=%s",
+                "reconciled_count=%s filled_count=%s review_required_count=%s",
                 startup_sync.detail,
                 startup_sync.reconciled_count,
                 startup_sync.filled_count,
+                startup_sync.review_required_count,
             )
             return
 

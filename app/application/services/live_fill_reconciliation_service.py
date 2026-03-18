@@ -3,6 +3,12 @@ from decimal import Decimal
 
 from sqlalchemy.orm import Session
 
+from app.application.services.live_order_state import (
+    RECONCILABLE_LIVE_ORDER_STATUSES,
+    requires_operator_review,
+    resolve_reconcile_state,
+    transition_live_order,
+)
 from app.infrastructure.database.models.order import OrderRecord
 from app.infrastructure.database.repositories.order_repository import OrderRepository
 from app.infrastructure.database.repositories.position_repository import PositionRepository
@@ -18,6 +24,7 @@ class LiveFillReconciliationResult:
     status: str
     detail: str
     trade_created: bool
+    requires_operator_review: bool
     position_quantity: Decimal | None = None
 
 
@@ -33,7 +40,7 @@ class LiveFillReconciliationService:
         self, *, limit: int = 20
     ) -> list[LiveFillReconciliationResult]:
         orders = self._orders.list_live_orders_by_status(
-            statuses=("submitting", "submitted", "new", "partially_filled"),
+            statuses=RECONCILABLE_LIVE_ORDER_STATUSES,
             limit=limit,
         )
         return [self._reconcile_order(order) for order in orders]
@@ -44,20 +51,27 @@ class LiveFillReconciliationService:
             client_order_id=order.client_order_id,
             exchange_order_id=order.exchange_order_id,
         )
-        order.status = remote.status
+        resolution = resolve_reconcile_state(
+            remote.status,
+            has_fill_details=(
+                remote.average_fill_price is not None and remote.executed_quantity > Decimal("0")
+            ),
+        )
+        transition_live_order(order, next_status=resolution.status)
         if remote.exchange_order_id:
             order.exchange_order_id = remote.exchange_order_id
 
         existing_trades = self._trades.list_by_order_id(order.id)
-        if remote.status != "filled":
+        if order.status != "filled":
             self._session.commit()
             return LiveFillReconciliationResult(
                 order_id=order.id,
                 client_order_id=order.client_order_id,
                 exchange_order_id=order.exchange_order_id,
                 status=order.status,
-                detail="live order not filled yet",
+                detail=resolution.detail,
                 trade_created=False,
+                requires_operator_review=requires_operator_review(order.status),
             )
 
         if existing_trades:
@@ -74,18 +88,8 @@ class LiveFillReconciliationService:
                 status=order.status,
                 detail="live order already reconciled",
                 trade_created=False,
+                requires_operator_review=False,
                 position_quantity=position.quantity if position is not None else None,
-            )
-
-        if remote.average_fill_price is None or remote.executed_quantity <= Decimal("0"):
-            self._session.commit()
-            return LiveFillReconciliationResult(
-                order_id=order.id,
-                client_order_id=order.client_order_id,
-                exchange_order_id=order.exchange_order_id,
-                status=order.status,
-                detail="live order fill details unavailable",
-                trade_created=False,
             )
 
         self._trades.create(
@@ -105,8 +109,9 @@ class LiveFillReconciliationService:
             client_order_id=order.client_order_id,
             exchange_order_id=order.exchange_order_id,
             status=order.status,
-            detail="live order reconciled from filled exchange status",
+            detail=resolution.detail,
             trade_created=True,
+            requires_operator_review=False,
             position_quantity=position.quantity,
         )
 

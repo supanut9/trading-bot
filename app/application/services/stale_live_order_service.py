@@ -4,6 +4,7 @@ from datetime import UTC, datetime, timedelta
 
 from sqlalchemy.orm import Session
 
+from app.application.services.live_order_state import ACTIVE_LIVE_ORDER_STATUSES
 from app.infrastructure.database.repositories.order_repository import OrderRepository
 
 
@@ -37,7 +38,7 @@ class StaleLiveOrderService:
     ) -> list[StaleLiveOrderView]:
         cutoff = self._now() - timedelta(minutes=threshold_minutes)
         candidates = self._orders.list_live_orders_by_status(
-            statuses=("submitting", "submitted", "new", "partially_filled"),
+            statuses=ACTIVE_LIVE_ORDER_STATUSES,
             limit=limit,
         )
         views: list[StaleLiveOrderView] = []

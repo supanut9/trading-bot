@@ -125,3 +125,37 @@ def test_rejects_live_sell_without_existing_position(tmp_path: Path) -> None:
 
     orders_count = session.scalar(select(func.count()).select_from(OrderRecord))
     assert orders_count == 0
+
+
+def test_maps_exchange_new_submission_to_open_status(tmp_path: Path) -> None:
+    settings = Settings(
+        DATABASE_URL=f"sqlite:///{tmp_path / 'live_execution_open.db'}",
+        PAPER_TRADING=False,
+        LIVE_TRADING_ENABLED=True,
+        EXCHANGE_API_KEY="key",
+        EXCHANGE_API_SECRET="secret",
+    )
+    engine = create_engine_from_settings(settings)
+    Base.metadata.create_all(bind=engine)
+    session = create_session_factory(settings)()
+    try:
+        service = LiveExecutionService(
+            session,
+            client=RecordingLiveClient(status="new"),
+        )
+
+        result = service.execute(
+            PaperExecutionRequest(
+                exchange="binance",
+                symbol="BTC/USDT",
+                side="buy",
+                quantity=Decimal("0.002"),
+                price=Decimal("50000"),
+                mode="live",
+                client_order_id="live-binance-btc-usdt-buy-open",
+            )
+        )
+
+        assert result.order.status == "open"
+    finally:
+        session.close()

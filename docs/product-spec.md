@@ -24,11 +24,11 @@ Current baseline on `main`:
 
 Next implementation queue:
 
-1. `feature/project-status-alignment`
-2. `feature/live-order-state-hardening`
-3. `feature/live-risk-safety-controls`
-4. `feature/operator-recovery-timeline`
-5. `feature/observability-and-deploy-hardening`
+1. `feature/live-risk-safety-controls`
+2. `feature/operator-recovery-timeline`
+3. `feature/observability-and-deploy-hardening`
+4. `feature/live-operator-halt-control`
+5. `feature/recovery-audit-timeline`
 
 ## Initial Market And Strategy
 
@@ -51,7 +51,9 @@ Next implementation queue:
 - provide a signed live order client for the configured exchange, with validate-only routing available before full live execution is enabled
 - orchestrate a worker cycle from persisted candles through execution
 - persist accepted live orders locally while keeping trades and positions unchanged until exchange fills are explicitly reconciled
+- normalize live order status into a canonical local state model before operator surfaces consume it
 - reconcile confirmed live exchange fills into local trades and positions through a bounded control workflow
+- mark uncertain exchange outcomes as `review_required` instead of silently treating them as ordinary open or terminal states
 - expose exchange-side base and quote asset balances for the configured live symbol through the status surface
 - optionally run recurring live reconciliation jobs so local runtime state can catch up with exchange fills without manual control calls
 - run startup live reconciliation before new live worker execution so restarts fail closed on uncertain exchange state

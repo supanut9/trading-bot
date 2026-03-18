@@ -135,6 +135,7 @@ def _render_action_result(
             [
                 ("Reconciled Count", str(result.reconciled_count)),
                 ("Filled Count", str(result.filled_count)),
+                ("Review Required Count", str(result.review_required_count)),
             ]
         )
     else:

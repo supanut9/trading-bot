@@ -88,6 +88,7 @@ def test_reconciles_filled_live_buy_into_trade_and_position(tmp_path: Path) -> N
 
         assert len(results) == 1
         assert results[0].trade_created is True
+        assert results[0].requires_operator_review is False
         assert trade_count == 1
         assert order.status == "filled"
         assert position is not None
@@ -150,8 +151,63 @@ def test_leaves_open_live_order_without_trade_creation(tmp_path: Path) -> None:
 
         trade_count = session.scalar(select(func.count()).select_from(TradeRecord))
 
-        assert results[0].status == "new"
+        assert results[0].status == "open"
         assert results[0].trade_created is False
+        assert results[0].requires_operator_review is False
         assert trade_count == 0
+    finally:
+        session.close()
+
+
+class FilledWithoutDetailsClient:
+    def fetch_order_status(
+        self,
+        *,
+        symbol: str,
+        client_order_id: str | None = None,
+        exchange_order_id: str | None = None,
+    ) -> ExchangeOrderStatus:
+        del symbol
+        return ExchangeOrderStatus(
+            status="filled",
+            client_order_id=client_order_id,
+            exchange_order_id=exchange_order_id or "123",
+            executed_quantity=Decimal("0"),
+            average_fill_price=None,
+            response_payload={},
+        )
+
+
+def test_marks_order_review_required_when_exchange_fill_details_are_missing(
+    tmp_path: Path,
+) -> None:
+    session = build_session(tmp_path)
+    try:
+        order = OrderRepository(session).create(
+            exchange="binance",
+            symbol="BTC/USDT",
+            side="buy",
+            order_type="market",
+            status="submitted",
+            mode="live",
+            quantity=Decimal("0.002"),
+            price=Decimal("50000"),
+            client_order_id="live-buy-review-1",
+            exchange_order_id="123",
+        )
+        session.commit()
+
+        results = LiveFillReconciliationService(
+            session,
+            client=FilledWithoutDetailsClient(),
+        ).reconcile_recent_live_orders()
+
+        trade_count = session.scalar(select(func.count()).select_from(TradeRecord))
+
+        assert results[0].status == "review_required"
+        assert results[0].trade_created is False
+        assert results[0].requires_operator_review is True
+        assert trade_count == 0
+        assert order.status == "review_required"
     finally:
         session.close()

@@ -319,6 +319,7 @@ def test_live_reconcile_control_returns_completed_summary(tmp_path: Path) -> Non
         assert payload["status"] == "completed"
         assert payload["reconciled_count"] == 1
         assert payload["filled_count"] == 1
+        assert payload["review_required_count"] == 0
     finally:
         teardown_client()
 

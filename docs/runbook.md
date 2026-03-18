@@ -142,14 +142,15 @@ Live order routing groundwork:
 Live execution behavior:
 
 - explicit live mode now submits orders through the live execution service when exchange credentials are configured
-- accepted live orders are persisted locally with mode `live`, submitted status, and exchange order id when available
+- accepted live orders are persisted locally with mode `live`, canonical local status, and exchange order id when available
 - local trades and positions are not updated from live submission alone; they are updated only after explicit fill reconciliation confirms a remote filled status
 
 Live fill reconciliation:
 
 - `POST /controls/live-reconcile` checks recent open live orders against the configured exchange
 - only remote `filled` orders create local trades and update live positions
-- open, partial, or detail-incomplete exchange states are persisted locally without inventing fills
+- open and partial exchange states are normalized into canonical local statuses such as `open` and `partially_filled`
+- detail-incomplete or unknown exchange responses are persisted as `review_required` so operators can see uncertain state explicitly
 - repeated reconciliation is idempotent for already-reconciled orders because only recent open live orders are considered
 - `LIVE_RECONCILE_SCHEDULE_ENABLED=true` and `LIVE_RECONCILE_SCHEDULE_INTERVAL_SECONDS` enable the same workflow as a recurring worker job in live mode
 - `STARTUP_STATE_SYNC_ENABLED=true` runs the same reconciliation workflow once during live worker startup before any new execution is attempted
@@ -158,7 +159,7 @@ Live fill reconciliation:
 Live order cancel control:
 
 - `POST /controls/live-cancel` cancels a live order by exactly one identifier: `order_id`, `client_order_id`, or `exchange_order_id`
-- cancellation is bounded to local live orders in cancelable states such as `submitted`, `new`, or `partially_filled`
+- cancellation is bounded to local live orders in cancelable states such as `submitted`, `open`, or `partially_filled`
 - local order status is updated only after the exchange confirms cancellation
 
 Stale live order visibility:
@@ -170,7 +171,7 @@ Stale live order visibility:
 Live order recovery report:
 
 - `GET /reports` now includes a compact recovery summary over unresolved live orders and recent recovery events
-- `GET /reports/live-recovery.csv` exports unresolved live orders with the latest recovery-event context
+- `GET /reports/live-recovery.csv` exports unresolved live orders with the latest recovery-event context, `requires_operator_review`, and `next_action`
 - recovery reporting is read-only and is intended to shorten operator review during live incident handling
 
 Reconciliation alerting:
