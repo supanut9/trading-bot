@@ -21,10 +21,11 @@ Current baseline on `main`:
 - performance analytics, equity-curve reporting, and CSV exports
 - deployment packaging, smoke checks, and startup validation
 - live-readiness groundwork for submission, reconciliation, cancel, stale-order visibility, and recovery reporting while keeping live trading disabled by default
+- runtime log correlation across API requests and scheduled worker jobs via shared request and run ids
 
 Next implementation queue:
 
-1. `feature/runtime-log-correlation`
+1. `feature/notification-correlation-context`
 
 ## Initial Market And Strategy
 

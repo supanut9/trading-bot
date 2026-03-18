@@ -642,3 +642,17 @@ The recovery queue and timeline had become readable, but operators still had to 
 ### Consequence
 
 `/reports` and `/reports/live-recovery.csv` now accept recovery filters for order status, review-required state, event type, and free-text search. The reporting deck preserves those filters in the CSV export link so operators can narrow the same incident slice in both the UI and export path.
+
+## 2026-03-18
+
+### Decision
+
+Add lightweight runtime log correlation through request ids and scheduled-job run ids instead of introducing a heavier observability subsystem.
+
+### Reason
+
+The runtime already emitted structured-ish logs, but API incidents and scheduled worker failures still required manual guessing about which lines belonged to the same request or job run. The next useful step was correlation metadata in the existing logs, not a new storage or query surface.
+
+### Consequence
+
+Standard log lines now include `correlation_id`. API requests preserve `X-Request-ID` when provided or generate one when absent, and scheduled worker, backtest, live-reconcile, and startup-sync jobs each run under a generated correlation id so related log entries can be followed end to end in the existing logs.

@@ -674,12 +674,30 @@ Main outputs:
 - filtered recovery queue and recovery timeline views
 - `live-recovery.csv` export that preserves the same active recovery filters
 
+### 37. `feature/runtime-log-correlation`
+
+Status:
+
+- implemented on branch
+
+Scope:
+
+- add a shared correlation id to runtime logs without introducing a separate log storage system
+- propagate request ids through API handling and generated run ids through scheduled worker jobs
+- keep the change focused on log traceability rather than building new operator surfaces
+
+Main outputs:
+
+- log lines that include `correlation_id`
+- API middleware that preserves or generates `X-Request-ID`
+- scheduled worker, reconcile, backtest, and startup-sync jobs that log under one run id each
+
 ## Current Recommended Queue
 
 These are the next bounded features after the current `main` baseline:
 
-1. `feature/runtime-log-correlation`
+1. `feature/notification-correlation-context`
 
 Current next feature:
 
-- `feature/runtime-log-correlation`
+- `feature/notification-correlation-context`
