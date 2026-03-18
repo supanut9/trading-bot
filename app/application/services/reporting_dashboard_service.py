@@ -37,6 +37,7 @@ class ReportingDashboard:
     timeframe: str
     paper_trading: bool
     live_trading_enabled: bool
+    live_trading_halted: bool
     database_status: str
     latest_price_status: str
     latest_price: str | None
@@ -74,6 +75,7 @@ class ReportingDashboardService:
         *,
         session_factory: sessionmaker[Session] | None = None,
     ) -> None:
+        self._session = session
         self._operations = OperationsService(session)
         self._audit = AuditService(session=session)
         self._stale_orders = StaleLiveOrderService(session)
@@ -83,7 +85,7 @@ class ReportingDashboardService:
         self._session_factory = session_factory
 
     def build_dashboard(self) -> ReportingDashboard:
-        status = StatusService(self._settings).get_status()
+        status = StatusService(self._settings, session=self._session).get_status()
         positions = self._operations.list_positions()
         trades = self._operations.list_trades(limit=10)
         stale_live_orders = self._stale_orders.list_stale_orders(
@@ -116,6 +118,7 @@ class ReportingDashboardService:
             timeframe=str(status["timeframe"]),
             paper_trading=bool(status["paper_trading"]),
             live_trading_enabled=bool(status["live_trading_enabled"]),
+            live_trading_halted=bool(status["live_trading_halted"]),
             database_status=str(status["database_status"]),
             latest_price_status=str(status["latest_price_status"]),
             latest_price=(

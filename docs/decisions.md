@@ -586,3 +586,17 @@ The repository already had startup validation and bounded smoke checks, but depl
 ### Consequence
 
 Smoke checks now compare the configured live safety fields against `/status` and require startup sync readiness for live worker mode. Worker and scheduled-job logs now include `live_safety_status`, making deploy and incident review less dependent on manual cross-checking.
+
+## 2026-03-18
+
+### Decision
+
+Persist operator-managed live-entry halt state in the database and expose it through bounded API and console controls.
+
+### Reason
+
+`LIVE_TRADING_HALTED` as a startup setting was enough for static safety posture, but it still required a restart or env change to halt new live entries during an incident. Operators needed a faster control that stayed narrow, auditable, and consistent across API status checks and worker execution.
+
+### Consequence
+
+The runtime now stores `live_trading_halted` in `runtime_controls` when operators change it. `POST /controls/live-halt`, the console halt and resume actions, `/status`, and worker-cycle risk evaluation all resolve the same persisted halt state first, while configuration remains the fallback when no override has been written yet.

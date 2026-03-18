@@ -4,6 +4,7 @@ from pathlib import Path
 
 from sqlalchemy import func, select
 
+from app.application.services.live_operator_control_service import LiveOperatorControlService
 from app.application.services.market_data_service import CandleInput, MarketDataService
 from app.application.services.market_data_sync_service import MarketDataSyncResult
 from app.application.services.paper_execution_service import (
@@ -304,6 +305,41 @@ def test_rejects_live_buy_when_live_trading_is_halted(tmp_path: Path) -> None:
         EXCHANGE_API_SECRET="secret",
         LIVE_TRADING_HALTED=True,
     )
+    store_closes(session, settings, [10, 10, 10, 10, 10, 9, 9, 9, 20])
+
+    result = service.run_cycle()
+
+    assert result.status == "risk_rejected"
+    assert result.detail == "live trading is halted by configuration"
+
+
+def test_rejects_live_buy_when_runtime_halt_override_is_enabled(tmp_path: Path) -> None:
+    settings = Settings(
+        DATABASE_URL=f"sqlite:///{tmp_path / 'worker_orchestration.db'}",
+        EXCHANGE_NAME="binance",
+        DEFAULT_SYMBOL="BTC/USDT",
+        DEFAULT_TIMEFRAME="1h",
+        STRATEGY_FAST_PERIOD=3,
+        STRATEGY_SLOW_PERIOD=5,
+        PAPER_ACCOUNT_EQUITY=10000.0,
+        RISK_PER_TRADE_PCT=0.01,
+        MAX_OPEN_POSITIONS=1,
+        MAX_DAILY_LOSS_PCT=0.03,
+        PAPER_TRADING=False,
+        LIVE_TRADING_ENABLED=True,
+        EXCHANGE_API_KEY="key",
+        EXCHANGE_API_SECRET="secret",
+        LIVE_TRADING_HALTED=False,
+    )
+    engine = create_engine_from_settings(settings)
+    Base.metadata.create_all(bind=engine)
+    session = create_session_factory(settings)()
+    LiveOperatorControlService(session, settings).set_live_trading_halted(
+        halted=True,
+        updated_by="test.worker",
+    )
+    session.commit()
+    service = WorkerOrchestrationService(session, settings)
     store_closes(session, settings, [10, 10, 10, 10, 10, 9, 9, 9, 20])
 
     result = service.run_cycle()

@@ -11,10 +11,12 @@ from app.config import Settings, get_settings
 from app.infrastructure.database.base import Base
 from app.infrastructure.database.models.audit_event import AuditEventRecord
 from app.infrastructure.database.models.order import OrderRecord
+from app.infrastructure.database.models.runtime_control import RuntimeControlRecord
 from app.infrastructure.database.models.trade import TradeRecord
 from app.infrastructure.database.session import (
     create_engine_from_settings,
     create_session_factory,
+    get_session,
     get_session_factory_dependency,
 )
 from app.main import app
@@ -30,7 +32,16 @@ def build_client(tmp_path: Path) -> tuple[TestClient, Settings]:
     engine = create_engine_from_settings(settings)
     Base.metadata.create_all(bind=engine)
     shared_factory = create_session_factory(settings)
+
+    def override_get_session():
+        session = shared_factory()
+        try:
+            yield session
+        finally:
+            session.close()
+
     app.dependency_overrides[get_settings] = lambda: settings
+    app.dependency_overrides[get_session] = override_get_session
     app.dependency_overrides[get_session_factory_dependency] = lambda: shared_factory
     return TestClient(app), settings
 
@@ -269,6 +280,71 @@ def test_worker_cycle_control_rejects_live_entry_when_halted(tmp_path: Path) -> 
         settings.exchange_api_key = "key"
         settings.exchange_api_secret = "secret"
         store_closes(settings, [10, 10, 10, 10, 10, 9, 9, 9, 20])
+
+        response = client.post("/controls/worker-cycle")
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["status"] == "risk_rejected"
+        assert payload["detail"] == "live trading is halted by configuration"
+        assert payload["signal_action"] == "buy"
+    finally:
+        teardown_client()
+
+
+def test_live_halt_control_updates_runtime_state_and_status(tmp_path: Path) -> None:
+    client, settings = build_client(tmp_path)
+    try:
+        settings.paper_trading = False
+        settings.live_trading_enabled = True
+        settings.exchange_api_key = "key"
+        settings.exchange_api_secret = "secret"
+
+        response = client.post("/controls/live-halt", json={"halted": True})
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["status"] == "completed"
+        assert payload["detail"] == "live entry halted"
+        assert payload["live_trading_halted"] is True
+        assert payload["changed"] is True
+
+        status_response = client.get("/status")
+        assert status_response.status_code == 200
+        assert status_response.json()["live_trading_halted"] is True
+        assert status_response.json()["live_safety_status"] == "halted"
+
+        session = create_session_factory(settings)()
+        try:
+            control = session.scalars(select(RuntimeControlRecord)).one()
+            event = session.scalars(
+                select(AuditEventRecord).order_by(AuditEventRecord.id.desc())
+            ).first()
+        finally:
+            session.close()
+
+        assert control.control_name == "live_trading_halted"
+        assert control.bool_value is True
+        assert control.updated_by == "api.control"
+        assert event is not None
+        assert event.event_type == "live_halt"
+        assert event.source == "api.control"
+    finally:
+        teardown_client()
+
+
+def test_worker_cycle_control_uses_runtime_halt_override(tmp_path: Path) -> None:
+    client, settings = build_client(tmp_path)
+    try:
+        settings.paper_trading = False
+        settings.live_trading_enabled = True
+        settings.exchange_api_key = "key"
+        settings.exchange_api_secret = "secret"
+        settings.live_trading_halted = False
+        store_closes(settings, [10, 10, 10, 10, 10, 9, 9, 9, 20])
+
+        halt_response = client.post("/controls/live-halt", json={"halted": True})
+        assert halt_response.status_code == 200
 
         response = client.post("/controls/worker-cycle")
 

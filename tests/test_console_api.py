@@ -15,6 +15,7 @@ from app.config import Settings, get_settings
 from app.infrastructure.database.base import Base
 from app.infrastructure.database.models.audit_event import AuditEventRecord
 from app.infrastructure.database.models.order import OrderRecord
+from app.infrastructure.database.models.runtime_control import RuntimeControlRecord
 from app.infrastructure.database.models.trade import TradeRecord
 from app.infrastructure.database.session import (
     create_engine_from_settings,
@@ -117,8 +118,11 @@ def test_console_renders_operator_snapshot(tmp_path: Path) -> None:
         assert "Run Worker Cycle" in response.text
         assert "Run Backtest" in response.text
         assert "Sync Market Data" in response.text
+        assert "Halt Live Entry" in response.text
+        assert "Resume Live Entry" in response.text
         assert "Reconcile Live Orders" in response.text
         assert "Cancel Live Order" in response.text
+        assert "Live Entry Halt" in response.text
         assert "Latest Price" in response.text
         assert "Open Positions" in response.text
         assert "Recent Trades" in response.text
@@ -296,6 +300,40 @@ def test_console_live_reconcile_action_renders_summary(tmp_path: Path) -> None:
             session.close()
 
         assert audit_events[0].event_type == "live_reconcile"
+        assert audit_events[0].source == "api.console"
+    finally:
+        teardown_client()
+
+
+def test_console_live_halt_action_renders_summary_and_persists_state(tmp_path: Path) -> None:
+    client, settings = build_client(tmp_path)
+    try:
+        settings.paper_trading = False
+        settings.live_trading_enabled = True
+        settings.exchange_api_key = "key"
+        settings.exchange_api_secret = "secret"
+
+        response = client.post("/console/actions/live-halt")
+
+        assert response.status_code == 200
+        assert "Live Halt" in response.text
+        assert "live entry halted" in response.text
+        assert "Live Trading Halted" in response.text
+        assert "yes" in response.text
+
+        session = create_session_factory(settings)()
+        try:
+            control = session.scalars(select(RuntimeControlRecord)).one()
+            audit_events = session.scalars(
+                select(AuditEventRecord).order_by(AuditEventRecord.id.desc())
+            ).all()
+        finally:
+            session.close()
+
+        assert control.control_name == "live_trading_halted"
+        assert control.bool_value is True
+        assert control.updated_by == "api.console"
+        assert audit_events[0].event_type == "live_halt"
         assert audit_events[0].source == "api.console"
     finally:
         teardown_client()
