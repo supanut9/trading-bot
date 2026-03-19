@@ -36,8 +36,8 @@ Current production boundary:
 
 Next implementation queue:
 
-1. `feature/operator-ui-foundation`
-2. `feature/runtime-operator-config`
+1. `feature/operator-market-sync-controls`
+2. `feature/reporting-ui`
 
 ## Initial Market And Strategy
 
@@ -52,6 +52,7 @@ Next implementation queue:
 - ingest closed candle batches through a local API path
 - sync recent closed candles from a configured exchange adapter before worker execution when enabled
 - backfill older candles into an existing market-data store through an operator-initiated sync mode when more history is needed for backtests
+- allow operators to run market sync against an explicit symbol and timeframe without silently mutating persisted runtime defaults
 - run deterministic backtests over stored historical candles
 - calculate indicators
 - generate signals from deterministic strategy rules
@@ -85,6 +86,7 @@ Next implementation queue:
 - load deterministic local demo candle scenarios for no-action, buy-crossover, and sell-crossover operator workflows
 - export operational and backtest summary data as CSV for review and offline inspection
 - render operator-facing dashboard, reporting, and control workflows in the in-repo Next.js application while keeping FastAPI as the source of truth for business logic and controls
+- provide a dedicated market-sync controls page with explicit symbol, timeframe, limit, and backfill inputs plus sync-result feedback
 - provide a dedicated backtest page with parameterized inputs and chart visualization for replay analysis
 - provide preset-first backtest strategy selection backed by curated rule-builder presets
 - persist paper-runtime operator defaults for symbol, timeframe, and EMA periods so operator actions do not depend only on startup env

@@ -541,6 +541,81 @@ def test_market_sync_control_uses_runtime_operator_config(tmp_path: Path) -> Non
         teardown_client()
 
 
+def test_market_sync_control_accepts_explicit_market_selection(tmp_path: Path) -> None:
+    client, settings = build_client(tmp_path)
+    try:
+        client.post(
+            "/controls/operator-config",
+            json={
+                "strategy_name": "ema_crossover",
+                "symbol": "BTC/USDT",
+                "timeframe": "1h",
+                "fast_period": 3,
+                "slow_period": 5,
+            },
+        )
+        session_factory = create_session_factory(settings)
+
+        class SyncStub:
+            def sync_recent_closed_candles(
+                self,
+                *,
+                exchange: str,
+                symbol: str,
+                timeframe: str,
+                limit: int,
+                backfill: bool = False,
+            ) -> MarketDataSyncResult:
+                assert exchange == settings.exchange_name
+                assert symbol == "SOL/USDT"
+                assert timeframe == "15m"
+                assert limit == 250
+                assert backfill is True
+                session = session_factory()
+                try:
+                    store_market_closes(
+                        settings,
+                        symbol="SOL/USDT",
+                        timeframe="15m",
+                        closes=[100, 101, 102],
+                    )
+                finally:
+                    session.close()
+                return MarketDataSyncResult(
+                    fetched_count=3,
+                    stored_count=3,
+                    latest_open_time=datetime(2026, 1, 1, 2, tzinfo=UTC),
+                )
+
+        from app.application.services import operational_control_service as controls_module
+
+        original = controls_module.MarketDataSyncService
+        controls_module.MarketDataSyncService = lambda session, client: SyncStub()
+        try:
+            response = client.post(
+                "/controls/market-sync",
+                json={
+                    "symbol": "SOL/USDT",
+                    "timeframe": "15m",
+                    "limit": 250,
+                    "backfill": True,
+                },
+            )
+        finally:
+            controls_module.MarketDataSyncService = original
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["status"] == "completed"
+        assert payload["detail"] == "market data backfill completed"
+        assert payload["symbol"] == "SOL/USDT"
+        assert payload["timeframe"] == "15m"
+        assert payload["limit"] == 250
+        assert payload["backfill"] is True
+    finally:
+        teardown_client()
+
+
 def test_market_sync_control_accepts_backfill_and_limit_override(tmp_path: Path) -> None:
     client, settings = build_client(tmp_path)
     try:

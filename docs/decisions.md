@@ -816,3 +816,9 @@ Keeping both UI stacks in service would duplicate operator workflows, prolong ou
 ### Consequence
 
 `/console` and `GET /reports` no longer exist on the backend. FastAPI keeps the bounded JSON control endpoints, status and operations APIs, and `/reports/*.csv` export routes that the Next.js UI can consume or link to directly.
+
+## 2026-03-19: Let Market Sync Accept Explicit Market Selection
+
+The original `POST /controls/market-sync` endpoint only accepted `limit` and `backfill`, which forced any UI to rely on persisted operator defaults for `symbol` and `timeframe`. That was too implicit for the Next.js controls workflow because operators need to target a market window for one sync run without assuming they changed global runtime state.
+
+The market-sync control now accepts optional `symbol` and `timeframe` fields. When omitted, the service still resolves the effective operator defaults, but when supplied it runs the sync against those explicit values for that request only. The new Next.js controls page uses that contract so the operator can choose market, timeframe, candle limit, and append or backfill mode directly.

@@ -88,13 +88,50 @@ export type TradeResponse = {
   fee_asset: string | null;
 };
 
+export type OperatorConfigResponse = {
+  status: string;
+  detail: string;
+  strategy_name: string;
+  exchange: string;
+  symbol: string;
+  timeframe: string;
+  fast_period: number;
+  slow_period: number;
+  source: string;
+  changed: boolean;
+  notified: boolean;
+};
+
+export type MarketSyncControlRequest = {
+  symbol?: string;
+  timeframe?: string;
+  limit?: number;
+  backfill?: boolean;
+};
+
+export type MarketSyncControlResponse = {
+  status: string;
+  detail: string;
+  symbol: string;
+  timeframe: string;
+  limit: number;
+  backfill: boolean;
+  fetched_count: number;
+  stored_count: number;
+  latest_open_time: string | null;
+  notified: boolean;
+};
+
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "") ?? "http://127.0.0.1:8000";
 
-async function request<T>(path: string): Promise<T> {
+async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
+    ...init,
     headers: {
       Accept: "application/json",
+      ...(init?.body ? { "Content-Type": "application/json" } : {}),
+      ...(init?.headers ?? {}),
     },
   });
 
@@ -119,4 +156,17 @@ export function getPositions(): Promise<PositionResponse[]> {
 
 export function getTrades(limit = 8): Promise<TradeResponse[]> {
   return request<TradeResponse[]>(`/trades?limit=${limit}`);
+}
+
+export function getOperatorConfig(): Promise<OperatorConfigResponse> {
+  return request<OperatorConfigResponse>("/controls/operator-config");
+}
+
+export function runMarketSync(
+  payload: MarketSyncControlRequest,
+): Promise<MarketSyncControlResponse> {
+  return request<MarketSyncControlResponse>("/controls/market-sync", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
 }

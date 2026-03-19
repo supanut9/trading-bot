@@ -1,4 +1,8 @@
+"use client";
+
 import type { ReactNode } from "react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { Activity, AreaChart, Bot, ShieldCheck } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -8,12 +12,14 @@ type OperatorShellProps = {
 };
 
 const navItems = [
-  { label: "Overview", icon: AreaChart, state: "Live now" },
-  { label: "Runtime", icon: Activity, state: "Next slice" },
-  { label: "Controls", icon: ShieldCheck, state: "Planned" },
+  { label: "Overview", href: "/", icon: AreaChart, state: "Live now" },
+  { label: "Runtime", href: "/runtime", icon: Activity, state: "Next slice" },
+  { label: "Controls", href: "/controls", icon: ShieldCheck, state: "Live now" },
 ];
 
 export function OperatorShell({ children }: OperatorShellProps) {
+  const pathname = usePathname();
+
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(56,189,248,0.14),_transparent_24%),linear-gradient(180deg,_#071019_0%,_#02060a_100%)] text-white">
       <div className="mx-auto flex min-h-screen max-w-[1600px] flex-col px-4 py-4 lg:flex-row lg:px-6">
@@ -33,24 +39,41 @@ export function OperatorShell({ children }: OperatorShellProps) {
           </div>
 
           <div className="mt-5 space-y-3">
-            {navItems.map(({ label, icon: Icon, state }) => (
-              <div
-                className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3"
-                key={label}
-              >
+            {navItems.map(({ label, href, icon: Icon, state }) => {
+              const isActive = pathname === href;
+
+              return (
+                <Link
+                  className={`block rounded-2xl border px-4 py-3 transition ${
+                    isActive
+                      ? "border-cyan-300/40 bg-cyan-400/10 shadow-[0_12px_40px_rgba(34,211,238,0.12)]"
+                      : "border-white/10 bg-white/[0.03] hover:border-white/20 hover:bg-white/[0.05]"
+                  }`}
+                  href={href}
+                  key={label}
+                >
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-3">
-                    <div className="rounded-xl bg-white/5 p-2 text-slate-200">
+                    <div
+                      className={`rounded-xl p-2 ${
+                        isActive ? "bg-cyan-300/10 text-cyan-100" : "bg-white/5 text-slate-200"
+                      }`}
+                    >
                       <Icon className="h-4 w-4" />
                     </div>
                     <span className="text-sm font-medium text-slate-100">{label}</span>
                   </div>
-                  <span className="text-[10px] uppercase tracking-[0.16em] text-slate-500">
+                  <span
+                    className={`text-[10px] uppercase tracking-[0.16em] ${
+                      isActive ? "text-cyan-200/90" : "text-slate-500"
+                    }`}
+                  >
                     {state}
                   </span>
                 </div>
-              </div>
-            ))}
+                </Link>
+              );
+            })}
           </div>
 
           <div className="mt-6 rounded-[1.6rem] border border-cyan-400/15 bg-cyan-400/5 p-4">

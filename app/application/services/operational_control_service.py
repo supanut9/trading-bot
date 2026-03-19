@@ -124,6 +124,14 @@ class MarketSyncControlResult:
 
 
 @dataclass(frozen=True, slots=True)
+class MarketSyncRunOptions:
+    symbol: str | None = None
+    timeframe: str | None = None
+    limit: int | None = None
+    backfill: bool = False
+
+
+@dataclass(frozen=True, slots=True)
 class LiveReconcileControlResult:
     status: str
     detail: str
@@ -236,36 +244,40 @@ class OperationalControlService:
     def run_market_sync(
         self,
         *,
-        limit: int | None = None,
-        backfill: bool = False,
+        options: MarketSyncRunOptions | None = None,
         source: str = "internal",
         audit: bool = True,
     ) -> MarketSyncControlResult:
-        resolved_limit = limit if limit is not None else self._settings.market_data_sync_limit
+        active = options or MarketSyncRunOptions()
+        resolved_limit = (
+            active.limit if active.limit is not None else self._settings.market_data_sync_limit
+        )
         with self._session_factory() as session:
             operator_config = OperatorRuntimeConfigService(
                 session,
                 self._settings,
             ).get_effective_config()
+            resolved_symbol = (active.symbol or operator_config.symbol).strip()
+            resolved_timeframe = (active.timeframe or operator_config.timeframe).strip()
             try:
                 result = MarketDataSyncService(
                     session,
                     build_market_data_exchange_client(self._settings),
                 ).sync_recent_closed_candles(
                     exchange=self._settings.exchange_name,
-                    symbol=operator_config.symbol,
-                    timeframe=operator_config.timeframe,
+                    symbol=resolved_symbol,
+                    timeframe=resolved_timeframe,
                     limit=resolved_limit,
-                    backfill=backfill,
+                    backfill=active.backfill,
                 )
             except Exception:
                 failed = MarketSyncControlResult(
                     status="failed",
                     detail="market data sync failed",
-                    symbol=operator_config.symbol,
-                    timeframe=operator_config.timeframe,
+                    symbol=resolved_symbol,
+                    timeframe=resolved_timeframe,
                     limit=resolved_limit,
-                    backfill=backfill,
+                    backfill=active.backfill,
                     fetched_count=0,
                     stored_count=0,
                 )
@@ -301,20 +313,20 @@ class OperationalControlService:
                 return control_result
 
         detail = "market data sync completed"
-        if backfill:
+        if active.backfill:
             detail = "market data backfill completed"
         if result.fetched_count == 0:
             detail = "no candles fetched"
         elif result.stored_count == 0:
-            detail = "no new candles stored" if not backfill else "no candles stored"
+            detail = "no new candles stored" if not active.backfill else "no candles stored"
 
         completed = MarketSyncControlResult(
             status="completed",
             detail=detail,
-            symbol=operator_config.symbol,
-            timeframe=operator_config.timeframe,
+            symbol=resolved_symbol,
+            timeframe=resolved_timeframe,
             limit=resolved_limit,
-            backfill=backfill,
+            backfill=active.backfill,
             fetched_count=result.fetched_count,
             stored_count=result.stored_count,
             latest_open_time=result.latest_open_time,

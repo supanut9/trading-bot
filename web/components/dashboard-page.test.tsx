@@ -4,6 +4,10 @@ import { afterEach, beforeEach, vi } from "vitest";
 
 import { DashboardPage } from "@/components/dashboard-page";
 
+vi.mock("next/navigation", () => ({
+  usePathname: () => "/",
+}));
+
 const fetchMock = vi.fn();
 
 function renderWithQueryClient(): void {

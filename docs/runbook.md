@@ -109,7 +109,7 @@ Manual controls:
 - `POST /controls/worker-cycle` runs one worker cycle with the current configured strategy, risk, and paper/live mode
 - `GET /controls/operator-config` returns the effective paper-runtime strategy, symbol, timeframe, and EMA defaults
 - `POST /controls/operator-config` persists paper-runtime strategy, symbol, timeframe, and EMA defaults for later worker, sync, status, and console use
-- `POST /controls/market-sync` fetches recent closed candles for the configured exchange and effective runtime symbol/timeframe and stores them through the market data service
+- `POST /controls/market-sync` fetches recent closed candles for the configured exchange and either the effective runtime symbol/timeframe or an explicitly supplied market override, then stores them through the market data service
 - `POST /controls/backtest` runs one backtest over stored candles and can now accept either the legacy EMA inputs or a structured rule-builder payload with separate shared, buy, and sell groups
 - live worker execution now rejects a new same-side live submission when an unresolved live order already exists for that market
 - `POST /controls/live-halt` persists the live-entry halt state used by status and worker execution
