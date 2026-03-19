@@ -169,6 +169,39 @@ test("renders reporting analytics, recovery data, and export links", async () =>
       );
     }
 
+    if (url.includes("/reports/audit")) {
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            event_count: 1,
+            filters: {
+              event_type: null,
+              status: null,
+              source: null,
+              search: null,
+            },
+            events: [
+              {
+                id: 99,
+                created_at: "2026-03-19T03:00:00Z",
+                event_type: "worker_cycle",
+                source: "api.control",
+                status: "completed",
+                detail: "worker completed",
+                exchange: "binance",
+                symbol: "BTC/USDT",
+                timeframe: "1h",
+                channel: null,
+                related_event_type: null,
+                correlation_id: "corr-789",
+                payload_json: "{\"signal_action\":\"buy\"}",
+              },
+            ],
+          }),
+        ),
+      );
+    }
+
     return Promise.resolve(
       new Response(
         JSON.stringify({
@@ -234,7 +267,9 @@ test("renders reporting analytics, recovery data, and export links", async () =>
   expect(screen.getByText("Recovery Queue")).toBeInTheDocument();
   expect(screen.getByText("Recovery Timeline")).toBeInTheDocument();
   expect(screen.getByText("Notification Delivery")).toBeInTheDocument();
+  expect(screen.getByText("Audit Feed")).toBeInTheDocument();
   expect(screen.getByText("Live recovery")).toBeInTheDocument();
   expect(screen.getByText("Notification delivery")).toBeInTheDocument();
+  expect(screen.getByText("Audit feed")).toBeInTheDocument();
   expect(screen.getByText("Daily Rollup")).toBeInTheDocument();
 });

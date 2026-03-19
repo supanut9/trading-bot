@@ -333,6 +333,19 @@ export type NotificationDashboardResponse = {
   events: AuditEventResponse[];
 };
 
+export type AuditReportFilters = {
+  event_type: string | null;
+  status: string | null;
+  source: string | null;
+  search: string | null;
+};
+
+export type AuditDashboardResponse = {
+  event_count: number;
+  filters: AuditReportFilters;
+  events: AuditEventResponse[];
+};
+
 export const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "") ?? "http://127.0.0.1:8000";
 
@@ -407,6 +420,29 @@ export function getNotificationDashboard(params?: {
   return request<NotificationDashboardResponse>(
     `/reports/notifications${suffix ? `?${suffix}` : ""}`,
   );
+}
+
+export function getAuditDashboard(params?: {
+  audit_event_type?: string;
+  audit_status?: string;
+  audit_source?: string;
+  audit_search?: string;
+}): Promise<AuditDashboardResponse> {
+  const searchParams = new URLSearchParams();
+  if (params?.audit_event_type) {
+    searchParams.set("audit_event_type", params.audit_event_type);
+  }
+  if (params?.audit_status) {
+    searchParams.set("audit_status", params.audit_status);
+  }
+  if (params?.audit_source) {
+    searchParams.set("audit_source", params.audit_source);
+  }
+  if (params?.audit_search) {
+    searchParams.set("audit_search", params.audit_search);
+  }
+  const suffix = searchParams.toString();
+  return request<AuditDashboardResponse>(`/reports/audit${suffix ? `?${suffix}` : ""}`);
 }
 
 export function getPositions(): Promise<PositionResponse[]> {

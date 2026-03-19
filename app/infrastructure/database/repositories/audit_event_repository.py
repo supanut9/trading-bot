@@ -41,10 +41,14 @@ class AuditEventRepository:
                     func.lower(AuditEventRecord.source).like(search_term),
                     func.lower(AuditEventRecord.status).like(search_term),
                     func.lower(AuditEventRecord.detail).like(search_term),
+                    func.lower(func.coalesce(AuditEventRecord.exchange, "")).like(search_term),
+                    func.lower(func.coalesce(AuditEventRecord.symbol, "")).like(search_term),
+                    func.lower(func.coalesce(AuditEventRecord.timeframe, "")).like(search_term),
                     func.lower(func.coalesce(AuditEventRecord.channel, "")).like(search_term),
                     func.lower(func.coalesce(AuditEventRecord.related_event_type, "")).like(
                         search_term
                     ),
+                    func.lower(func.coalesce(AuditEventRecord.payload_json, "")).like(search_term),
                 )
             )
         statement = statement.order_by(

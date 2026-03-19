@@ -423,3 +423,43 @@ def test_notification_dashboard_returns_filtered_delivery_data(tmp_path: Path) -
         assert payload["events"][0]["correlation_id"] == "corr-123"
     finally:
         teardown_client(session)
+
+
+def test_audit_dashboard_returns_filtered_audit_rows(tmp_path: Path) -> None:
+    client, session, settings = build_client(tmp_path)
+    try:
+        AuditService(session=session).record_control_result(
+            control_type="worker_cycle",
+            source="api.control",
+            status="completed",
+            detail="worker completed",
+            settings=settings,
+            payload={
+                "exchange": "binance",
+                "symbol": "BTC/USDT",
+                "timeframe": "1h",
+                "correlation_id": "corr-789",
+            },
+        )
+        AuditService(session=session).record_control_result(
+            control_type="market_sync",
+            source="scheduler",
+            status="failed",
+            detail="sync failed",
+            settings=settings,
+            payload={"exchange": "binance", "symbol": "ETH/USDT"},
+        )
+        session.commit()
+
+        response = client.get("/reports/audit?audit_event_type=worker_cycle&audit_search=corr-789")
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["event_count"] == 1
+        assert payload["filters"]["event_type"] == "worker_cycle"
+        assert payload["filters"]["search"] == "corr-789"
+        assert payload["events"][0]["event_type"] == "worker_cycle"
+        assert payload["events"][0]["source"] == "api.control"
+        assert payload["events"][0]["correlation_id"] == "corr-789"
+    finally:
+        teardown_client(session)

@@ -12,7 +12,9 @@ from app.application.services.status_service import StatusService
 from app.config import Settings, get_settings
 from app.infrastructure.database.session import get_session, get_session_factory_dependency
 from app.interfaces.api.schemas import (
+    AuditDashboardResponse,
     AuditEventResponse,
+    AuditReportFiltersResponse,
     NotificationDashboardResponse,
     NotificationReportFiltersResponse,
     RecoveryDashboardResponse,
@@ -218,6 +220,40 @@ def get_notification_dashboard(
             AuditEventResponse.model_validate(event)
             for event in dashboard.notification_delivery_events
         ],
+    )
+
+
+@router.get("/audit", response_model=AuditDashboardResponse)
+def get_audit_dashboard(
+    session: Session = session_dependency,
+    settings: Settings = settings_dependency,
+    session_factory: sessionmaker[Session] = session_factory_dependency,
+    audit_event_type: str | None = None,
+    audit_status: str | None = None,
+    audit_source: str | None = None,
+    audit_search: str | None = None,
+) -> AuditDashboardResponse:
+    filters = _build_audit_filters(
+        event_type=audit_event_type,
+        status=audit_status,
+        source=audit_source,
+        search=audit_search,
+    )
+    dashboard = ReportingDashboardService(
+        session,
+        settings,
+        session_factory=session_factory,
+        audit_filters=filters,
+    ).build_dashboard()
+    return AuditDashboardResponse(
+        event_count=len(dashboard.audit_events),
+        filters=AuditReportFiltersResponse(
+            event_type=dashboard.audit_filters.event_type,
+            status=dashboard.audit_filters.status,
+            source=dashboard.audit_filters.source,
+            search=dashboard.audit_filters.search,
+        ),
+        events=[AuditEventResponse.model_validate(event) for event in dashboard.audit_events],
     )
 
 

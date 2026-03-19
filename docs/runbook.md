@@ -127,6 +127,7 @@ Report exports:
 - `GET /reports/backtest-summary.csv` runs one backtest summary export against stored candles using current settings
 - `GET /reports/recovery` returns the read-only recovery dashboard slice used by the Next.js reporting route
 - `GET /reports/notifications` returns the read-only notification-delivery slice used by the Next.js reporting route
+- `GET /reports/audit` returns the read-only generic audit slice used by the Next.js reporting route
 - `GET /reports/audit.csv` exports recent audit events for control runs and notification delivery attempts
 - `GET /reports/notification-delivery.csv` exports notification-delivery audit rows
 - `GET /reports/live-recovery.csv` exports unresolved live-order recovery rows
