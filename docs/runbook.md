@@ -185,9 +185,16 @@ Live fill reconciliation:
 
 Live order cancel control:
 
+- `POST /controls/live-halt` persists the live-entry halt state used by status and worker execution
 - `POST /controls/live-cancel` cancels a live order by exactly one identifier: `order_id`, `client_order_id`, or `exchange_order_id`
 - cancellation is bounded to local live orders in cancelable states such as `submitted`, `open`, or `partially_filled`
 - local order status is updated only after the exchange confirms cancellation
+
+Next.js controls route:
+
+- `/controls` shows the current live posture from `GET /status`
+- operators can halt or resume live entry, run live reconcile, and submit one explicit cancel identifier at a time
+- the browser remains a bounded control surface; duplicate-order checks, sizing limits, and fail-closed execution behavior remain backend-owned
 
 Stale live order visibility:
 

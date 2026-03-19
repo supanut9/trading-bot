@@ -205,6 +205,43 @@ export type WorkerControlResponse = {
   notified: boolean;
 };
 
+export type LiveReconcileControlResponse = {
+  status: string;
+  detail: string;
+  reconciled_count: number;
+  filled_count: number;
+  review_required_count: number;
+  notified: boolean;
+};
+
+export type LiveHaltControlRequest = {
+  halted: boolean;
+};
+
+export type LiveHaltControlResponse = {
+  status: string;
+  detail: string;
+  live_trading_halted: boolean;
+  changed: boolean;
+  notified: boolean;
+};
+
+export type LiveCancelControlRequest = {
+  order_id?: number;
+  client_order_id?: string;
+  exchange_order_id?: string;
+};
+
+export type LiveCancelControlResponse = {
+  status: string;
+  detail: string;
+  order_id: number | null;
+  client_order_id: string | null;
+  exchange_order_id: string | null;
+  order_status: string | null;
+  notified: boolean;
+};
+
 export const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "") ?? "http://127.0.0.1:8000";
 
@@ -270,6 +307,30 @@ export function runMarketSync(
 export function runWorkerCycle(): Promise<WorkerControlResponse> {
   return request<WorkerControlResponse>("/controls/worker-cycle", {
     method: "POST",
+  });
+}
+
+export function runLiveReconcile(): Promise<LiveReconcileControlResponse> {
+  return request<LiveReconcileControlResponse>("/controls/live-reconcile", {
+    method: "POST",
+  });
+}
+
+export function runLiveHalt(
+  payload: LiveHaltControlRequest,
+): Promise<LiveHaltControlResponse> {
+  return request<LiveHaltControlResponse>("/controls/live-halt", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function runLiveCancel(
+  payload: LiveCancelControlRequest,
+): Promise<LiveCancelControlResponse> {
+  return request<LiveCancelControlResponse>("/controls/live-cancel", {
+    method: "POST",
+    body: JSON.stringify(payload),
   });
 }
 

@@ -971,7 +971,7 @@ Main outputs:
 
 Status:
 
-- in progress on `feature/operator-backtest-ui`
+- merged to `main`
 
 Scope:
 
@@ -985,13 +985,31 @@ Main outputs:
 - parameterized backtest form for market, strategy, EMA, and starting-equity inputs
 - preset-first rule-builder strategy selection with clear result feedback, charting, and execution detail
 
+### 52. `feature/live-ops-ui`
+
+Status:
+
+- in progress on `feature/live-ops-ui`
+
+Scope:
+
+- expose bounded live-operation controls in the Next.js operator UI
+- reuse the existing live halt, reconcile, and cancel control APIs
+- keep live safety policy, validation, and execution logic in the Python backend
+
+Main outputs:
+
+- live posture snapshot inside the controls route
+- operator-triggered live halt and resume actions
+- explicit live reconcile and cancel actions with result feedback
+
 ## Current Recommended Queue
 
 These are the next bounded features after the current `main` baseline:
 
-1. `feature/operator-backtest-ui`
-2. `feature/live-ops-ui`
+1. `feature/live-ops-ui`
+2. `feature/recovery-reporting-ui`
 
 Current next feature:
 
-- `feature/operator-backtest-ui`
+- `feature/live-ops-ui`

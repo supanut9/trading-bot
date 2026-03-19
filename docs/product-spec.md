@@ -36,8 +36,8 @@ Current production boundary:
 
 Next implementation queue:
 
-1. `feature/operator-backtest-ui`
-2. `feature/live-ops-ui`
+1. `feature/live-ops-ui`
+2. `feature/recovery-reporting-ui`
 
 ## Initial Market And Strategy
 
@@ -87,6 +87,7 @@ Next implementation queue:
 - export operational and backtest summary data as CSV for review and offline inspection
 - render operator-facing dashboard, reporting, and control workflows in the in-repo Next.js application while keeping FastAPI as the source of truth for business logic and controls
 - provide a dedicated market-sync controls page with explicit symbol, timeframe, limit, and backfill inputs plus sync-result feedback
+- expose current live posture, halt or resume, reconcile, and manual cancel actions inside the controls page while keeping live safety and execution policy in the backend
 - provide a dedicated reporting page in Next.js with performance analytics, equity-curve visibility, and direct CSV export links
 - provide a dedicated backtest page with parameterized inputs and chart visualization for replay analysis
 - provide preset-first backtest strategy selection backed by curated rule-builder presets

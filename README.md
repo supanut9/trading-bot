@@ -84,6 +84,7 @@ The API now exposes basic operational visibility endpoints:
 - `POST /controls/market-sync`
 - `POST /controls/worker-cycle`
 - `POST /controls/backtest`
+- `POST /controls/live-halt`
 - `POST /controls/live-reconcile`
 - `POST /controls/live-cancel`
 - `GET /reports/positions.csv`
