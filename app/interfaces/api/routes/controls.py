@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from app.application.services.operational_control_service import (
     BacktestRunOptions,
+    MarketSyncRunOptions,
     OperationalControlService,
 )
 from app.config import Settings, get_settings
@@ -141,8 +142,12 @@ def run_market_sync(
         settings,
         session_factory=session_factory,
     ).run_market_sync(
-        limit=payload.limit,
-        backfill=payload.backfill,
+        options=MarketSyncRunOptions(
+            symbol=payload.symbol,
+            timeframe=payload.timeframe,
+            limit=payload.limit,
+            backfill=payload.backfill,
+        ),
         source="api.control",
     )
     return MarketSyncControlResponse.model_validate(result)

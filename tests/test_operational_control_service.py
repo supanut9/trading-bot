@@ -6,6 +6,7 @@ from app.application.services.operational_control_service import (
     LiveCancelControlResult,
     LiveReconcileControlResult,
     MarketSyncControlResult,
+    MarketSyncRunOptions,
     OperationalControlService,
     WorkerControlResult,
 )
@@ -208,6 +209,76 @@ def test_market_sync_control_reports_no_new_candles(monkeypatch) -> None:
     assert result.notified is True
     assert len(audit.entries) == 1
     assert audit.entries[0]["status"] == "completed"
+
+
+def test_market_sync_control_accepts_explicit_market_options(monkeypatch) -> None:
+    settings = Settings(DATABASE_URL="sqlite:///./operational_controls.db")
+    notifications = RecordingNotifications(SessionState())
+    audit = RecordingAudit()
+
+    class FakeSyncService:
+        def __init__(self, _session: FakeSession, _client: object) -> None:
+            pass
+
+        def sync_recent_closed_candles(
+            self,
+            *,
+            exchange: str,
+            symbol: str,
+            timeframe: str,
+            limit: int,
+            backfill: bool = False,
+        ) -> MarketDataSyncResult:
+            assert exchange == settings.exchange_name
+            assert symbol == "ETH/USDT"
+            assert timeframe == "4h"
+            assert limit == 250
+            assert backfill is True
+            return MarketDataSyncResult(
+                fetched_count=12,
+                stored_count=12,
+                latest_open_time=datetime(2026, 1, 1, 11, tzinfo=UTC),
+            )
+
+    monkeypatch.setattr(
+        "app.application.services.operational_control_service.MarketDataSyncService",
+        FakeSyncService,
+    )
+    monkeypatch.setattr(
+        "app.application.services.operational_control_service.build_market_data_exchange_client",
+        lambda _settings: object(),
+    )
+
+    service = OperationalControlService(
+        settings,
+        session_factory=lambda: FakeSession(SessionState()),
+        notifications=notifications,
+        audit=audit,
+    )
+
+    result = service.run_market_sync(
+        options=MarketSyncRunOptions(
+            symbol="ETH/USDT",
+            timeframe="4h",
+            limit=250,
+            backfill=True,
+        )
+    )
+
+    assert result == MarketSyncControlResult(
+        status="completed",
+        detail="market data backfill completed",
+        symbol="ETH/USDT",
+        timeframe="4h",
+        limit=250,
+        backfill=True,
+        fetched_count=12,
+        stored_count=12,
+        latest_open_time=datetime(2026, 1, 1, 11, tzinfo=UTC),
+        notified=True,
+    )
+    assert len(audit.entries) == 1
+    assert audit.entries[0]["payload"]["symbol"] == "ETH/USDT"
 
 
 def test_live_reconcile_control_returns_completed_result(monkeypatch) -> None:

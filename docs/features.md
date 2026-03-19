@@ -861,25 +861,25 @@ Main outputs:
 
 Status:
 
-- in progress
+- merged to `main`
 
 Scope:
 
 - move paper-runtime market and strategy defaults out of env-only control and into bounded persisted operator controls
-- let operators update the active symbol, timeframe, and EMA periods from the FastAPI console and control API
+- let operators update the active symbol, timeframe, and EMA periods from bounded operator controls
 - make worker cycle, market sync, status, and default backtest behavior resolve the same effective runtime config
 
 Main outputs:
 
 - persisted operator-runtime defaults for strategy, symbol, timeframe, and EMA periods
 - `/controls/operator-config` read and write endpoints
-- `/console` runtime-defaults form plus shared use of those defaults across paper actions
+- shared use of those defaults across paper actions
 
 ### 46. `feature/operator-ui-foundation`
 
 Status:
 
-- planned
+- merged to `main`
 
 Scope:
 
@@ -895,13 +895,31 @@ Main outputs:
 - a shared operator shell for dashboard and reporting pages
 - a bounded migration path away from FastAPI-rendered HTML pages
 
+### 47. `feature/operator-market-sync-controls`
+
+Status:
+
+- in progress on `feature/operator-market-sync-controls`
+
+Scope:
+
+- add a real Next.js controls page for operator-triggered market sync
+- allow the bounded market-sync control API to accept explicit symbol and timeframe inputs
+- keep sync execution read/write bounded to candle storage without widening trading behavior
+
+Main outputs:
+
+- `/controls/market-sync` support for explicit market selection in the request payload
+- Next.js controls page with symbol, timeframe, limit, and backfill inputs
+- result panel and safe operator guidance for append vs backfill usage
+
 ## Current Recommended Queue
 
 These are the next bounded features after the current `main` baseline:
 
-1. `feature/operator-ui-foundation`
-2. `feature/runtime-operator-config`
+1. `feature/operator-market-sync-controls`
+2. `feature/reporting-ui`
 
 Current next feature:
 
-- `feature/operator-ui-foundation`
+- `feature/operator-market-sync-controls`

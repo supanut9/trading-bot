@@ -169,10 +169,14 @@ If `5434` is also occupied locally, set `POSTGRES_HOST_PORT` before `make db-up`
 
 ## Market Sync
 
-`POST /controls/market-sync` supports two sync modes:
+`POST /controls/market-sync` supports explicit per-run market selection plus two sync modes:
 
 - append mode: fetch recent candles and store only candles newer than the latest one already in the database
 - backfill mode: fetch recent candles and upsert the full returned window so older missing candles can be loaded into an existing database
+
+When `symbol` and `timeframe` are omitted, the control uses the effective operator runtime
+defaults. When they are supplied, the sync runs against those values without changing persisted
+runtime defaults.
 
 ## Deployment Packaging
 
