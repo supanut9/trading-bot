@@ -22,7 +22,7 @@ Operator-facing paper-trading platform with backtesting, reporting, performance 
 - SQLAlchemy
 - PostgreSQL via Docker for local development
 - one exchange adapter
-- one strategy
+- one runtime execution strategy plus a configurable backtest rule builder
 - paper trading only
 
 ## Non-Goals For V1
@@ -48,6 +48,7 @@ Operator-facing paper-trading platform with backtesting, reporting, performance 
 Use the `Makefile` once dependencies are installed:
 
 - `make install`
+- `make install-web`
 - `make install-hooks`
 - `make init-db`
 - `make db-up`
@@ -58,6 +59,7 @@ Use the `Makefile` once dependencies are installed:
 - `make test`
 - `make pr-check`
 - `make run-api`
+- `make run-web`
 - `make run-worker`
 - `make run-backtest`
 - `make docker-build`
@@ -72,7 +74,6 @@ The API now exposes basic operational visibility endpoints:
 
 - `GET /health`
 - `GET /status`
-- `GET /console`
 - `GET /positions`
 - `GET /performance/summary`
 - `GET /performance/daily.csv`
@@ -85,12 +86,34 @@ The API now exposes basic operational visibility endpoints:
 - `POST /controls/backtest`
 - `POST /controls/live-reconcile`
 - `POST /controls/live-cancel`
-- `GET /reports`
 - `GET /reports/positions.csv`
 - `GET /reports/trades.csv`
 - `GET /reports/backtest-summary.csv`
 - `GET /reports/audit.csv`
+- `GET /reports/notification-delivery.csv`
 - `GET /reports/live-recovery.csv`
+
+## Operator UI
+
+The new operator UI scaffold lives in `web/` and runs as a separate Next.js app inside this repo.
+
+Local frontend workflow:
+
+```bash
+make install-web
+make run-api
+make run-web
+```
+
+Default local URLs:
+
+- FastAPI: `http://127.0.0.1:8000`
+- Next.js operator UI: `http://127.0.0.1:3000`
+
+Frontend environment:
+
+- copy `web/.env.local.example` to `web/.env.local` if you need to point the UI at a different API base URL
+- allow additional browser origins for the API with `FRONTEND_ORIGINS`
 
 ## Notifications
 
@@ -146,7 +169,7 @@ If `5434` is also occupied locally, set `POSTGRES_HOST_PORT` before `make db-up`
 
 ## Market Sync
 
-The operator console and `POST /controls/market-sync` now support two sync modes:
+`POST /controls/market-sync` supports two sync modes:
 
 - append mode: fetch recent candles and store only candles newer than the latest one already in the database
 - backfill mode: fetch recent candles and upsert the full returned window so older missing candles can be loaded into an existing database
@@ -179,10 +202,9 @@ Container runtime selection uses `APP_RUNTIME`:
 - `worker`
 - `backtest`
 
-Operator UI entrypoints:
+Operator UI entrypoint:
 
-- `/console`: runtime controls and operational snapshot
-- `/console/backtest`: dedicated backtest page with chart visualization
+- Next.js UI at `http://127.0.0.1:3000` during local development
 
 ## Deployment Environment Baseline
 
@@ -226,7 +248,6 @@ The current status and reporting surfaces now include the latest read-only excha
 Use:
 
 - `GET /status`
-- `GET /reports`
-- `GET /console`
+- the Next.js operator UI
 
 This price is informational only. Strategy and execution behavior remain candle-based.

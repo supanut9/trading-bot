@@ -21,7 +21,6 @@ Operational endpoints:
 
 - `GET /health`
 - `GET /status`
-- `GET /console`
 - `GET /positions`
 - `GET /performance/summary`
 - `GET /performance/daily.csv`
@@ -32,11 +31,34 @@ Operational endpoints:
 - `POST /controls/worker-cycle`
 - `POST /controls/backtest`
 - `POST /controls/live-halt`
-- `GET /reports`
 - `GET /reports/positions.csv`
 - `GET /reports/trades.csv`
 - `GET /reports/backtest-summary.csv`
 - `GET /reports/audit.csv`
+- `GET /reports/notification-delivery.csv`
+- `GET /reports/live-recovery.csv`
+
+Browser UI support:
+
+- the API allows local frontend origins from `FRONTEND_ORIGINS`
+- default allowed origins are `http://127.0.0.1:3000` and `http://localhost:3000`
+
+## Start Operator UI
+
+```bash
+make install-web
+make run-web
+```
+
+Default local UI URL:
+
+- `http://127.0.0.1:3000`
+
+Frontend environment notes:
+
+- `web/.env.local.example` defines `NEXT_PUBLIC_API_BASE_URL`
+- the default points to `http://127.0.0.1:8000`
+- override it only when the API is running on a different host or port
 
 Load candles for local worker testing:
 
@@ -88,23 +110,14 @@ Manual controls:
 - `GET /controls/operator-config` returns the effective paper-runtime strategy, symbol, timeframe, and EMA defaults
 - `POST /controls/operator-config` persists paper-runtime strategy, symbol, timeframe, and EMA defaults for later worker, sync, status, and console use
 - `POST /controls/market-sync` fetches recent closed candles for the configured exchange and effective runtime symbol/timeframe and stores them through the market data service
-- `POST /controls/backtest` runs one backtest over stored candles and can now accept explicit strategy, symbol, timeframe, EMA periods, and starting-equity inputs
+- `POST /controls/backtest` runs one backtest over stored candles and can now accept either the legacy EMA inputs or a structured rule-builder payload with separate shared, buy, and sell groups
 - live worker execution now rejects a new same-side live submission when an unresolved live order already exists for that market
 - `POST /controls/live-halt` persists the live-entry halt state used by status and worker execution
 - control endpoints do not accept arbitrary trading parameters; they only use current application configuration
-- `GET /console` provides a local operator surface over bounded runtime actions for market sync, worker cycle, operator defaults, and live controls
-- `GET /console/backtest` provides a dedicated backtest page with parameter inputs, result detail, and a rendered chart view
-- the console is intended for paper-trading workflows and shows inline feedback from the most recent action run
-- the console now includes a runtime-defaults form for strategy, symbol, timeframe, and EMA periods, persisted through the same bounded control path
-- the dedicated backtest page lets operators choose symbol, timeframe, EMA periods, and starting equity before running the replay
-- the console market-sync form now accepts an explicit candle limit and optional backfill mode for loading older candles into an existing database
-- the console also exposes explicit live halt, live resume, live reconcile, and live cancel actions that call the same bounded control service as the JSON API
-- live cancel in the console requires exactly one identifier: local `order_id`, `client_order_id`, or `exchange_order_id`
+- the browser UI now lives in the Next.js app under `web/` and consumes these API endpoints instead of backend-rendered HTML pages
 
 Report exports:
 
-- `GET /reports` renders an operator-facing HTML dashboard over a compact session summary, positions, trades, backtest summary data, and recent audit events
-- `GET /reports` now includes a live-computed equity-curve section grouped by mode
 - `GET /performance/summary` returns computed performance analytics by mode, including summary, equity-curve points, and daily rows
 - `GET /performance/daily.csv` exports daily performance rollups for offline review
 - `GET /performance/equity.csv` exports equity-curve points for offline inspection or plotting
@@ -112,6 +125,8 @@ Report exports:
 - `GET /reports/trades.csv` exports recent trades as CSV and supports the same `limit` query parameter as `GET /trades`
 - `GET /reports/backtest-summary.csv` runs one backtest summary export against stored candles using current settings
 - `GET /reports/audit.csv` exports recent audit events for control runs and notification delivery attempts
+- `GET /reports/notification-delivery.csv` exports notification-delivery audit rows
+- `GET /reports/live-recovery.csv` exports unresolved live-order recovery rows
 
 ## Start Worker
 

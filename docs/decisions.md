@@ -251,6 +251,20 @@ The operator surfaces now need durable performance meaning such as win rate, exp
 
 Performance summary, equity curve, and daily rollups are now computed from persisted trading records at request time and exposed through reporting and API surfaces, while future features can still add persisted run or snapshot models if the live-computed layer proves insufficient.
 
+## 2026-03-19
+
+### Decision
+
+Introduce an in-repo Next.js operator UI instead of splitting frontend work into a separate repository.
+
+### Reason
+
+The project is still a single-product v1 system with one developer-facing delivery flow and a Python backend that owns all trading, execution, and safety logic. A separate UI repo would add release coordination, API contract drift risk, and extra CI and deployment overhead before frontend ownership or scale justifies that cost. Next.js provides a mature operator-dashboard stack with routing, TypeScript support, and a broad ecosystem while remaining easy to keep inside the current repository boundary.
+
+### Consequence
+
+Frontend work should land under a dedicated repo folder such as `web/` and consume FastAPI JSON endpoints rather than embedding business logic in the UI. The existing FastAPI server-rendered console and reporting pages remain the short-term baseline until the Next.js replacement reaches parity, after which those HTML routes can be retired deliberately.
+
 ## 2026-03-17
 
 ### Decision
@@ -780,3 +794,25 @@ The runtime now keeps append sync as the default behavior and adds an explicit b
 The operator console had accumulated too many unrelated actions in one place, and the inline backtest section still reduced replay analysis to tables. That made the main page noisy and made backtest review feel cramped.
 
 The runtime now keeps `/console` focused on operational controls and moves replay work to `/console/backtest`. The dedicated backtest page still uses the same bounded control service, but it adds a larger result layout and an SVG chart that visualizes the backtested close-price path with buy and sell markers.
+
+## 2026-03-19: Add A Configurable Backtest Rule Builder
+
+The fixed EMA crossover replay path was useful as a baseline, but it was too rigid for exploratory testing and it pushed every strategy idea toward a new hardcoded Python module. Operators needed a way to combine indicator conditions, share filters across both sides, and keep buy and sell logic separate without widening the live runtime boundary at the same time.
+
+The backtest surface now supports a bounded `rule_builder` strategy alongside the legacy EMA preset. The builder combines reusable indicator conditions into `shared_filters`, `buy_rules`, and `sell_rules`, with `all` or `any` logic per group. The first cut is backtest-only and keeps worker/runtime execution on the existing EMA path, while `/console/backtest` now uses Alpine.js to manage the richer rule-editing UI without introducing a separate frontend application.
+
+The first rule-builder page proved too configuration-heavy when shown all at once. The console now keeps the rule engine underneath, but the `/console/backtest` UI stays preset-only so operators can run curated combinations without dealing with builder controls.
+
+## 2026-03-19
+
+### Decision
+
+Remove the backend-rendered `/console` and HTML `/reports` pages after landing the new Next.js operator UI foundation.
+
+### Reason
+
+Keeping both UI stacks in service would duplicate operator workflows, prolong outdated UX, and create confusion about which surface is the real product path. The FastAPI backend should now expose APIs and CSV/report exports only, while the browser UI lives in the in-repo Next.js application.
+
+### Consequence
+
+`/console` and `GET /reports` no longer exist on the backend. FastAPI keeps the bounded JSON control endpoints, status and operations APIs, and `/reports/*.csv` export routes that the Next.js UI can consume or link to directly.

@@ -11,6 +11,10 @@ class Settings(BaseSettings):
     app_name: str = Field(default="trading-bot", alias="APP_NAME")
     api_host: str = Field(default="127.0.0.1", alias="API_HOST")
     api_port: int = Field(default=8000, alias="API_PORT")
+    frontend_origins: str = Field(
+        default="http://127.0.0.1:3000,http://localhost:3000",
+        alias="FRONTEND_ORIGINS",
+    )
     database_url: str = Field(default="sqlite:///./trading_bot.db", alias="DATABASE_URL")
     paper_trading: bool = Field(default=True, alias="PAPER_TRADING")
     live_trading_enabled: bool = Field(default=False, alias="LIVE_TRADING_ENABLED")
@@ -125,6 +129,10 @@ class Settings(BaseSettings):
     @property
     def execution_mode(self) -> Literal["paper", "live"]:
         return "paper" if self.paper_trading else "live"
+
+    @property
+    def allowed_frontend_origins(self) -> list[str]:
+        return [origin.strip() for origin in self.frontend_origins.split(",") if origin.strip()]
 
 
 @lru_cache

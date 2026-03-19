@@ -7,17 +7,17 @@ Build a maintainable trading bot that supports research, backtesting, paper trad
 ## V1 Scope
 
 - one market symbol
-- one strategy
+- one runtime execution strategy plus a configurable backtest rule builder
 - candle-based execution
 - paper trading only
-- API endpoints for health, status, positions, trades, candle ingestion, market sync, reporting UI, and bounded manual controls
+- API endpoints for health, status, positions, trades, candle ingestion, market sync, reporting exports, and bounded manual controls
 
 ## Current Milestone
 
 Current baseline on `main`:
 
 - paper-trading-first runtime with deterministic backtesting, paper execution, notifications, and bounded operator controls
-- server-rendered reporting and console surfaces inside the FastAPI app
+- in-repo Next.js operator UI backed by FastAPI APIs
 - performance analytics, equity-curve reporting, and CSV exports
 - deployment packaging, smoke checks, and startup validation
 - live-readiness groundwork for submission, reconciliation, cancel, stale-order visibility, and recovery reporting while keeping live trading disabled by default
@@ -36,7 +36,8 @@ Current production boundary:
 
 Next implementation queue:
 
-1. `feature/runtime-operator-config`
+1. `feature/operator-ui-foundation`
+2. `feature/runtime-operator-config`
 
 ## Initial Market And Strategy
 
@@ -83,11 +84,10 @@ Next implementation queue:
 - expose minimal operational API for health, status, positions, trades, candle ingestion, and bounded manual controls
 - load deterministic local demo candle scenarios for no-action, buy-crossover, and sell-crossover operator workflows
 - export operational and backtest summary data as CSV for review and offline inspection
-- render an operator-facing reporting page over positions, trades, backtest summary data, and recent audit events
-- render a bounded operator console page for paper-trading workflows with one-click market sync, worker-cycle, and live-operations actions
+- render operator-facing dashboard, reporting, and control workflows in the in-repo Next.js application while keeping FastAPI as the source of truth for business logic and controls
 - provide a dedicated backtest page with parameterized inputs and chart visualization for replay analysis
-- persist paper-runtime operator defaults for symbol, timeframe, and EMA periods so console actions do not depend only on startup env
-- extend the operator console with explicit live reconcile and live cancel controls while keeping all actions operator-initiated
+- provide preset-first backtest strategy selection backed by curated rule-builder presets
+- persist paper-runtime operator defaults for symbol, timeframe, and EMA periods so operator actions do not depend only on startup env
 - render a compact reporting summary over the latest worker outcome, PnL, trade count, positions, and stale live state
 - derive durable operator-facing performance analytics from persisted trades and positions without adding a dedicated summary table first
 - expose the computed performance equity curve through both the reporting page and CSV export surfaces
@@ -128,6 +128,6 @@ Next implementation queue:
 
 - high-frequency trading
 - futures or leverage
-- multiple strategies in production
+- multiple execution strategies in production
 - multi-exchange routing
 - autonomous portfolio optimization

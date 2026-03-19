@@ -64,3 +64,14 @@ def test_ignores_non_application_env_keys() -> None:
     settings = Settings(POSTGRES_HOST_PORT="5544")
 
     assert settings.execution_mode == "paper"
+
+
+def test_parses_frontend_origins_list() -> None:
+    settings = Settings(
+        FRONTEND_ORIGINS="http://127.0.0.1:3000, http://localhost:3000 ,,",
+    )
+
+    assert settings.allowed_frontend_origins == [
+        "http://127.0.0.1:3000",
+        "http://localhost:3000",
+    ]
