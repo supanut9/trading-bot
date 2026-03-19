@@ -110,6 +110,13 @@ Default local URLs:
 - FastAPI: `http://127.0.0.1:8000`
 - Next.js operator UI: `http://127.0.0.1:3000`
 
+Current Next.js routes:
+
+- `/`
+- `/controls`
+- `/reports`
+- `/runtime`
+
 Frontend environment:
 
 - copy `web/.env.local.example` to `web/.env.local` if you need to point the UI at a different API base URL
