@@ -967,13 +967,31 @@ Main outputs:
 - result feedback for executed, skipped, or duplicate worker outcomes
 - dashboard refresh after a successful worker action
 
+### 51. `feature/operator-backtest-ui`
+
+Status:
+
+- in progress on `feature/operator-backtest-ui`
+
+Scope:
+
+- add a real Next.js backtest route for operator-triggered replay analysis
+- reuse the existing bounded `POST /controls/backtest` API and keep business logic in Python
+- keep the UX preset-first while exposing structured rule-builder options for bounded experimentation
+
+Main outputs:
+
+- `/backtest` route in `web/`
+- parameterized backtest form for market, strategy, EMA, and starting-equity inputs
+- preset-first rule-builder strategy selection with clear result feedback, charting, and execution detail
+
 ## Current Recommended Queue
 
 These are the next bounded features after the current `main` baseline:
 
-1. `feature/worker-cycle-ui`
-2. `feature/operator-backtest-ui`
+1. `feature/operator-backtest-ui`
+2. `feature/live-ops-ui`
 
 Current next feature:
 
-- `feature/worker-cycle-ui`
+- `feature/operator-backtest-ui`

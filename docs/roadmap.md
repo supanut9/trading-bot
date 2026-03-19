@@ -71,7 +71,8 @@ Current repo baseline:
 
 Recommended next feature queue:
 
-1. `feature/runtime-operator-config`
+1. `feature/operator-backtest-ui`
+2. `feature/live-ops-ui`
 
 ## Phase 1
 

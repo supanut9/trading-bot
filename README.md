@@ -113,6 +113,7 @@ Default local URLs:
 Current Next.js routes:
 
 - `/`
+- `/backtest`
 - `/controls`
 - `/reports`
 - `/runtime`

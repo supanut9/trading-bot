@@ -828,3 +828,9 @@ The market-sync control now accepts optional `symbol` and `timeframe` fields. Wh
 Once the backend-rendered `/reports` page was removed, operators still had CSV exports and the JSON analytics API, but no richer browser reporting surface. The replacement should stay bounded: reuse the existing performance and export endpoints instead of inventing a second reporting backend.
 
 The new Next.js `/reports` route now reads `GET /status` and `GET /performance/summary`, renders summary metrics and the equity curve in the operator shell, and links directly to the existing CSV exports. Reporting remains API-backed and read-only, while recovery-heavy reporting slices can continue to land as separate features.
+
+## 2026-03-20: Add A Dedicated Next.js Backtest Page
+
+The control API already supported parameterized backtests and the product spec called for a dedicated replay surface, but the new operator UI still lacked a browser route for that workflow. Keeping replay analysis out of the controls page also preserves cleaner feature boundaries between candle intake, worker actions, and historical experimentation.
+
+The operator UI now includes a dedicated `/backtest` route that posts to the existing `POST /controls/backtest` endpoint, hydrates its default market inputs from persisted operator config, and stays preset-first for rule-builder experiments. The page renders backtest outcome metrics, a simple realized-equity curve, and execution detail without introducing a second analytics backend.
