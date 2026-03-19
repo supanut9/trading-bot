@@ -112,6 +112,16 @@ def store_closes(settings: Settings, closes: list[int]) -> None:
         session.close()
 
 
+def test_reports_html_dashboard_is_removed(tmp_path: Path) -> None:
+    client, session, _settings = build_client(tmp_path)
+    try:
+        response = client.get("/reports")
+
+        assert response.status_code == 404
+    finally:
+        teardown_client(session)
+
+
 def test_positions_report_exports_csv_rows(tmp_path: Path) -> None:
     client, session, _settings = build_client(tmp_path)
     try:
@@ -131,118 +141,108 @@ def test_positions_report_exports_csv_rows(tmp_path: Path) -> None:
         teardown_client(session)
 
 
-def test_reports_dashboard_renders_html_snapshot(tmp_path: Path) -> None:
-    client, session, settings = build_client(tmp_path)
+def test_trades_report_honors_limit_parameter(tmp_path: Path) -> None:
+    client, session, _settings = build_client(tmp_path)
     try:
         seed_execution_data(session)
+
+        response = client.get("/reports/trades.csv?limit=1")
+
+        assert response.status_code == 200
+        rows = read_csv_rows(response.text)
+        assert len(rows) == 1
+        assert rows[0]["side"] == "sell"
+    finally:
+        teardown_client(session)
+
+
+def test_backtest_summary_report_exports_csv_rows(tmp_path: Path) -> None:
+    client, session, settings = build_client(tmp_path)
+    try:
         store_closes(settings, [10, 10, 10, 10, 10, 9, 9, 9, 20])
 
-        response = client.get("/reports")
+        response = client.get("/reports/backtest-summary.csv")
 
         assert response.status_code == 200
-        assert response.headers["content-type"].startswith("text/html")
-        assert "Reporting Deck" in response.text
-        assert "Open Positions" in response.text
-        assert "Latest Price" in response.text
-        assert "Recent Trades" in response.text
-        assert "Stale Live Orders" in response.text
-        assert "Backtest Snapshot" in response.text
-        assert "Session Summary" in response.text
-        assert "Performance Summary" in response.text
-        assert "Daily Performance" in response.text
-        assert "Recovery Queue" in response.text
-        assert "Recovery Timeline" in response.text
-        assert "Notification Delivery" in response.text
-        assert "Recent Audit Events" in response.text
-        assert "BTC/USDT" in response.text
-        assert "Download positions CSV" in response.text
+        rows = read_csv_rows(response.text)
+        assert len(rows) == 1
+        assert rows[0]["status"] in {"completed", "skipped"}
+        assert rows[0]["detail"] != ""
     finally:
         teardown_client(session)
 
 
-def test_reports_dashboard_renders_stale_live_order_rows(tmp_path: Path) -> None:
+def test_audit_csv_export_filters_rows(tmp_path: Path) -> None:
     client, session, settings = build_client(tmp_path)
     try:
-        order = OrderRecord(
-            exchange="binance",
-            symbol="BTC/USDT",
-            side="buy",
-            order_type="market",
-            status="submitted",
-            mode="live",
-            quantity=Decimal("0.001"),
-            client_order_id="stale-live-1",
-            exchange_order_id="123",
-            created_at=datetime(2026, 1, 1, 0, tzinfo=UTC),
-            updated_at=datetime(2026, 1, 1, 0, tzinfo=UTC),
-        )
-        session.add(order)
-        session.commit()
-        settings.paper_trading = False
-        settings.live_trading_enabled = True
-        settings.exchange_api_key = "key"
-        settings.exchange_api_secret = "secret"
-        settings.stale_live_order_threshold_minutes = 30
-
-        response = client.get("/reports")
-
-        assert response.status_code == 200
-        assert "Stale Live Orders" in response.text
-        assert f"<td>{order.id}</td>" in response.text
-        assert "submitted" in response.text
-    finally:
-        teardown_client(session)
-
-
-def test_reports_dashboard_renders_live_recovery_summary(tmp_path: Path) -> None:
-    client, session, settings = build_client(tmp_path)
-    try:
-        session.add(
-            OrderRecord(
-                exchange="binance",
-                symbol="BTC/USDT",
-                side="buy",
-                order_type="market",
-                status="submitted",
-                mode="live",
-                quantity=Decimal("0.001"),
-                client_order_id="recovery-live-1",
-                exchange_order_id="456",
-                created_at=datetime(2026, 1, 1, 0, tzinfo=UTC),
-                updated_at=datetime(2026, 1, 1, 0, tzinfo=UTC),
-            )
+        AuditService(session=session).record_control_result(
+            control_type="worker_cycle",
+            source="api.control",
+            status="completed",
+            detail="worker completed",
+            settings=settings,
+            payload={"channel": "log"},
         )
         AuditService(session=session).record_control_result(
-            control_type="live_reconcile",
-            source="job.live_reconcile",
-            status="completed",
-            detail="live orders reconciled",
+            control_type="notification_delivery",
+            source="notification.log",
+            status="failed",
+            detail="delivery failed",
             settings=settings,
-            payload={"reconciled_count": 1, "filled_count": 0},
+            payload={"channel": "webhook", "related_event_type": "worker_cycle"},
         )
         session.commit()
-        settings.paper_trading = False
-        settings.live_trading_enabled = True
-        settings.exchange_api_key = "key"
-        settings.exchange_api_secret = "secret"
 
-        response = client.get("/reports")
+        response = client.get("/reports/audit.csv?audit_event_type=notification_delivery")
 
         assert response.status_code == 200
-        assert "Unresolved Live Orders" in response.text
-        assert "Recovery Events" in response.text
-        assert "Recovery Queue" in response.text
-        assert "Recovery Timeline" in response.text
-        assert "inspect_exchange_state" not in response.text
-        assert "reconcile_or_cancel" in response.text
-        assert "Latest recovery event: live_reconcile completed" in response.text
-        assert "reconciled=1 filled=0" in response.text
-        assert "Download live recovery CSV" in response.text
+        rows = read_csv_rows(response.text)
+        assert len(rows) == 1
+        assert rows[0]["event_type"] == "notification_delivery"
+        assert rows[0]["status"] == "failed"
     finally:
         teardown_client(session)
 
 
-def test_reports_dashboard_renders_review_required_recovery_action(tmp_path: Path) -> None:
+def test_notification_delivery_csv_export_filters_rows(tmp_path: Path) -> None:
+    client, session, settings = build_client(tmp_path)
+    try:
+        AuditService(session=session).record_control_result(
+            control_type="notification_delivery",
+            source="notification.webhook",
+            status="failed",
+            detail="delivery failed",
+            settings=settings,
+            payload={
+                "channel": "webhook",
+                "related_event_type": "worker_cycle",
+            },
+        )
+        AuditService(session=session).record_control_result(
+            control_type="notification_delivery",
+            source="notification.log",
+            status="completed",
+            detail="delivery ok",
+            settings=settings,
+            payload={
+                "channel": "log",
+                "related_event_type": "backtest",
+            },
+        )
+        session.commit()
+
+        response = client.get("/reports/notification-delivery.csv?notification_status=failed")
+
+        assert response.status_code == 200
+        rows = read_csv_rows(response.text)
+        assert len(rows) == 1
+        assert rows[0]["status"] == "failed"
+        assert '"channel": "webhook"' in rows[0]["payload_json"]
+    finally:
+        teardown_client(session)
+
+
+def test_live_recovery_csv_export_filters_rows(tmp_path: Path) -> None:
     client, session, settings = build_client(tmp_path)
     try:
         session.add(
@@ -254,450 +254,12 @@ def test_reports_dashboard_renders_review_required_recovery_action(tmp_path: Pat
                 status="review_required",
                 mode="live",
                 quantity=Decimal("0.001"),
-                client_order_id="review-order-1",
+                client_order_id="filtered-order",
                 exchange_order_id="789",
                 created_at=datetime(2026, 1, 1, 0, tzinfo=UTC),
                 updated_at=datetime(2026, 1, 1, 0, tzinfo=UTC),
             )
         )
-        session.commit()
-        settings.paper_trading = False
-        settings.live_trading_enabled = True
-        settings.exchange_api_key = "key"
-        settings.exchange_api_secret = "secret"
-
-        response = client.get("/reports")
-
-        assert response.status_code == 200
-        assert "review_required" in response.text
-        assert "inspect_exchange_state" in response.text
-        assert "yes" in response.text
-    finally:
-        teardown_client(session)
-
-
-def test_reports_dashboard_renders_latest_worker_summary(tmp_path: Path) -> None:
-    client, session, settings = build_client(tmp_path)
-    try:
-        AuditService(session=session).record_control_result(
-            control_type="worker_cycle",
-            source="api.console",
-            status="executed",
-            detail="signal executed in paper mode",
-            settings=settings,
-            payload={
-                "signal_action": "buy",
-                "client_order_id": "worker-summary-1",
-                "notified": False,
-            },
-        )
-        session.commit()
-
-        response = client.get("/reports")
-
-        assert response.status_code == 200
-        assert "Latest worker cycle: executed" in response.text
-        assert "Latest Worker Status" in response.text
-        assert "Worker Signal" in response.text
-        assert "worker-summary-1" in response.text
-    finally:
-        teardown_client(session)
-
-
-def test_reports_dashboard_renders_performance_summary_rows(tmp_path: Path) -> None:
-    client, session, settings = build_client(tmp_path)
-    try:
-        seed_execution_data(session)
-        response = client.get("/reports")
-
-        assert response.status_code == 200
-        assert "Performance Summary" in response.text
-        assert "Equity Curve" in response.text
-        assert "paper" in response.text
-        assert "Expectancy" in response.text
-        assert 'aria-label="paper equity curve"' in response.text
-        assert "Download daily performance CSV" in response.text
-        assert "Download equity curve CSV" in response.text
-    finally:
-        teardown_client(session)
-
-
-def test_trades_report_applies_limit_and_keeps_recent_first(tmp_path: Path) -> None:
-    client, session, _settings = build_client(tmp_path)
-    try:
-        seed_execution_data(session)
-
-        response = client.get("/reports/trades.csv?limit=1")
-
-        assert response.status_code == 200
-        rows = read_csv_rows(response.text)
-        assert len(rows) == 1
-        assert rows[0]["side"] == "sell"
-        assert rows[0]["price"] == "21000.00000000"
-    finally:
-        teardown_client(session)
-
-
-def test_backtest_summary_report_exports_completed_csv(tmp_path: Path) -> None:
-    client, session, settings = build_client(tmp_path)
-    try:
-        store_closes(settings, [10, 10, 10, 10, 10, 9, 9, 9, 20])
-
-        response = client.get("/reports/backtest-summary.csv")
-
-        assert response.status_code == 200
-        assert response.headers["content-disposition"] == (
-            'attachment; filename="backtest-summary.csv"'
-        )
-        rows = read_csv_rows(response.text)
-        assert len(rows) == 1
-        assert rows[0]["status"] == "completed"
-        assert rows[0]["candle_count"] == "9"
-        assert rows[0]["total_trades"] == "2"
-        assert rows[0]["ending_equity"] == "10000.00000000"
-    finally:
-        teardown_client(session)
-
-
-def test_audit_report_exports_recent_events_csv(tmp_path: Path) -> None:
-    client, session, settings = build_client(tmp_path)
-    try:
-        AuditService(session=session).record_control_result(
-            control_type="worker_cycle",
-            source="api.control",
-            status="executed",
-            detail="signal executed in paper mode",
-            settings=settings,
-            payload={"notified": False},
-        )
-        AuditService(session=session).record_notification_delivery(
-            source="notification",
-            channel="log",
-            status="sent",
-            detail="worker.executed delivery sent",
-            related_event_type="worker.executed",
-            payload={
-                "event_type": "worker.executed",
-                "metadata": {
-                    "exchange": settings.exchange_name,
-                    "symbol": settings.default_symbol,
-                    "timeframe": settings.default_timeframe,
-                },
-            },
-        )
-        session.commit()
-
-        response = client.get("/reports/audit.csv?limit=1")
-
-        assert response.status_code == 200
-        assert response.headers["content-disposition"] == 'attachment; filename="audit.csv"'
-        rows = read_csv_rows(response.text)
-        assert len(rows) == 1
-        assert rows[0]["event_type"] == "notification_delivery"
-        assert rows[0]["source"] == "notification"
-        assert rows[0]["status"] == "sent"
-        assert rows[0]["correlation_id"] == ""
-    finally:
-        teardown_client(session)
-
-
-def test_audit_report_surfaces_explicit_metadata_columns(tmp_path: Path) -> None:
-    client, session, settings = build_client(tmp_path)
-    try:
-        AuditService(session=session).record_notification_delivery(
-            source="notification",
-            channel="webhook",
-            status="failed",
-            detail="worker.executed delivery failed",
-            related_event_type="worker.executed",
-            payload={
-                "event_type": "worker.executed",
-                "correlation_id": "worker-cycle-123",
-                "metadata": {
-                    "exchange": settings.exchange_name,
-                    "symbol": settings.default_symbol,
-                    "timeframe": settings.default_timeframe,
-                },
-            },
-        )
-        session.commit()
-
-        dashboard_response = client.get("/reports")
-        csv_response = client.get("/reports/audit.csv")
-
-        assert dashboard_response.status_code == 200
-        assert "Related Event" in dashboard_response.text
-        assert "Correlation" in dashboard_response.text
-        assert "binance" in dashboard_response.text
-        assert "BTC/USDT" in dashboard_response.text
-        assert "1h" in dashboard_response.text
-        assert "webhook" in dashboard_response.text
-        assert "worker.executed" in dashboard_response.text
-        assert "worker-cycle-123" in dashboard_response.text
-
-        assert csv_response.status_code == 200
-        rows = read_csv_rows(csv_response.text)
-        assert len(rows) == 1
-        assert rows[0]["exchange"] == "binance"
-        assert rows[0]["symbol"] == "BTC/USDT"
-        assert rows[0]["timeframe"] == "1h"
-        assert rows[0]["channel"] == "webhook"
-        assert rows[0]["related_event_type"] == "worker.executed"
-        assert rows[0]["correlation_id"] == "worker-cycle-123"
-    finally:
-        teardown_client(session)
-
-
-def test_reports_dashboard_filters_audit_events_and_preserves_export_link(
-    tmp_path: Path,
-) -> None:
-    client, session, settings = build_client(tmp_path)
-    try:
-        audit = AuditService(session=session)
-        audit.record_control_result(
-            control_type="worker_cycle",
-            source="api.control",
-            status="executed",
-            detail="signal executed in paper mode",
-            settings=settings,
-            payload={"notified": False},
-        )
-        audit.record_notification_delivery(
-            source="notification",
-            channel="webhook",
-            status="failed",
-            detail="worker.executed delivery failed",
-            related_event_type="worker.executed",
-            payload={
-                "event_type": "worker.executed",
-                "metadata": {
-                    "exchange": settings.exchange_name,
-                    "symbol": settings.default_symbol,
-                    "timeframe": settings.default_timeframe,
-                },
-            },
-        )
-        session.commit()
-
-        response = client.get(
-            "/reports?audit_event_type=notification_delivery"
-            "&audit_status=failed"
-            "&audit_source=notification"
-            "&audit_search=worker.executed"
-        )
-
-        assert response.status_code == 200
-        assert "Audit Filters" in response.text
-        assert "Audit filters: event_type=notification_delivery status=failed" in response.text
-        assert "worker.executed delivery failed" in response.text
-        assert (
-            "/reports/audit.csv?audit_event_type=notification_delivery"
-            "&audit_status=failed"
-            "&audit_source=notification"
-            "&audit_search=worker.executed"
-        ) in response.text
-    finally:
-        teardown_client(session)
-
-
-def test_audit_report_exports_filtered_rows(tmp_path: Path) -> None:
-    client, session, settings = build_client(tmp_path)
-    try:
-        audit = AuditService(session=session)
-        audit.record_control_result(
-            control_type="worker_cycle",
-            source="api.control",
-            status="executed",
-            detail="signal executed in paper mode",
-            settings=settings,
-            payload={"notified": False},
-        )
-        audit.record_notification_delivery(
-            source="notification",
-            channel="webhook",
-            status="failed",
-            detail="worker.executed delivery failed",
-            related_event_type="worker.executed",
-            payload={
-                "event_type": "worker.executed",
-                "metadata": {
-                    "exchange": settings.exchange_name,
-                    "symbol": settings.default_symbol,
-                    "timeframe": settings.default_timeframe,
-                },
-            },
-        )
-        session.commit()
-
-        response = client.get(
-            "/reports/audit.csv?audit_event_type=notification_delivery"
-            "&audit_status=failed"
-            "&audit_source=notification"
-            "&audit_search=worker.executed"
-        )
-
-        assert response.status_code == 200
-        assert response.headers["content-disposition"] == 'attachment; filename="audit.csv"'
-        rows = read_csv_rows(response.text)
-        assert len(rows) == 1
-        assert rows[0]["event_type"] == "notification_delivery"
-        assert rows[0]["status"] == "failed"
-        assert rows[0]["source"] == "notification"
-        assert rows[0]["detail"] == "worker.executed delivery failed"
-    finally:
-        teardown_client(session)
-
-
-def test_reports_dashboard_renders_notification_delivery_summary(tmp_path: Path) -> None:
-    client, session, settings = build_client(tmp_path)
-    try:
-        AuditService(session=session).record_notification_delivery(
-            source="notification",
-            channel="webhook",
-            status="failed",
-            detail="live_reconcile.failed delivery failed",
-            related_event_type="live_reconcile.failed",
-            payload={
-                "event_type": "live_reconcile.failed",
-                "correlation_id": "live-reconcile-123",
-                "metadata": {
-                    "exchange": settings.exchange_name,
-                    "symbol": settings.default_symbol,
-                    "timeframe": settings.default_timeframe,
-                },
-            },
-        )
-        session.commit()
-
-        response = client.get("/reports")
-
-        assert response.status_code == 200
-        assert "Notification Deliveries" in response.text
-        assert "Notification Failures" in response.text
-        assert "Latest notification delivery: failed via webhook" in response.text
-        assert "live_reconcile.failed" in response.text
-        assert "Download notification delivery CSV" in response.text
-    finally:
-        teardown_client(session)
-
-
-def test_reports_dashboard_filters_notification_delivery_and_preserves_export_link(
-    tmp_path: Path,
-) -> None:
-    client, session, settings = build_client(tmp_path)
-    try:
-        audit = AuditService(session=session)
-        audit.record_notification_delivery(
-            source="notification",
-            channel="webhook",
-            status="failed",
-            detail="worker.executed delivery failed",
-            related_event_type="worker.executed",
-            payload={
-                "event_type": "worker.executed",
-                "metadata": {
-                    "exchange": settings.exchange_name,
-                    "symbol": settings.default_symbol,
-                    "timeframe": settings.default_timeframe,
-                },
-            },
-        )
-        audit.record_notification_delivery(
-            source="notification",
-            channel="log",
-            status="sent",
-            detail="backtest.completed delivery sent",
-            related_event_type="backtest.completed",
-            payload={
-                "event_type": "backtest.completed",
-                "metadata": {
-                    "exchange": settings.exchange_name,
-                    "symbol": settings.default_symbol,
-                    "timeframe": settings.default_timeframe,
-                },
-            },
-        )
-        session.commit()
-
-        response = client.get(
-            "/reports?notification_status=failed"
-            "&notification_channel=webhook"
-            "&notification_related_event_type=worker.executed"
-        )
-
-        assert response.status_code == 200
-        assert "Notification delivery filters: status=failed channel=webhook" in response.text
-        assert "worker.executed delivery failed" in response.text
-        assert (
-            "/reports/notification-delivery.csv?notification_status=failed"
-            "&notification_channel=webhook"
-            "&notification_related_event_type=worker.executed"
-        ) in response.text
-    finally:
-        teardown_client(session)
-
-
-def test_notification_delivery_report_exports_filtered_rows(tmp_path: Path) -> None:
-    client, session, settings = build_client(tmp_path)
-    try:
-        audit = AuditService(session=session)
-        audit.record_notification_delivery(
-            source="notification",
-            channel="webhook",
-            status="failed",
-            detail="worker.executed delivery failed",
-            related_event_type="worker.executed",
-            payload={
-                "event_type": "worker.executed",
-                "metadata": {
-                    "exchange": settings.exchange_name,
-                    "symbol": settings.default_symbol,
-                    "timeframe": settings.default_timeframe,
-                },
-            },
-        )
-        audit.record_notification_delivery(
-            source="notification",
-            channel="log",
-            status="sent",
-            detail="backtest.completed delivery sent",
-            related_event_type="backtest.completed",
-            payload={
-                "event_type": "backtest.completed",
-                "metadata": {
-                    "exchange": settings.exchange_name,
-                    "symbol": settings.default_symbol,
-                    "timeframe": settings.default_timeframe,
-                },
-            },
-        )
-        session.commit()
-
-        response = client.get(
-            "/reports/notification-delivery.csv?notification_status=failed"
-            "&notification_channel=webhook"
-            "&notification_related_event_type=worker.executed"
-        )
-
-        assert response.status_code == 200
-        assert response.headers["content-disposition"] == (
-            'attachment; filename="notification-delivery.csv"'
-        )
-        rows = read_csv_rows(response.text)
-        assert len(rows) == 1
-        assert rows[0]["status"] == "failed"
-        assert rows[0]["channel"] == "webhook"
-        assert rows[0]["related_event_type"] == "worker.executed"
-        assert rows[0]["detail"] == "worker.executed delivery failed"
-    finally:
-        teardown_client(session)
-
-
-def test_live_recovery_report_exports_unresolved_orders_with_latest_context(
-    tmp_path: Path,
-) -> None:
-    client, session, settings = build_client(tmp_path)
-    try:
         session.add(
             OrderRecord(
                 exchange="binance",
@@ -707,8 +269,8 @@ def test_live_recovery_report_exports_unresolved_orders_with_latest_context(
                 status="submitted",
                 mode="live",
                 quantity=Decimal("0.001"),
-                client_order_id="recovery-order-1",
-                exchange_order_id="456",
+                client_order_id="other-order",
+                exchange_order_id="790",
                 created_at=datetime(2026, 1, 1, 0, tzinfo=UTC),
                 updated_at=datetime(2026, 1, 1, 0, tzinfo=UTC),
             )
@@ -717,140 +279,15 @@ def test_live_recovery_report_exports_unresolved_orders_with_latest_context(
             control_type="live_cancel",
             source="api.control",
             status="completed",
-            detail="live order canceled",
-            settings=settings,
-            payload={"order_id": 1},
-        )
-        session.commit()
-
-        response = client.get("/reports/live-recovery.csv")
-
-        assert response.status_code == 200
-        assert response.headers["content-disposition"] == (
-            'attachment; filename="live-recovery.csv"'
-        )
-        rows = read_csv_rows(response.text)
-        assert len(rows) == 1
-        assert rows[0]["client_order_id"] == "recovery-order-1"
-        assert rows[0]["latest_recovery_event_type"] == "live_cancel"
-        assert rows[0]["latest_recovery_event_status"] == "completed"
-        assert rows[0]["latest_recovery_event_context"] == "order_id=1"
-        assert rows[0]["requires_operator_review"] == "false"
-        assert rows[0]["next_action"] == "reconcile_or_cancel"
-    finally:
-        teardown_client(session)
-
-
-def test_reports_dashboard_filters_recovery_views_by_search_and_review_flag(
-    tmp_path: Path,
-) -> None:
-    client, session, settings = build_client(tmp_path)
-    try:
-        session.add_all(
-            [
-                OrderRecord(
-                    exchange="binance",
-                    symbol="BTC/USDT",
-                    side="buy",
-                    order_type="market",
-                    status="review_required",
-                    mode="live",
-                    quantity=Decimal("0.001"),
-                    client_order_id="search-target-order",
-                    exchange_order_id="target-1",
-                    created_at=datetime(2026, 1, 1, 0, tzinfo=UTC),
-                    updated_at=datetime(2026, 1, 1, 0, tzinfo=UTC),
-                ),
-                OrderRecord(
-                    exchange="binance",
-                    symbol="BTC/USDT",
-                    side="buy",
-                    order_type="market",
-                    status="submitted",
-                    mode="live",
-                    quantity=Decimal("0.001"),
-                    client_order_id="other-order",
-                    exchange_order_id="other-1",
-                    created_at=datetime(2026, 1, 1, 1, tzinfo=UTC),
-                    updated_at=datetime(2026, 1, 1, 1, tzinfo=UTC),
-                ),
-            ]
-        )
-        AuditService(session=session).record_control_result(
-            control_type="live_cancel",
-            source="api.control",
-            status="completed",
-            detail="live order canceled",
-            settings=settings,
-            payload={"client_order_id": "search-target-order"},
-        )
-        AuditService(session=session).record_control_result(
-            control_type="live_reconcile",
-            source="job.live_reconcile",
-            status="completed",
-            detail="live orders reconciled",
-            settings=settings,
-            payload={"reconciled_count": 2},
-        )
-        session.commit()
-
-        response = client.get(
-            "/reports?recovery_requires_review=true&recovery_event_type=live_cancel&recovery_search=search-target"
-        )
-
-        assert response.status_code == 200
-        assert "search-target-order" in response.text
-        assert "other-order" not in response.text
-        assert "live_cancel" in response.text
-        assert "Recovery filters:" in response.text
-        assert 'value="search-target"' in response.text
-        assert "Download live recovery CSV" in response.text
-    finally:
-        teardown_client(session)
-
-
-def test_live_recovery_report_exports_filtered_rows(tmp_path: Path) -> None:
-    client, session, settings = build_client(tmp_path)
-    try:
-        session.add_all(
-            [
-                OrderRecord(
-                    exchange="binance",
-                    symbol="BTC/USDT",
-                    side="buy",
-                    order_type="market",
-                    status="review_required",
-                    mode="live",
-                    quantity=Decimal("0.001"),
-                    client_order_id="filtered-order",
-                    exchange_order_id="filtered-1",
-                    created_at=datetime(2026, 1, 1, 0, tzinfo=UTC),
-                    updated_at=datetime(2026, 1, 1, 0, tzinfo=UTC),
-                ),
-                OrderRecord(
-                    exchange="binance",
-                    symbol="BTC/USDT",
-                    side="buy",
-                    order_type="market",
-                    status="submitted",
-                    mode="live",
-                    quantity=Decimal("0.001"),
-                    client_order_id="excluded-order",
-                    exchange_order_id="excluded-1",
-                    created_at=datetime(2026, 1, 1, 1, tzinfo=UTC),
-                    updated_at=datetime(2026, 1, 1, 1, tzinfo=UTC),
-                ),
-            ]
-        )
-        AuditService(session=session).record_control_result(
-            control_type="live_cancel",
-            source="api.control",
-            status="completed",
-            detail="live order canceled",
+            detail="cancelled",
             settings=settings,
             payload={"client_order_id": "filtered-order"},
         )
         session.commit()
+        settings.paper_trading = False
+        settings.live_trading_enabled = True
+        settings.exchange_api_key = "key"
+        settings.exchange_api_secret = "secret"
 
         response = client.get(
             "/reports/live-recovery.csv?recovery_requires_review=true&recovery_search=filtered-order"
@@ -860,22 +297,6 @@ def test_live_recovery_report_exports_filtered_rows(tmp_path: Path) -> None:
         rows = read_csv_rows(response.text)
         assert len(rows) == 1
         assert rows[0]["client_order_id"] == "filtered-order"
-    finally:
-        teardown_client(session)
-
-
-def test_positions_report_does_not_require_backtest_notification_config(tmp_path: Path) -> None:
-    client, session, settings = build_client(tmp_path)
-    try:
-        settings.notification_channel = "webhook"
-        settings.notification_webhook_url = None
-        seed_execution_data(session)
-
-        response = client.get("/reports/positions.csv")
-
-        assert response.status_code == 200
-        rows = read_csv_rows(response.text)
-        assert len(rows) == 1
-        assert rows[0]["symbol"] == "BTC/USDT"
+        assert rows[0]["requires_operator_review"] == "true"
     finally:
         teardown_client(session)

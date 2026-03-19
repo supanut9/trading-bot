@@ -1,7 +1,10 @@
-.PHONY: install install-hooks init-db db-up db-down db-logs format lint test pr-check run-api run-worker run-backtest docker-build docker-run-api docker-run-worker smoke-check-api smoke-check-worker
+.PHONY: install install-web install-hooks init-db db-up db-down db-logs format lint test pr-check run-api run-web run-worker run-backtest docker-build docker-run-api docker-run-worker smoke-check-api smoke-check-worker
 
 install:
 	python3 -m pip install -e ".[dev]"
+
+install-web:
+	cd web && yarn install
 
 install-hooks:
 	python3 -m pre_commit install --hook-type pre-commit --hook-type pre-push
@@ -23,15 +26,20 @@ format:
 
 lint:
 	python3 -m ruff check .
+	cd web && yarn lint
 
 test:
 	python3 -m pytest
+	cd web && yarn test
 
 pr-check:
 	python3 -m scripts.check_pr_metadata
 
 run-api:
 	python3 -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
+
+run-web:
+	cd web && yarn dev
 
 run-worker:
 	python3 -m app.worker

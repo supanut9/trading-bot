@@ -2,6 +2,7 @@ from contextlib import asynccontextmanager
 from time import perf_counter
 
 from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.application.services.runtime_startup_service import validate_runtime_startup
 from app.config import get_settings
@@ -11,7 +12,6 @@ from app.core.logger import (
     correlation_context,
     get_logger,
 )
-from app.interfaces.api.routes.console import router as console_router
 from app.interfaces.api.routes.controls import router as controls_router
 from app.interfaces.api.routes.health import router as health_router
 from app.interfaces.api.routes.market_data import router as market_data_router
@@ -48,6 +48,15 @@ async def lifespan(_: FastAPI):
 def create_app() -> FastAPI:
     app = FastAPI(title=settings.app_name, lifespan=lifespan)
 
+    if settings.allowed_frontend_origins:
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origins=settings.allowed_frontend_origins,
+            allow_credentials=True,
+            allow_methods=["*"],
+            allow_headers=["*"],
+        )
+
     @app.middleware("http")
     async def add_request_correlation(request: Request, call_next):
         request_id = request.headers.get("X-Request-ID") or build_correlation_id("req")
@@ -79,7 +88,6 @@ def create_app() -> FastAPI:
             )
             return response
 
-    app.include_router(console_router)
     app.include_router(controls_router)
     app.include_router(health_router)
     app.include_router(market_data_router)

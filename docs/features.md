@@ -258,6 +258,26 @@ Main outputs:
 - bounded control flow that uses current runtime configuration only
 - response models for control outcomes
 
+### 14. `feature/operator-ui-foundation`
+
+Status:
+
+- planned
+
+Scope:
+
+- add an in-repo Next.js app under `web/`
+- define frontend stack and local development workflow
+- establish the initial API consumption pattern for operator pages
+- migrate the first reporting and console slices away from FastAPI-rendered HTML
+
+Main outputs:
+
+- documented frontend architecture and stack choice
+- initial Next.js app scaffold
+- shared UI shell for operator-facing screens
+- a bounded migration path from `/console` and `/reports` HTML to API-backed pages
+
 ### 14. `feature/reporting-exports`
 
 Status:
@@ -836,12 +856,33 @@ Main outputs:
 - `/controls/operator-config` read and write endpoints
 - `/console` runtime-defaults form plus shared use of those defaults across paper actions
 
+### 46. `feature/operator-ui-foundation`
+
+Status:
+
+- planned
+
+Scope:
+
+- add an in-repo Next.js application under `web/`
+- define the default frontend stack for operator-facing UI
+- establish API-backed UI patterns for dashboard, console, and reporting slices
+- migrate UI incrementally without moving trading logic out of Python
+
+Main outputs:
+
+- initial Next.js app scaffold and local workflow
+- documented `Next.js + TypeScript + Tailwind + shadcn/ui + TanStack Query` stack choice
+- a shared operator shell for dashboard and reporting pages
+- a bounded migration path away from FastAPI-rendered HTML pages
+
 ## Current Recommended Queue
 
 These are the next bounded features after the current `main` baseline:
 
-1. `feature/runtime-operator-config`
+1. `feature/operator-ui-foundation`
+2. `feature/runtime-operator-config`
 
 Current next feature:
 
-- `feature/runtime-operator-config`
+- `feature/operator-ui-foundation`

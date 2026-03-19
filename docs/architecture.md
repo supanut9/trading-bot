@@ -2,7 +2,7 @@
 
 ## Target Shape
 
-The system is a single application with separate API and worker entrypoints.
+The system is a single repository and single product with separate API, worker, and operator UI entrypoints.
 
 ## Guiding Principles
 
@@ -18,6 +18,7 @@ The system is a single application with separate API and worker entrypoints.
 - `app/infrastructure`: database, exchange, and notification integrations
 - `app/interfaces`: HTTP routes and external-facing adapters
 - `app/jobs`: scheduled workflows for market sync and strategy execution
+- `web`: Next.js operator UI that consumes bounded FastAPI APIs
 
 ## Dependency Direction
 
@@ -27,6 +28,7 @@ Dependencies must point inward toward more stable logic:
 - `jobs` may depend on `application` and shared config objects
 - `application` may depend on `domain` and infrastructure abstractions
 - `infrastructure` may depend on `domain` models or contracts when needed
+- `web` may depend on HTTP APIs and local UI helpers, but not on Python runtime internals
 - `domain` must not depend on `application`, `interfaces`, or `infrastructure`
 
 Practical rule:
@@ -35,6 +37,7 @@ Practical rule:
 - API routes do not call exchange clients directly
 - strategy modules do not touch the database
 - exchange-specific types should not leak into domain strategy code
+- UI code does not own trading rules, exchange calls, or risk-policy decisions
 
 ## Layer Responsibilities
 
@@ -105,6 +108,25 @@ Not allowed:
 - direct database orchestration
 - direct exchange access
 
+### Web UI
+
+The web layer owns operator-facing presentation and client-side workflow.
+
+Allowed:
+
+- route composition for dashboards, reports, and control screens
+- calling bounded FastAPI JSON endpoints
+- charting, filtering, and UI state management
+- server-side or client-side rendering for presentation needs
+
+Not allowed:
+
+- strategy evaluation logic
+- risk-policy decisions
+- direct database access
+- direct exchange API access
+- duplicating application rules already owned by Python services
+
 ### Jobs
 
 Jobs trigger workflows on a schedule.
@@ -160,6 +182,7 @@ This is the required order of responsibility:
 
 - `app/main.py`: FastAPI application
 - `app/worker.py`: background worker loop
+- `web/`: Next.js operator UI
 
 ## Data And Model Rules
 
@@ -249,3 +272,10 @@ Runtime logs should:
 - paper trading enabled
 - live trading disabled
 - no exchange credentials required for local bootstrap
+
+## UI Boundary Rules
+
+- Treat FastAPI as the source of truth for trading state and control outcomes.
+- Prefer JSON endpoints for new UI work instead of expanding server-rendered HTML.
+- Keep UI-specific aggregation thin; reusable business logic belongs in Python services.
+- Migrate `/console` and `/reports` by feature slice, not by a one-shot rewrite.

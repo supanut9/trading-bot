@@ -10,3 +10,6 @@ __pycache__/
 *.db
 dist/
 build/
+web/node_modules/
+web/.next/
+web/coverage/
