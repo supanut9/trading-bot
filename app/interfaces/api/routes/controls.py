@@ -1,3 +1,4 @@
+from dataclasses import asdict
 from typing import Annotated
 
 from fastapi import APIRouter, Body, Depends, status
@@ -9,6 +10,10 @@ from app.application.services.operational_control_service import (
 )
 from app.config import Settings, get_settings
 from app.infrastructure.database.session import get_session_factory_dependency
+from app.interfaces.api.backtest_rule_mapping import (
+    to_rule_builder_config,
+    to_rule_builder_request,
+)
 from app.interfaces.api.schemas import (
     BacktestControlRequest,
     BacktestControlResponse,
@@ -108,10 +113,17 @@ def run_backtest(
             fast_period=payload.fast_period,
             slow_period=payload.slow_period,
             starting_equity=payload.starting_equity,
+            rules=to_rule_builder_config(payload.rules),
         ),
         source="api.control",
     )
-    return BacktestControlResponse.model_validate(result)
+    result_payload = asdict(result)
+    result_payload["rules"] = (
+        to_rule_builder_request(result.rules).model_dump(mode="python")
+        if result.rules is not None
+        else None
+    )
+    return BacktestControlResponse.model_validate(result_payload)
 
 
 @router.post(

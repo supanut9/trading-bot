@@ -1,5 +1,6 @@
 from datetime import UTC, date, datetime
 from decimal import Decimal
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -179,8 +180,8 @@ class BacktestControlResponse(BaseModel):
     exchange: str
     symbol: str
     timeframe: str
-    fast_period: int
-    slow_period: int
+    fast_period: int | None = None
+    slow_period: int | None = None
     starting_equity_input: Decimal
     candle_count: int
     required_candles: int
@@ -192,6 +193,7 @@ class BacktestControlResponse(BaseModel):
     total_trades: int | None = None
     winning_trades: int | None = None
     losing_trades: int | None = None
+    rules: "StrategyRuleBuilderRequest | None" = None
     executions: list["BacktestExecutionResponse"] = Field(default_factory=list)
 
     model_config = ConfigDict(from_attributes=True)
@@ -215,6 +217,27 @@ class BacktestControlRequest(BaseModel):
     fast_period: int | None = None
     slow_period: int | None = None
     starting_equity: Decimal | None = None
+    rules: "StrategyRuleBuilderRequest | None" = None
+
+
+class StrategyRuleConditionRequest(BaseModel):
+    indicator: Literal["ema_cross", "price_vs_ema", "rsi_threshold"]
+    operator: Literal["bullish", "bearish", "above", "below"]
+    fast_period: int | None = None
+    slow_period: int | None = None
+    period: int | None = None
+    threshold: Decimal | None = None
+
+
+class StrategyRuleGroupRequest(BaseModel):
+    logic: Literal["all", "any"] = "all"
+    conditions: list[StrategyRuleConditionRequest] = Field(default_factory=list)
+
+
+class StrategyRuleBuilderRequest(BaseModel):
+    shared_filters: StrategyRuleGroupRequest = Field(default_factory=StrategyRuleGroupRequest)
+    buy_rules: StrategyRuleGroupRequest = Field(default_factory=StrategyRuleGroupRequest)
+    sell_rules: StrategyRuleGroupRequest = Field(default_factory=StrategyRuleGroupRequest)
 
 
 class OperatorConfigResponse(BaseModel):

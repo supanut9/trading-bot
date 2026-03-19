@@ -20,8 +20,8 @@ class Candle:
 class Signal:
     action: Literal["buy", "sell"]
     reason: str
-    fast_value: Decimal
-    slow_value: Decimal
+    fast_value: Decimal | None = None
+    slow_value: Decimal | None = None
 
 
 class Strategy(Protocol):

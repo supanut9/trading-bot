@@ -30,8 +30,14 @@ from app.application.services.operator_runtime_config_service import (
 from app.application.services.worker_orchestration_service import WorkerOrchestrationService
 from app.config import Settings
 from app.domain.risk import RiskLimits, RiskService
-from app.domain.strategies.base import Candle
+from app.domain.strategies.base import Candle, Strategy
 from app.domain.strategies.ema_crossover import EmaCrossoverStrategy
+from app.domain.strategies.rule_builder import (
+    RuleBuilderStrategy,
+    RuleBuilderStrategyConfig,
+    StrategyRuleCondition,
+    StrategyRuleGroup,
+)
 from app.infrastructure.database.models.candle import CandleRecord
 from app.infrastructure.database.repositories.order_repository import OrderRepository
 from app.infrastructure.database.session import create_session_factory
@@ -41,6 +47,7 @@ from app.infrastructure.exchanges.factory import (
 )
 
 BACKTEST_STRATEGY_EMA_CROSSOVER = OPERATOR_STRATEGY_EMA_CROSSOVER
+BACKTEST_STRATEGY_RULE_BUILDER = "rule_builder"
 
 
 @dataclass(frozen=True, slots=True)
@@ -52,6 +59,7 @@ class BacktestRunOptions:
     fast_period: int | None = None
     slow_period: int | None = None
     starting_equity: Decimal | None = None
+    rules: RuleBuilderStrategyConfig | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -84,8 +92,8 @@ class BacktestControlResult:
     exchange: str
     symbol: str
     timeframe: str
-    fast_period: int
-    slow_period: int
+    fast_period: int | None
+    slow_period: int | None
     starting_equity_input: Decimal
     candle_count: int
     required_candles: int
@@ -97,6 +105,7 @@ class BacktestControlResult:
     total_trades: int | None = None
     winning_trades: int | None = None
     losing_trades: int | None = None
+    rules: RuleBuilderStrategyConfig | None = None
     executions: tuple[BacktestExecutionResult, ...] = ()
 
 
@@ -369,7 +378,8 @@ class OperationalControlService:
                 starting_equity_input=self._quantize_decimal(preview.starting_equity)
                 or Decimal("0"),
                 candle_count=0,
-                required_candles=max(preview.slow_period + 1, 0),
+                required_candles=self._required_candles_for_options(preview),
+                rules=preview.rules,
             )
             if audit:
                 self._audit.record_control_result(
@@ -388,6 +398,7 @@ class OperationalControlService:
                         "starting_equity_input": control_result.starting_equity_input,
                         "candle_count": control_result.candle_count,
                         "required_candles": control_result.required_candles,
+                        "rule_builder": control_result.rules is not None,
                         "notified": control_result.notified,
                     },
                 )
@@ -399,7 +410,7 @@ class OperationalControlService:
                 timeframe=resolved.timeframe,
             )
             candle_count = len(records)
-            required_candles = resolved.slow_period + 1
+            required_candles = self._required_candles_for_options(resolved)
 
             if not records:
                 backtest_result = None
@@ -437,6 +448,7 @@ class OperationalControlService:
                 or Decimal("0"),
                 candle_count=candle_count,
                 required_candles=required_candles,
+                rules=resolved.rules,
             )
             if audit:
                 self._audit.record_control_result(
@@ -455,6 +467,7 @@ class OperationalControlService:
                         "starting_equity_input": control_result.starting_equity_input,
                         "candle_count": control_result.candle_count,
                         "required_candles": control_result.required_candles,
+                        "rule_builder": control_result.rules is not None,
                         "notified": control_result.notified,
                     },
                 )
@@ -487,6 +500,7 @@ class OperationalControlService:
             total_trades=backtest_result.total_trades,
             winning_trades=backtest_result.winning_trades,
             losing_trades=backtest_result.losing_trades,
+            rules=resolved.rules,
             executions=tuple(
                 BacktestExecutionResult(
                     action=execution.action,
@@ -515,6 +529,7 @@ class OperationalControlService:
                     "starting_equity_input": control_result.starting_equity_input,
                     "candle_count": control_result.candle_count,
                     "required_candles": control_result.required_candles,
+                    "rule_builder": control_result.rules is not None,
                     "starting_equity": control_result.starting_equity,
                     "ending_equity": control_result.ending_equity,
                     "realized_pnl": control_result.realized_pnl,
@@ -872,33 +887,44 @@ class OperationalControlService:
     ) -> BacktestRunOptions:
         active = options or BacktestRunOptions()
         strategy_name = active.strategy_name.strip().lower()
-        if strategy_name != BACKTEST_STRATEGY_EMA_CROSSOVER:
-            raise ValueError(f"unsupported backtest strategy: {active.strategy_name}")
         exchange = (active.exchange or defaults.exchange).strip()
         symbol = (active.symbol or defaults.symbol).strip()
         timeframe = (active.timeframe or defaults.timeframe).strip()
-        fast_period = active.fast_period or defaults.fast_period
-        slow_period = active.slow_period or defaults.slow_period
         starting_equity = active.starting_equity or Decimal(
             str(self._settings.paper_account_equity)
         )
         if not exchange or not symbol or not timeframe:
             raise ValueError("exchange, symbol, and timeframe are required for backtest")
-        if fast_period <= 0 or slow_period <= 0:
-            raise ValueError("backtest periods must be positive")
-        if fast_period >= slow_period:
-            raise ValueError("fast period must be smaller than slow period")
         if starting_equity <= Decimal("0"):
             raise ValueError("starting equity must be positive")
-        return BacktestRunOptions(
-            strategy_name=strategy_name,
-            exchange=exchange,
-            symbol=symbol,
-            timeframe=timeframe,
-            fast_period=fast_period,
-            slow_period=slow_period,
-            starting_equity=starting_equity,
-        )
+        if strategy_name == BACKTEST_STRATEGY_EMA_CROSSOVER:
+            fast_period = active.fast_period or defaults.fast_period
+            slow_period = active.slow_period or defaults.slow_period
+            if fast_period <= 0 or slow_period <= 0:
+                raise ValueError("backtest periods must be positive")
+            if fast_period >= slow_period:
+                raise ValueError("fast period must be smaller than slow period")
+            return BacktestRunOptions(
+                strategy_name=strategy_name,
+                exchange=exchange,
+                symbol=symbol,
+                timeframe=timeframe,
+                fast_period=fast_period,
+                slow_period=slow_period,
+                starting_equity=starting_equity,
+            )
+        if strategy_name == BACKTEST_STRATEGY_RULE_BUILDER:
+            rules = active.rules or self._default_rule_builder_config(defaults)
+            rules.validate()
+            return BacktestRunOptions(
+                strategy_name=strategy_name,
+                exchange=exchange,
+                symbol=symbol,
+                timeframe=timeframe,
+                starting_equity=starting_equity,
+                rules=rules,
+            )
+        raise ValueError(f"unsupported backtest strategy: {active.strategy_name}")
 
     def _preview_backtest_options(
         self,
@@ -907,8 +933,20 @@ class OperationalControlService:
         defaults: OperatorRuntimeConfig,
     ) -> BacktestRunOptions:
         active = options or BacktestRunOptions()
+        strategy_name = (active.strategy_name or BACKTEST_STRATEGY_EMA_CROSSOVER).strip().lower()
+        if strategy_name == BACKTEST_STRATEGY_RULE_BUILDER:
+            return BacktestRunOptions(
+                strategy_name=strategy_name,
+                exchange=(active.exchange or defaults.exchange).strip(),
+                symbol=(active.symbol or defaults.symbol).strip(),
+                timeframe=(active.timeframe or defaults.timeframe).strip(),
+                starting_equity=Decimal(
+                    str(active.starting_equity or self._settings.paper_account_equity)
+                ),
+                rules=active.rules or self._default_rule_builder_config(defaults),
+            )
         return BacktestRunOptions(
-            strategy_name=(active.strategy_name or BACKTEST_STRATEGY_EMA_CROSSOVER).strip().lower(),
+            strategy_name=strategy_name,
             exchange=(active.exchange or defaults.exchange).strip(),
             symbol=(active.symbol or defaults.symbol).strip(),
             timeframe=(active.timeframe or defaults.timeframe).strip(),
@@ -920,12 +958,52 @@ class OperationalControlService:
         )
 
     @staticmethod
-    def _build_backtest_strategy(options: BacktestRunOptions) -> EmaCrossoverStrategy:
+    def _build_backtest_strategy(options: BacktestRunOptions) -> Strategy:
+        if options.strategy_name == BACKTEST_STRATEGY_RULE_BUILDER:
+            if options.rules is None:
+                raise ValueError("rule builder strategy requires rules")
+            return RuleBuilderStrategy(options.rules)
         if options.strategy_name != BACKTEST_STRATEGY_EMA_CROSSOVER:
             raise ValueError(f"unsupported backtest strategy: {options.strategy_name}")
         return EmaCrossoverStrategy(
             fast_period=options.fast_period or 0,
             slow_period=options.slow_period or 0,
+        )
+
+    @staticmethod
+    def _required_candles_for_options(options: BacktestRunOptions) -> int:
+        if options.strategy_name == BACKTEST_STRATEGY_RULE_BUILDER and options.rules is not None:
+            return options.rules.minimum_candles()
+        return max((options.slow_period or 0) + 1, 0)
+
+    @staticmethod
+    def _default_rule_builder_config(
+        defaults: OperatorRuntimeConfig,
+    ) -> RuleBuilderStrategyConfig:
+        return RuleBuilderStrategyConfig(
+            shared_filters=StrategyRuleGroup(logic="all", conditions=()),
+            buy_rules=StrategyRuleGroup(
+                logic="all",
+                conditions=(
+                    StrategyRuleCondition(
+                        indicator="ema_cross",
+                        operator="bullish",
+                        fast_period=defaults.fast_period,
+                        slow_period=defaults.slow_period,
+                    ),
+                ),
+            ),
+            sell_rules=StrategyRuleGroup(
+                logic="all",
+                conditions=(
+                    StrategyRuleCondition(
+                        indicator="ema_cross",
+                        operator="bearish",
+                        fast_period=defaults.fast_period,
+                        slow_period=defaults.slow_period,
+                    ),
+                ),
+            ),
         )
 
     def _build_risk_service(self) -> RiskService:

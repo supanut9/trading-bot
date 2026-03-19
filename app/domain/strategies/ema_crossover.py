@@ -1,25 +1,7 @@
 from collections.abc import Sequence
-from decimal import Decimal
 
 from app.domain.strategies.base import Candle, Signal
-
-
-def calculate_ema(prices: Sequence[Decimal], period: int) -> list[Decimal]:
-    if period <= 0:
-        raise ValueError("period must be positive")
-    if len(prices) < period:
-        raise ValueError("not enough prices to calculate EMA")
-
-    smoothing = Decimal("2") / Decimal(period + 1)
-    seed = sum(prices[:period], start=Decimal("0")) / Decimal(period)
-    values: list[Decimal] = [seed]
-    previous = seed
-
-    for price in prices[period:]:
-        previous = (price - previous) * smoothing + previous
-        values.append(previous)
-
-    return values
+from app.domain.strategies.indicators import calculate_ema
 
 
 class EmaCrossoverStrategy:
