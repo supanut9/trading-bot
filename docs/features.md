@@ -899,7 +899,7 @@ Main outputs:
 
 Status:
 
-- in progress on `feature/operator-market-sync-controls`
+- merged to `main`
 
 Scope:
 
@@ -913,13 +913,31 @@ Main outputs:
 - Next.js controls page with symbol, timeframe, limit, and backfill inputs
 - result panel and safe operator guidance for append vs backfill usage
 
+### 48. `feature/operator-reporting-ui`
+
+Status:
+
+- in progress on `feature/operator-reporting-ui`
+
+Scope:
+
+- add a real Next.js reporting route for analytics and exports
+- reuse existing performance analytics and CSV export APIs
+- replace the old backend reporting UX with a richer API-backed page
+
+Main outputs:
+
+- `/reports` route in `web/`
+- performance summary, equity-curve, and daily-rollup visibility in Next.js
+- direct CSV export links for operational and performance datasets
+
 ## Current Recommended Queue
 
 These are the next bounded features after the current `main` baseline:
 
-1. `feature/operator-market-sync-controls`
-2. `feature/reporting-ui`
+1. `feature/operator-reporting-ui`
+2. `feature/runtime-operator-config`
 
 Current next feature:
 
-- `feature/operator-market-sync-controls`
+- `feature/operator-reporting-ui`

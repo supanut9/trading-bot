@@ -822,3 +822,9 @@ Keeping both UI stacks in service would duplicate operator workflows, prolong ou
 The original `POST /controls/market-sync` endpoint only accepted `limit` and `backfill`, which forced any UI to rely on persisted operator defaults for `symbol` and `timeframe`. That was too implicit for the Next.js controls workflow because operators need to target a market window for one sync run without assuming they changed global runtime state.
 
 The market-sync control now accepts optional `symbol` and `timeframe` fields. When omitted, the service still resolves the effective operator defaults, but when supplied it runs the sync against those explicit values for that request only. The new Next.js controls page uses that contract so the operator can choose market, timeframe, candle limit, and append or backfill mode directly.
+
+## 2026-03-20: Move Reporting Back Into The Next.js Operator UI
+
+Once the backend-rendered `/reports` page was removed, operators still had CSV exports and the JSON analytics API, but no richer browser reporting surface. The replacement should stay bounded: reuse the existing performance and export endpoints instead of inventing a second reporting backend.
+
+The new Next.js `/reports` route now reads `GET /status` and `GET /performance/summary`, renders summary metrics and the equity curve in the operator shell, and links directly to the existing CSV exports. Reporting remains API-backed and read-only, while recovery-heavy reporting slices can continue to land as separate features.
