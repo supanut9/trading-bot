@@ -1003,13 +1003,31 @@ Main outputs:
 - operator-triggered live halt and resume actions
 - explicit live reconcile and cancel actions with result feedback
 
+### 53. `feature/recovery-reporting-ui`
+
+Status:
+
+- in progress on `feature/recovery-reporting-ui`
+
+Scope:
+
+- bring live recovery reporting into the Next.js reporting surface
+- add a bounded JSON reporting endpoint over existing recovery services
+- preserve filtered CSV export workflow while improving scan-friendly operator visibility
+
+Main outputs:
+
+- `/reports/recovery` JSON endpoint
+- recovery queue, stale-order, and recovery-timeline panels in the reporting route
+- read-only recovery filters with matching filtered CSV export links
+
 ## Current Recommended Queue
 
 These are the next bounded features after the current `main` baseline:
 
-1. `feature/live-ops-ui`
-2. `feature/recovery-reporting-ui`
+1. `feature/recovery-reporting-ui`
+2. `feature/notification-reporting-ui`
 
 Current next feature:
 
-- `feature/live-ops-ui`
+- `feature/recovery-reporting-ui`

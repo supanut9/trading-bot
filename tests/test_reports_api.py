@@ -300,3 +300,72 @@ def test_live_recovery_csv_export_filters_rows(tmp_path: Path) -> None:
         assert rows[0]["requires_operator_review"] == "true"
     finally:
         teardown_client(session)
+
+
+def test_recovery_dashboard_returns_filtered_recovery_data(tmp_path: Path) -> None:
+    client, session, settings = build_client(tmp_path)
+    try:
+        session.add(
+            OrderRecord(
+                exchange="binance",
+                symbol="BTC/USDT",
+                side="buy",
+                order_type="market",
+                status="review_required",
+                mode="live",
+                quantity=Decimal("0.001"),
+                client_order_id="filtered-order",
+                exchange_order_id="789",
+                created_at=datetime(2026, 1, 1, 0, tzinfo=UTC),
+                updated_at=datetime(2026, 1, 1, 0, tzinfo=UTC),
+            )
+        )
+        session.add(
+            OrderRecord(
+                exchange="binance",
+                symbol="BTC/USDT",
+                side="buy",
+                order_type="market",
+                status="submitted",
+                mode="live",
+                quantity=Decimal("0.001"),
+                client_order_id="other-order",
+                exchange_order_id="790",
+                created_at=datetime(2026, 1, 1, 0, tzinfo=UTC),
+                updated_at=datetime(2026, 1, 1, 0, tzinfo=UTC),
+            )
+        )
+        AuditService(session=session).record_control_result(
+            control_type="live_cancel",
+            source="api.control",
+            status="completed",
+            detail="cancelled",
+            settings=settings,
+            payload={"client_order_id": "filtered-order"},
+        )
+        session.commit()
+        settings.paper_trading = False
+        settings.live_trading_enabled = True
+        settings.live_trading_halted = True
+        settings.exchange_api_key = "key"
+        settings.exchange_api_secret = "secret"
+
+        response = client.get(
+            "/reports/recovery?recovery_requires_review=true&recovery_search=filtered-order"
+        )
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["live_trading_enabled"] is True
+        assert payload["live_trading_halted"] is True
+        assert payload["live_safety_status"] == "halted"
+        assert payload["unresolved_live_orders"] == 1
+        assert payload["recovery_event_count"] == 1
+        assert payload["filters"]["requires_review"] is True
+        assert payload["filters"]["search"] == "filtered-order"
+        assert payload["unresolved_orders"][0]["client_order_id"] == "filtered-order"
+        assert payload["unresolved_orders"][0]["requires_operator_review"] is True
+        assert payload["recovery_events"][0]["event_type"] == "live_cancel"
+        assert "client_order_id=filtered-order" in payload["recovery_events"][0]["context"]
+    finally:
+        teardown_client(session)

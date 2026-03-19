@@ -1,11 +1,15 @@
 "use client";
 
+import type { ChangeEvent } from "react";
+import { useState } from "react";
 import { useQueries } from "@tanstack/react-query";
 import {
   ArrowUpRight,
   Download,
   LineChart,
   NotebookTabs,
+  Radar,
+  Search,
   Sigma,
   WalletCards,
 } from "lucide-react";
@@ -25,11 +29,20 @@ import {
 import {
   apiUrl,
   getPerformanceSummary,
+  getRecoveryDashboard,
   getStatus,
   type PerformanceAnalyticsResponse,
+  type RecoveryDashboardResponse,
   type StatusResponse,
 } from "@/lib/api";
 import { formatDecimal, formatSignedDecimal, formatTimestamp } from "@/lib/format";
+
+type RecoveryFilterState = {
+  order_status: string;
+  requires_review: "all" | "true" | "false";
+  event_type: string;
+  search: string;
+};
 
 function MetricBlock({
   label,
@@ -130,17 +143,67 @@ function ExportLink({
   );
 }
 
+function buildRecoveryCsvHref(filters: RecoveryFilterState): string {
+  const params = new URLSearchParams();
+  if (filters.order_status) {
+    params.set("recovery_order_status", filters.order_status);
+  }
+  if (filters.requires_review !== "all") {
+    params.set("recovery_requires_review", filters.requires_review);
+  }
+  if (filters.event_type) {
+    params.set("recovery_event_type", filters.event_type);
+  }
+  if (filters.search.trim()) {
+    params.set("recovery_search", filters.search.trim());
+  }
+  const suffix = params.toString();
+  return apiUrl(`/reports/live-recovery.csv${suffix ? `?${suffix}` : ""}`);
+}
+
 export function ReportingPage() {
-  const [statusQuery, performanceQuery] = useQueries({
+  const [recoveryFilters, setRecoveryFilters] = useState<RecoveryFilterState>({
+    order_status: "",
+    requires_review: "all",
+    event_type: "",
+    search: "",
+  });
+
+  const recoveryQueryParams = {
+    recovery_order_status: recoveryFilters.order_status || undefined,
+    recovery_requires_review:
+      recoveryFilters.requires_review === "all"
+        ? undefined
+        : recoveryFilters.requires_review === "true",
+    recovery_event_type: recoveryFilters.event_type || undefined,
+    recovery_search: recoveryFilters.search.trim() || undefined,
+  };
+
+  const [statusQuery, performanceQuery, recoveryQuery] = useQueries({
     queries: [
       { queryKey: ["status"], queryFn: getStatus },
       { queryKey: ["performance"], queryFn: getPerformanceSummary },
+      {
+        queryKey: ["recovery-dashboard", recoveryQueryParams],
+        queryFn: () => getRecoveryDashboard(recoveryQueryParams),
+      },
     ],
   });
 
   const status = statusQuery.data as StatusResponse | undefined;
   const performance = performanceQuery.data as PerformanceAnalyticsResponse | undefined;
+  const recovery = recoveryQuery.data as RecoveryDashboardResponse | undefined;
   const summary = performance?.summaries[0];
+
+  function updateRecoveryFilter<Key extends keyof RecoveryFilterState>(
+    key: Key,
+    value: RecoveryFilterState[Key],
+  ) {
+    setRecoveryFilters((current) => ({
+      ...current,
+      [key]: value,
+    }));
+  }
 
   return (
     <OperatorShell>
@@ -149,24 +212,25 @@ export function ReportingPage() {
           <div className="flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
             <div>
               <p className="text-[11px] uppercase tracking-[0.28em] text-emerald-200/80">
-                Feature Operator Reporting UI
+                Feature Recovery Reporting UI
               </p>
               <h2 className="mt-3 text-4xl font-semibold tracking-tight text-white">
-                Performance Ledger
+                Performance And Recovery Ledger
               </h2>
               <p className="mt-3 max-w-2xl text-sm text-slate-300">
-                Analytics, export links, and replay-ready reporting in the Next.js operator surface.
+                Analytics, export links, and live recovery visibility in the Next.js operator
+                surface.
               </p>
             </div>
             <div className="flex flex-wrap gap-3">
               <Badge variant="success">Analytics</Badge>
+              <Badge variant="warning">Recovery</Badge>
               <Badge variant="info">CSV exports</Badge>
-              <Badge variant="neutral">API-backed</Badge>
             </div>
           </div>
         </header>
 
-        {statusQuery.isLoading || performanceQuery.isLoading ? (
+        {statusQuery.isLoading || performanceQuery.isLoading || recoveryQuery.isLoading ? (
           <div className="grid gap-4 lg:grid-cols-4">
             <Skeleton className="h-32" />
             <Skeleton className="h-32" />
@@ -259,9 +323,9 @@ export function ReportingPage() {
                   label="Trades"
                 />
                 <ExportLink
-                  description="Recent audit outcomes across controls."
-                  href={apiUrl("/reports/audit.csv")}
-                  label="Audit feed"
+                  description="Filtered live recovery export."
+                  href={buildRecoveryCsvHref(recoveryFilters)}
+                  label="Live recovery"
                 />
               </CardContent>
             </Card>
@@ -296,6 +360,266 @@ export function ReportingPage() {
             </Card>
           </div>
         </div>
+
+        <Card>
+          <CardHeader>
+            <div>
+              <CardTitle>Recovery Overview</CardTitle>
+              <CardDescription>
+                Unresolved live state, stale orders, and recent recovery activity.
+              </CardDescription>
+            </div>
+            <div className="rounded-2xl bg-amber-300/10 p-3 text-amber-100">
+              <Radar className="h-5 w-5" />
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-5">
+            <div className="grid gap-4 lg:grid-cols-4">
+              <MetricBlock
+                label="Safety"
+                value={recovery?.live_safety_status ?? "n/a"}
+                detail={
+                  recovery?.live_trading_enabled
+                    ? recovery.live_trading_halted
+                      ? "Live enabled, entry halted"
+                      : "Live enabled"
+                    : "Paper only"
+                }
+              />
+              <MetricBlock
+                label="Unresolved"
+                value={String(recovery?.unresolved_live_orders ?? 0)}
+                detail="Filtered unresolved live orders"
+              />
+              <MetricBlock
+                label="Events"
+                value={String(recovery?.recovery_event_count ?? 0)}
+                detail="Recent reconcile and cancel activity"
+              />
+              <MetricBlock
+                label="Stale Orders"
+                value={String(recovery?.stale_live_orders.length ?? 0)}
+                detail={`Threshold ${recovery?.stale_threshold_minutes ?? "-"} minutes`}
+              />
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-[repeat(3,minmax(0,1fr))_minmax(0,1.2fr)]">
+              <label className="space-y-2">
+                <span className="text-[11px] uppercase tracking-[0.18em] text-slate-400">
+                  Order Status
+                </span>
+                <select
+                  className="w-full rounded-2xl border border-white/10 bg-[#09121a] px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-300/40 focus:ring-2 focus:ring-cyan-300/10"
+                  onChange={(event: ChangeEvent<HTMLSelectElement>) =>
+                    updateRecoveryFilter("order_status", event.target.value)
+                  }
+                  value={recoveryFilters.order_status}
+                >
+                  <option value="">All statuses</option>
+                  <option value="review_required">review_required</option>
+                  <option value="submitted">submitted</option>
+                  <option value="open">open</option>
+                  <option value="partially_filled">partially_filled</option>
+                </select>
+              </label>
+              <label className="space-y-2">
+                <span className="text-[11px] uppercase tracking-[0.18em] text-slate-400">
+                  Needs Review
+                </span>
+                <select
+                  className="w-full rounded-2xl border border-white/10 bg-[#09121a] px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-300/40 focus:ring-2 focus:ring-cyan-300/10"
+                  onChange={(event: ChangeEvent<HTMLSelectElement>) =>
+                    updateRecoveryFilter(
+                      "requires_review",
+                      event.target.value as RecoveryFilterState["requires_review"],
+                    )
+                  }
+                  value={recoveryFilters.requires_review}
+                >
+                  <option value="all">All</option>
+                  <option value="true">true</option>
+                  <option value="false">false</option>
+                </select>
+              </label>
+              <label className="space-y-2">
+                <span className="text-[11px] uppercase tracking-[0.18em] text-slate-400">
+                  Event Type
+                </span>
+                <select
+                  className="w-full rounded-2xl border border-white/10 bg-[#09121a] px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-300/40 focus:ring-2 focus:ring-cyan-300/10"
+                  onChange={(event: ChangeEvent<HTMLSelectElement>) =>
+                    updateRecoveryFilter("event_type", event.target.value)
+                  }
+                  value={recoveryFilters.event_type}
+                >
+                  <option value="">All events</option>
+                  <option value="live_reconcile">live_reconcile</option>
+                  <option value="live_cancel">live_cancel</option>
+                </select>
+              </label>
+              <label className="space-y-2">
+                <span className="text-[11px] uppercase tracking-[0.18em] text-slate-400">
+                  Search
+                </span>
+                <div className="relative">
+                  <Search className="pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-slate-500" />
+                  <input
+                    className="w-full rounded-2xl border border-white/10 bg-[#09121a] py-3 pl-10 pr-4 text-sm text-white outline-none transition focus:border-cyan-300/40 focus:ring-2 focus:ring-cyan-300/10"
+                    onChange={(event: ChangeEvent<HTMLInputElement>) =>
+                      updateRecoveryFilter("search", event.target.value)
+                    }
+                    placeholder="client order id, status, next action"
+                    value={recoveryFilters.search}
+                  />
+                </div>
+              </label>
+            </div>
+
+            <div className="grid gap-5 xl:grid-cols-2">
+              <div className="space-y-5">
+                <div className="rounded-[1.8rem] border border-white/10 bg-white/[0.03] p-4">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge variant="warning">
+                      Latest {recovery?.latest_recovery_event_type ?? "none"}
+                    </Badge>
+                    <Badge variant="neutral">
+                      {recovery?.latest_recovery_event_status ?? "n/a"}
+                    </Badge>
+                    <Badge variant="info">
+                      {recovery?.latest_recovery_event_at
+                        ? formatTimestamp(recovery.latest_recovery_event_at)
+                        : "No recent event"}
+                    </Badge>
+                  </div>
+                  <p className="mt-3 text-sm text-slate-300">
+                    {recovery?.latest_recovery_event_context ?? "No recovery context yet."}
+                  </p>
+                </div>
+
+                <Card className="bg-[rgba(10,15,20,0.5)]">
+                  <CardHeader>
+                    <div>
+                      <CardTitle>Stale Live Orders</CardTitle>
+                      <CardDescription>
+                        Orders older than the configured stale threshold.
+                      </CardDescription>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    {recovery && recovery.stale_live_orders.length > 0 ? (
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Order</TableHead>
+                            <TableHead>Status</TableHead>
+                            <TableHead>Age</TableHead>
+                            <TableHead>Updated</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {recovery.stale_live_orders.map((order) => (
+                            <TableRow key={order.id}>
+                              <TableCell>#{order.id}</TableCell>
+                              <TableCell>{order.status}</TableCell>
+                              <TableCell>{order.age_minutes}m</TableCell>
+                              <TableCell>{formatTimestamp(order.updated_at)}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    ) : (
+                      <div className="flex min-h-40 items-center justify-center rounded-[1.8rem] border border-dashed border-white/10 bg-white/[0.02] px-6 text-center text-sm text-slate-400">
+                        No stale live orders matched the current recovery slice.
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+
+              <Card className="bg-[rgba(10,15,20,0.5)]">
+                <CardHeader>
+                  <div>
+                    <CardTitle>Recovery Queue</CardTitle>
+                    <CardDescription>
+                      Unresolved live orders and their current next action.
+                    </CardDescription>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {recovery && recovery.unresolved_orders.length > 0 ? (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Order</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead>Review</TableHead>
+                          <TableHead>Next Action</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {recovery.unresolved_orders.map((order) => (
+                          <TableRow key={order.id}>
+                            <TableCell>
+                              #{order.id} {order.client_order_id ?? order.exchange_order_id ?? ""}
+                            </TableCell>
+                            <TableCell>{order.status}</TableCell>
+                            <TableCell>{String(order.requires_operator_review)}</TableCell>
+                            <TableCell>{order.next_action}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  ) : (
+                    <div className="flex min-h-40 items-center justify-center rounded-[1.8rem] border border-dashed border-white/10 bg-white/[0.02] px-6 text-center text-sm text-slate-400">
+                      No unresolved live orders matched the current filters.
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+
+            <Card className="bg-[rgba(10,15,20,0.5)]">
+              <CardHeader>
+                <div>
+                  <CardTitle>Recovery Timeline</CardTitle>
+                  <CardDescription>
+                    Recent live reconcile and cancel outcomes with derived context.
+                  </CardDescription>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {recovery && recovery.recovery_events.length > 0 ? (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>When</TableHead>
+                        <TableHead>Event</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Detail</TableHead>
+                        <TableHead>Context</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {recovery.recovery_events.map((event) => (
+                        <TableRow key={`${event.created_at}-${event.event_type}`}>
+                          <TableCell>{formatTimestamp(event.created_at)}</TableCell>
+                          <TableCell>{event.event_type}</TableCell>
+                          <TableCell>{event.status}</TableCell>
+                          <TableCell>{event.detail}</TableCell>
+                          <TableCell>{event.context}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                ) : (
+                  <div className="flex min-h-40 items-center justify-center rounded-[1.8rem] border border-dashed border-white/10 bg-white/[0.02] px-6 text-center text-sm text-slate-400">
+                    No recovery events matched the current filters.
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </CardContent>
+        </Card>
 
         <Card>
           <CardHeader>
@@ -364,17 +688,16 @@ export function ReportingPage() {
               </p>
             </div>
             <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-sm text-slate-300">
-              <p className="font-medium text-white">CSV first</p>
+              <p className="font-medium text-white">Live recovery</p>
               <p className="mt-2">
-                The export desk links directly to FastAPI CSV endpoints so offline review stays
-                available.
+                Recovery queue, stale orders, and recent recovery events now reuse read-only API
+                slices instead of leaving operators with CSV-only visibility.
               </p>
             </div>
             <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-sm text-slate-300">
-              <p className="font-medium text-white">Further slices</p>
+              <p className="font-medium text-white">CSV still first-class</p>
               <p className="mt-2">
-                Recovery reporting and more advanced filters remain separate operator-reporting
-                features.
+                Filtered live-recovery exports remain available for offline review.
               </p>
             </div>
           </CardContent>

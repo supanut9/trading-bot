@@ -71,8 +71,8 @@ Current repo baseline:
 
 Recommended next feature queue:
 
-1. `feature/live-ops-ui`
-2. `feature/recovery-reporting-ui`
+1. `feature/recovery-reporting-ui`
+2. `feature/notification-reporting-ui`
 
 ## Phase 1
 

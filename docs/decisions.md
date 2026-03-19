@@ -840,3 +840,9 @@ The operator UI now includes a dedicated `/backtest` route that posts to the exi
 The backend already provided bounded live halt, reconcile, and cancel APIs, but operators still had to leave the main UI surface to use them. That gap was operational rather than architectural, so the correct next step was to expose the existing controls in the Next.js app without moving any live policy into frontend code.
 
 The controls route now reads `/status` for the current live posture and adds explicit UI actions for halt or resume, reconcile, and manual cancel. The browser sends only one cancel identifier at a time, while live safety checks, duplicate-order protection, and failure handling remain in the Python backend.
+
+## 2026-03-20: Add Recovery Reporting To The Next.js Reports Route
+
+Recovery exports and backend services already existed, but the reporting route still treated recovery as a future slice and left operators with CSVs for unresolved live-order review. The missing capability was a read-only browser surface for the same bounded recovery data, not more execution logic.
+
+The API now exposes `GET /reports/recovery` as a JSON dashboard slice over the existing reporting and recovery services. The Next.js `/reports` route uses that endpoint to render stale live orders, the unresolved recovery queue, recent reconcile or cancel events, and read-only recovery filters while preserving filtered `live-recovery.csv` exports.
