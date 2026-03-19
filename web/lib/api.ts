@@ -102,6 +102,14 @@ export type OperatorConfigResponse = {
   notified: boolean;
 };
 
+export type OperatorConfigRequest = {
+  strategy_name: string;
+  symbol: string;
+  timeframe: string;
+  fast_period: number;
+  slow_period: number;
+};
+
 export type MarketSyncControlRequest = {
   symbol?: string;
   timeframe?: string;
@@ -164,6 +172,15 @@ export function getTrades(limit = 8): Promise<TradeResponse[]> {
 
 export function getOperatorConfig(): Promise<OperatorConfigResponse> {
   return request<OperatorConfigResponse>("/controls/operator-config");
+}
+
+export function updateOperatorConfig(
+  payload: OperatorConfigRequest,
+): Promise<OperatorConfigResponse> {
+  return request<OperatorConfigResponse>("/controls/operator-config", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
 }
 
 export function runMarketSync(
