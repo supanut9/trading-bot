@@ -102,6 +102,70 @@ export type OperatorConfigResponse = {
   notified: boolean;
 };
 
+export type BacktestExecutionResponse = {
+  action: string;
+  price: string;
+  quantity: string;
+  realized_pnl: string;
+  reason: string;
+};
+
+export type StrategyRuleConditionRequest = {
+  indicator: "ema_cross" | "price_vs_ema" | "rsi_threshold";
+  operator: "bullish" | "bearish" | "above" | "below";
+  fast_period?: number;
+  slow_period?: number;
+  period?: number;
+  threshold?: string;
+};
+
+export type StrategyRuleGroupRequest = {
+  logic: "all" | "any";
+  conditions: StrategyRuleConditionRequest[];
+};
+
+export type StrategyRuleBuilderRequest = {
+  shared_filters: StrategyRuleGroupRequest;
+  buy_rules: StrategyRuleGroupRequest;
+  sell_rules: StrategyRuleGroupRequest;
+};
+
+export type BacktestControlRequest = {
+  strategy_name?: string;
+  exchange?: string;
+  symbol?: string;
+  timeframe?: string;
+  fast_period?: number;
+  slow_period?: number;
+  starting_equity?: number;
+  rules?: StrategyRuleBuilderRequest;
+};
+
+export type BacktestControlResponse = {
+  status: string;
+  detail: string;
+  notified: boolean;
+  strategy_name: string;
+  exchange: string;
+  symbol: string;
+  timeframe: string;
+  fast_period: number | null;
+  slow_period: number | null;
+  starting_equity_input: string;
+  candle_count: number;
+  required_candles: number;
+  starting_equity: string | null;
+  ending_equity: string | null;
+  realized_pnl: string | null;
+  total_return_pct: string | null;
+  max_drawdown_pct: string | null;
+  total_trades: number | null;
+  winning_trades: number | null;
+  losing_trades: number | null;
+  rules: StrategyRuleBuilderRequest | null;
+  executions: BacktestExecutionResponse[];
+};
+
 export type OperatorConfigRequest = {
   strategy_name: string;
   symbol: string;
@@ -206,5 +270,14 @@ export function runMarketSync(
 export function runWorkerCycle(): Promise<WorkerControlResponse> {
   return request<WorkerControlResponse>("/controls/worker-cycle", {
     method: "POST",
+  });
+}
+
+export function runBacktest(
+  payload: BacktestControlRequest,
+): Promise<BacktestControlResponse> {
+  return request<BacktestControlResponse>("/controls/backtest", {
+    method: "POST",
+    body: JSON.stringify(payload),
   });
 }

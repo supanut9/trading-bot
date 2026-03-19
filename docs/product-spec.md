@@ -36,8 +36,8 @@ Current production boundary:
 
 Next implementation queue:
 
-1. `feature/operator-reporting-ui`
-2. `feature/runtime-operator-config`
+1. `feature/operator-backtest-ui`
+2. `feature/live-ops-ui`
 
 ## Initial Market And Strategy
 

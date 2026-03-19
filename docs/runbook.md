@@ -115,7 +115,7 @@ Manual controls:
 - `POST /controls/live-halt` persists the live-entry halt state used by status and worker execution
 - control endpoints do not accept arbitrary trading parameters; they only use current application configuration
 - the browser UI now lives in the Next.js app under `web/` and consumes these API endpoints instead of backend-rendered HTML pages
-- the Next.js operator surface now includes `/reports` for performance analytics and direct CSV export links
+- the Next.js operator surface now includes `/backtest` for replay analysis and `/reports` for performance analytics and direct CSV export links
 
 Report exports:
 
