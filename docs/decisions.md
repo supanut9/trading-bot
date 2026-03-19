@@ -834,3 +834,9 @@ The new Next.js `/reports` route now reads `GET /status` and `GET /performance/s
 The control API already supported parameterized backtests and the product spec called for a dedicated replay surface, but the new operator UI still lacked a browser route for that workflow. Keeping replay analysis out of the controls page also preserves cleaner feature boundaries between candle intake, worker actions, and historical experimentation.
 
 The operator UI now includes a dedicated `/backtest` route that posts to the existing `POST /controls/backtest` endpoint, hydrates its default market inputs from persisted operator config, and stays preset-first for rule-builder experiments. The page renders backtest outcome metrics, a simple realized-equity curve, and execution detail without introducing a second analytics backend.
+
+## 2026-03-20: Expose Live Recovery Controls In The Next.js UI
+
+The backend already provided bounded live halt, reconcile, and cancel APIs, but operators still had to leave the main UI surface to use them. That gap was operational rather than architectural, so the correct next step was to expose the existing controls in the Next.js app without moving any live policy into frontend code.
+
+The controls route now reads `/status` for the current live posture and adds explicit UI actions for halt or resume, reconcile, and manual cancel. The browser sends only one cancel identifier at a time, while live safety checks, duplicate-order protection, and failure handling remain in the Python backend.
