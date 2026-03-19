@@ -17,6 +17,7 @@ from app.interfaces.api.schemas import (
     LiveHaltControlRequest,
     LiveHaltControlResponse,
     LiveReconcileControlResponse,
+    MarketSyncControlRequest,
     MarketSyncControlResponse,
     OperatorConfigRequest,
     OperatorConfigResponse,
@@ -119,13 +120,19 @@ def run_backtest(
     status_code=status.HTTP_200_OK,
 )
 def run_market_sync(
+    request: Annotated[MarketSyncControlRequest | None, Body()] = None,
     settings: Settings = settings_dependency,
     session_factory: sessionmaker[Session] = session_factory_dependency,
 ) -> MarketSyncControlResponse:
+    payload = request or MarketSyncControlRequest()
     result = OperationalControlService(
         settings,
         session_factory=session_factory,
-    ).run_market_sync(source="api.control")
+    ).run_market_sync(
+        limit=payload.limit,
+        backfill=payload.backfill,
+        source="api.control",
+    )
     return MarketSyncControlResponse.model_validate(result)
 
 

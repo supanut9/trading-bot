@@ -106,6 +106,8 @@ class MarketSyncControlResult:
     detail: str
     symbol: str
     timeframe: str
+    limit: int
+    backfill: bool
     fetched_count: int
     stored_count: int
     latest_open_time: datetime | None = None
@@ -225,9 +227,12 @@ class OperationalControlService:
     def run_market_sync(
         self,
         *,
+        limit: int | None = None,
+        backfill: bool = False,
         source: str = "internal",
         audit: bool = True,
     ) -> MarketSyncControlResult:
+        resolved_limit = limit if limit is not None else self._settings.market_data_sync_limit
         with self._session_factory() as session:
             operator_config = OperatorRuntimeConfigService(
                 session,
@@ -241,7 +246,8 @@ class OperationalControlService:
                     exchange=self._settings.exchange_name,
                     symbol=operator_config.symbol,
                     timeframe=operator_config.timeframe,
-                    limit=self._settings.market_data_sync_limit,
+                    limit=resolved_limit,
+                    backfill=backfill,
                 )
             except Exception:
                 failed = MarketSyncControlResult(
@@ -249,6 +255,8 @@ class OperationalControlService:
                     detail="market data sync failed",
                     symbol=operator_config.symbol,
                     timeframe=operator_config.timeframe,
+                    limit=resolved_limit,
+                    backfill=backfill,
                     fetched_count=0,
                     stored_count=0,
                 )
@@ -273,6 +281,8 @@ class OperationalControlService:
                         payload={
                             "symbol": control_result.symbol,
                             "timeframe": control_result.timeframe,
+                            "limit": control_result.limit,
+                            "backfill": control_result.backfill,
                             "fetched_count": control_result.fetched_count,
                             "stored_count": control_result.stored_count,
                             "latest_open_time": control_result.latest_open_time,
@@ -282,16 +292,20 @@ class OperationalControlService:
                 return control_result
 
         detail = "market data sync completed"
+        if backfill:
+            detail = "market data backfill completed"
         if result.fetched_count == 0:
             detail = "no candles fetched"
         elif result.stored_count == 0:
-            detail = "no new candles stored"
+            detail = "no new candles stored" if not backfill else "no candles stored"
 
         completed = MarketSyncControlResult(
             status="completed",
             detail=detail,
             symbol=operator_config.symbol,
             timeframe=operator_config.timeframe,
+            limit=resolved_limit,
+            backfill=backfill,
             fetched_count=result.fetched_count,
             stored_count=result.stored_count,
             latest_open_time=result.latest_open_time,
@@ -302,6 +316,8 @@ class OperationalControlService:
             detail=completed.detail,
             symbol=completed.symbol,
             timeframe=completed.timeframe,
+            limit=completed.limit,
+            backfill=completed.backfill,
             fetched_count=completed.fetched_count,
             stored_count=completed.stored_count,
             latest_open_time=completed.latest_open_time,
@@ -317,6 +333,8 @@ class OperationalControlService:
                 payload={
                     "symbol": control_result.symbol,
                     "timeframe": control_result.timeframe,
+                    "limit": control_result.limit,
+                    "backfill": control_result.backfill,
                     "fetched_count": control_result.fetched_count,
                     "stored_count": control_result.stored_count,
                     "latest_open_time": control_result.latest_open_time,

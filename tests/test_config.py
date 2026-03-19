@@ -58,3 +58,9 @@ def test_rejects_non_positive_live_max_position_quantity() -> None:
         match="LIVE_MAX_POSITION_QUANTITY must be positive when provided",
     ):
         Settings(LIVE_MAX_POSITION_QUANTITY=0)
+
+
+def test_ignores_non_application_env_keys() -> None:
+    settings = Settings(POSTGRES_HOST_PORT="5544")
+
+    assert settings.execution_mode == "paper"

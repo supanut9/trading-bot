@@ -93,7 +93,11 @@ class Settings(BaseSettings):
     log_level: str = Field(default="INFO", alias="LOG_LEVEL")
     database_echo: bool = Field(default=False, alias="DATABASE_ECHO")
 
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
 
     @model_validator(mode="after")
     def validate_execution_mode(self) -> "Settings":

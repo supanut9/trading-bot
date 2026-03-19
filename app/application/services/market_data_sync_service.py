@@ -29,13 +29,16 @@ class MarketDataSyncService:
         symbol: str,
         timeframe: str,
         limit: int,
+        backfill: bool = False,
     ) -> MarketDataSyncResult:
         logger.info(
-            "market_data_sync_requested exchange=%s symbol=%s timeframe=%s limit=%s client=%s",
+            "market_data_sync_requested exchange=%s symbol=%s timeframe=%s limit=%s "
+            "backfill=%s client=%s",
             exchange,
             symbol,
             timeframe,
             limit,
+            backfill,
             self._client.name,
         )
         candles = self._client.fetch_closed_candles(symbol=symbol, timeframe=timeframe, limit=limit)
@@ -53,12 +56,15 @@ class MarketDataSyncService:
             )
             return MarketDataSyncResult(fetched_count=0, stored_count=0, latest_open_time=None)
 
-        new_candles = [
-            candle
-            for candle in candles
-            if latest_stored_open_time is None
-            or self._normalize_datetime(candle.open_time) > latest_stored_open_time
-        ]
+        if backfill:
+            new_candles = list(candles)
+        else:
+            new_candles = [
+                candle
+                for candle in candles
+                if latest_stored_open_time is None
+                or self._normalize_datetime(candle.open_time) > latest_stored_open_time
+            ]
         if not new_candles:
             latest_open_time = max(candle.open_time for candle in candles)
             logger.info(

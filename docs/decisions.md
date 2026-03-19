@@ -768,3 +768,15 @@ The console had become capable of running richer backtests, but the worker cycle
 ### Consequence
 
 The runtime now stores bounded paper defaults for strategy, symbol, timeframe, and EMA periods in the database. `/controls/operator-config` and the console runtime-defaults form update the same persisted values, and worker cycle, market sync, status, reporting, and default backtest behavior resolve those effective runtime values before falling back to env settings.
+
+## 2026-03-19: Add Explicit Market-Data Backfill Mode
+
+The original market-sync control only appended candles newer than the latest stored candle. That kept ordinary sync idempotent, but it also meant increasing the sync limit could not load older history into an already-populated database, which made deeper backtests awkward.
+
+The runtime now keeps append sync as the default behavior and adds an explicit backfill mode through both `/controls/market-sync` and the operator console. Operators can choose a limit and turn on backfill when they need to upsert the full fetched window and load older missing candles without wiping the database first.
+
+## 2026-03-19: Split Backtest Into A Dedicated Page
+
+The operator console had accumulated too many unrelated actions in one place, and the inline backtest section still reduced replay analysis to tables. That made the main page noisy and made backtest review feel cramped.
+
+The runtime now keeps `/console` focused on operational controls and moves replay work to `/console/backtest`. The dedicated backtest page still uses the same bounded control service, but it adds a larger result layout and an SVG chart that visualizes the backtested close-price path with buy and sell markers.

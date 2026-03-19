@@ -138,10 +138,18 @@ make init-db
 Default connection string:
 
 ```bash
-postgresql+psycopg://trading_bot:trading_bot@127.0.0.1:5432/trading_bot
+postgresql+psycopg://trading_bot:trading_bot@127.0.0.1:5434/trading_bot
 ```
 
 SQLite can still be used as a fallback by overriding `DATABASE_URL`.
+If `5434` is also occupied locally, set `POSTGRES_HOST_PORT` before `make db-up` and keep `DATABASE_URL` aligned with the same port.
+
+## Market Sync
+
+The operator console and `POST /controls/market-sync` now support two sync modes:
+
+- append mode: fetch recent candles and store only candles newer than the latest one already in the database
+- backfill mode: fetch recent candles and upsert the full returned window so older missing candles can be loaded into an existing database
 
 ## Deployment Packaging
 
@@ -171,17 +179,23 @@ Container runtime selection uses `APP_RUNTIME`:
 - `worker`
 - `backtest`
 
+Operator UI entrypoints:
+
+- `/console`: runtime controls and operational snapshot
+- `/console/backtest`: dedicated backtest page with chart visualization
+
 ## Deployment Environment Baseline
 
 Use the example files by role instead of reusing the local template directly:
 
-- `.env.example`: local development defaults
-- `.env.deploy.api.example`: API deployment baseline
-- `.env.deploy.worker.example`: worker deployment baseline
+- `.env.example`: minimal local overrides
+- `.env.deploy.api.example`: minimal API deployment baseline
+- `.env.deploy.worker.example`: minimal worker deployment baseline
 
 Deployment guidance:
 
 - keep API and worker env files separate
+- keep defaults in code and only override values that differ for the target runtime
 - keep secrets out of the example files and inject them at deploy time
 - keep live trading disabled unless the live readiness checklist in `docs/runbook.md` has been completed
 

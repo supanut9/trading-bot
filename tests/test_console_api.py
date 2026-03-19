@@ -154,24 +154,50 @@ def test_console_renders_operator_snapshot(tmp_path: Path) -> None:
         assert "Paper Trading Actions" in response.text
         assert "Save Runtime Defaults" in response.text
         assert "Run Worker Cycle" in response.text
-        assert "Run Backtest" in response.text
-        assert 'name="strategy_name"' in response.text
-        assert 'name="timeframe"' in response.text
-        assert 'name="fast_period"' in response.text
-        assert 'name="slow_period"' in response.text
-        assert 'name="starting_equity"' in response.text
+        assert "Open Backtest Lab" in response.text
+        assert 'href="/console/backtest"' in response.text
         assert "Sync Market Data" in response.text
+        assert 'name="limit"' in response.text
+        assert "Backfill older candles" in response.text
         assert "Halt Live Entry" in response.text
         assert "Resume Live Entry" in response.text
         assert "Reconcile Live Orders" in response.text
         assert "Cancel Live Order" in response.text
         assert "Live Entry Halt" in response.text
         assert "Latest Price" in response.text
+        assert 'id="latest-price-value"' in response.text
+        assert 'id="positions-table-body"' in response.text
+        assert 'id="trades-table-body"' in response.text
+        assert 'fetch("/status"' in response.text
+        assert 'fetch("/positions"' in response.text
+        assert 'fetch("/trades?limit=10"' in response.text
         assert "Runtime Config" in response.text
         assert "Open Positions" in response.text
         assert "Recent Trades" in response.text
         assert "Recent Audit Events" in response.text
+        assert "<th>Amount</th>" in response.text
         assert "BTC/USDT" in response.text
+        assert "20000.00" in response.text
+    finally:
+        teardown_client()
+
+
+def test_backtest_page_renders_dedicated_form(tmp_path: Path) -> None:
+    client, settings = build_client(tmp_path)
+    try:
+        response = client.get("/console/backtest")
+
+        assert response.status_code == 200
+        assert "Backtest Lab" in response.text
+        assert "Run Backtest" in response.text
+        assert 'name="strategy_name"' in response.text
+        assert 'name="timeframe"' in response.text
+        assert 'name="fast_period"' in response.text
+        assert 'name="slow_period"' in response.text
+        assert 'name="starting_equity"' in response.text
+        assert 'value="100.00"' in response.text
+        assert "Back To Console" in response.text
+        assert "No run yet" in response.text
     finally:
         teardown_client()
 
@@ -235,7 +261,7 @@ def test_console_backtest_action_renders_completed_summary(tmp_path: Path) -> No
         store_closes(settings, [10, 10, 10, 10, 10, 9, 9, 9, 20])
 
         response = client.post(
-            "/console/actions/backtest",
+            "/console/backtest",
             data={
                 "strategy_name": "ema_crossover",
                 "symbol": settings.default_symbol,
@@ -249,14 +275,44 @@ def test_console_backtest_action_renders_completed_summary(tmp_path: Path) -> No
         assert response.status_code == 200
         assert "Backtest" in response.text
         assert "backtest completed" in response.text
+        assert 'id="action-result"' in response.text
+        assert "Running Backtest..." in response.text
+        assert "result-status-pill" in response.text
         assert "Strategy" in response.text
         assert "EMA Crossover" in response.text or "ema_crossover" in response.text
         assert "Timeframe" in response.text
-        assert "12000.00000000" in response.text
+        assert "12000.00" in response.text
         assert "Candle Count" in response.text
         assert "Ending Equity" in response.text
         assert "Executions" in response.text
-        assert 'value="12000.00000000"' in response.text or 'value="12000"' in response.text
+        assert "<th>Amount</th>" in response.text
+        assert 'aria-label="backtest price chart"' in response.text
+        assert 'value="12000.00"' in response.text or 'value="12000"' in response.text
+    finally:
+        teardown_client()
+
+
+def test_console_backtest_action_explains_zero_trade_result(tmp_path: Path) -> None:
+    client, settings = build_client(tmp_path)
+    try:
+        store_closes(settings, [10] * 100)
+
+        response = client.post(
+            "/console/backtest",
+            data={
+                "strategy_name": "ema_crossover",
+                "symbol": settings.default_symbol,
+                "timeframe": settings.default_timeframe,
+                "fast_period": 20,
+                "slow_period": 50,
+                "starting_equity": "100",
+            },
+        )
+
+        assert response.status_code == 200
+        assert "No trade was triggered." in response.text
+        assert "The backtest ran successfully" in response.text
+        assert "No executions recorded for this run." in response.text
     finally:
         teardown_client()
 
@@ -265,7 +321,7 @@ def test_console_backtest_action_renders_failed_validation_feedback(tmp_path: Pa
     client, settings = build_client(tmp_path)
     try:
         response = client.post(
-            "/console/actions/backtest",
+            "/console/backtest",
             data={
                 "strategy_name": "ema_crossover",
                 "symbol": settings.default_symbol,
@@ -296,11 +352,13 @@ def test_console_market_sync_action_renders_summary(tmp_path: Path) -> None:
                 symbol: str,
                 timeframe: str,
                 limit: int,
+                backfill: bool = False,
             ):
                 assert exchange == settings.exchange_name
                 assert symbol == settings.default_symbol
                 assert timeframe == settings.default_timeframe
                 assert limit == settings.market_data_sync_limit
+                assert backfill is False
                 store_closes(settings, [10, 11, 12])
                 return MarketDataSyncResult(
                     fetched_count=3,
@@ -318,6 +376,8 @@ def test_console_market_sync_action_renders_summary(tmp_path: Path) -> None:
         assert response.status_code == 200
         assert "Market Sync" in response.text
         assert "market data sync completed" in response.text
+        assert "Sync Mode" in response.text
+        assert "append" in response.text
         assert "Fetched Count" in response.text
         assert "Stored Count" in response.text
 
@@ -358,11 +418,13 @@ def test_console_market_sync_action_uses_runtime_defaults(tmp_path: Path) -> Non
                 symbol: str,
                 timeframe: str,
                 limit: int,
+                backfill: bool = False,
             ):
                 assert exchange == settings.exchange_name
                 assert symbol == "ETH/USDT"
                 assert timeframe == "4h"
                 assert limit == settings.market_data_sync_limit
+                assert backfill is False
                 store_market_closes(
                     settings,
                     symbol="ETH/USDT",
@@ -385,6 +447,51 @@ def test_console_market_sync_action_uses_runtime_defaults(tmp_path: Path) -> Non
         assert response.status_code == 200
         assert "ETH/USDT" in response.text
         assert "4h" in response.text
+    finally:
+        teardown_client()
+
+
+def test_console_market_sync_action_accepts_backfill_and_limit_override(tmp_path: Path) -> None:
+    client, settings = build_client(tmp_path)
+    try:
+        from app.application.services import operational_control_service as controls_module
+
+        class SyncStub:
+            def sync_recent_closed_candles(
+                self,
+                *,
+                exchange: str,
+                symbol: str,
+                timeframe: str,
+                limit: int,
+                backfill: bool = False,
+            ):
+                assert exchange == settings.exchange_name
+                assert symbol == settings.default_symbol
+                assert timeframe == settings.default_timeframe
+                assert limit == 500
+                assert backfill is True
+                return MarketDataSyncResult(
+                    fetched_count=500,
+                    stored_count=500,
+                    latest_open_time=datetime(2026, 1, 21, 19, tzinfo=UTC),
+                )
+
+        original = controls_module.MarketDataSyncService
+        controls_module.MarketDataSyncService = lambda session, client: SyncStub()
+        try:
+            response = client.post(
+                "/console/actions/market-sync",
+                data={"limit": 500, "backfill": "true"},
+            )
+        finally:
+            controls_module.MarketDataSyncService = original
+
+        assert response.status_code == 200
+        assert "market data backfill completed" in response.text
+        assert "backfill" in response.text
+        assert "500" in response.text
+        assert "checked" in response.text
     finally:
         teardown_client()
 

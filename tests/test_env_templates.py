@@ -15,11 +15,11 @@ def _parse_env_file(path: Path) -> dict[str, str]:
 def test_local_env_example_includes_current_runtime_defaults() -> None:
     values = _parse_env_file(Path(".env.example"))
 
-    assert values["APP_ENV"] == "local"
-    assert values["API_HOST"] == "127.0.0.1"
-    assert values["WORKER_RUN_ONCE"] == "true"
-    assert values["STARTUP_STATE_SYNC_ENABLED"] == "true"
-    assert values["NOTIFICATION_CHANNEL"] == "none"
+    assert values["POSTGRES_HOST_PORT"] == "5434"
+    assert values["DATABASE_URL"] == (
+        "postgresql+psycopg://trading_bot:trading_bot@127.0.0.1:5434/trading_bot"
+    )
+    assert "APP_ENV" not in values
 
 
 def test_api_deploy_env_example_uses_api_runtime_defaults() -> None:
@@ -28,7 +28,9 @@ def test_api_deploy_env_example_uses_api_runtime_defaults() -> None:
     assert values["APP_ENV"] == "production"
     assert values["APP_RUNTIME"] == "api"
     assert values["API_HOST"] == "0.0.0.0"
-    assert values["LIVE_TRADING_ENABLED"] == "false"
+    assert values["DATABASE_URL"] == (
+        "postgresql+psycopg://trading_bot:trading_bot@postgres:5432/trading_bot"
+    )
     assert "WORKER_RUN_ONCE" not in values
 
 
@@ -38,5 +40,7 @@ def test_worker_deploy_env_example_uses_worker_runtime_defaults() -> None:
     assert values["APP_ENV"] == "production"
     assert values["APP_RUNTIME"] == "worker"
     assert values["WORKER_RUN_ONCE"] == "false"
-    assert values["STARTUP_STATE_SYNC_ENABLED"] == "true"
+    assert values["DATABASE_URL"] == (
+        "postgresql+psycopg://trading_bot:trading_bot@postgres:5432/trading_bot"
+    )
     assert "API_HOST" not in values

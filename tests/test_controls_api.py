@@ -375,11 +375,13 @@ def test_market_sync_control_returns_completed_summary(tmp_path: Path) -> None:
                 symbol: str,
                 timeframe: str,
                 limit: int,
+                backfill: bool = False,
             ) -> MarketDataSyncResult:
                 assert exchange == settings.exchange_name
                 assert symbol == settings.default_symbol
                 assert timeframe == settings.default_timeframe
                 assert limit == settings.market_data_sync_limit
+                assert backfill is False
                 session = session_factory()
                 try:
                     store_closes(settings, [10, 11, 12])
@@ -404,6 +406,8 @@ def test_market_sync_control_returns_completed_summary(tmp_path: Path) -> None:
         payload = response.json()
         assert payload["status"] == "completed"
         assert payload["detail"] == "market data sync completed"
+        assert payload["limit"] == settings.market_data_sync_limit
+        assert payload["backfill"] is False
         assert payload["fetched_count"] == 3
         assert payload["stored_count"] == 3
         assert payload["latest_open_time"] == "2026-01-01T02:00:00Z"
@@ -444,11 +448,13 @@ def test_market_sync_control_uses_runtime_operator_config(tmp_path: Path) -> Non
                 symbol: str,
                 timeframe: str,
                 limit: int,
+                backfill: bool = False,
             ) -> MarketDataSyncResult:
                 assert exchange == settings.exchange_name
                 assert symbol == "ETH/USDT"
                 assert timeframe == "4h"
                 assert limit == settings.market_data_sync_limit
+                assert backfill is False
                 session = session_factory()
                 try:
                     store_market_closes(
@@ -479,6 +485,54 @@ def test_market_sync_control_uses_runtime_operator_config(tmp_path: Path) -> Non
         assert payload["status"] == "completed"
         assert payload["symbol"] == "ETH/USDT"
         assert payload["timeframe"] == "4h"
+    finally:
+        teardown_client()
+
+
+def test_market_sync_control_accepts_backfill_and_limit_override(tmp_path: Path) -> None:
+    client, settings = build_client(tmp_path)
+    try:
+
+        class SyncStub:
+            def sync_recent_closed_candles(
+                self,
+                *,
+                exchange: str,
+                symbol: str,
+                timeframe: str,
+                limit: int,
+                backfill: bool = False,
+            ) -> MarketDataSyncResult:
+                assert exchange == settings.exchange_name
+                assert symbol == settings.default_symbol
+                assert timeframe == settings.default_timeframe
+                assert limit == 500
+                assert backfill is True
+                return MarketDataSyncResult(
+                    fetched_count=500,
+                    stored_count=500,
+                    latest_open_time=datetime(2026, 1, 21, 19, tzinfo=UTC),
+                )
+
+        from app.application.services import operational_control_service as controls_module
+
+        original = controls_module.MarketDataSyncService
+        controls_module.MarketDataSyncService = lambda session, client: SyncStub()
+        try:
+            response = client.post(
+                "/controls/market-sync",
+                json={"limit": 500, "backfill": True},
+            )
+        finally:
+            controls_module.MarketDataSyncService = original
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["detail"] == "market data backfill completed"
+        assert payload["limit"] == 500
+        assert payload["backfill"] is True
+        assert payload["fetched_count"] == 500
+        assert payload["stored_count"] == 500
     finally:
         teardown_client()
 

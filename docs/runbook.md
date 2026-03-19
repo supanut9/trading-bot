@@ -92,10 +92,12 @@ Manual controls:
 - live worker execution now rejects a new same-side live submission when an unresolved live order already exists for that market
 - `POST /controls/live-halt` persists the live-entry halt state used by status and worker execution
 - control endpoints do not accept arbitrary trading parameters; they only use current application configuration
-- `GET /console` provides a local operator surface over the same bounded actions for market sync, worker cycle, and backtest
+- `GET /console` provides a local operator surface over bounded runtime actions for market sync, worker cycle, operator defaults, and live controls
+- `GET /console/backtest` provides a dedicated backtest page with parameter inputs, result detail, and a rendered chart view
 - the console is intended for paper-trading workflows and shows inline feedback from the most recent action run
 - the console now includes a runtime-defaults form for strategy, symbol, timeframe, and EMA periods, persisted through the same bounded control path
-- the console backtest form now lets operators choose symbol, timeframe, EMA periods, and starting equity before running the replay
+- the dedicated backtest page lets operators choose symbol, timeframe, EMA periods, and starting equity before running the replay
+- the console market-sync form now accepts an explicit candle limit and optional backfill mode for loading older candles into an existing database
 - the console also exposes explicit live halt, live resume, live reconcile, and live cancel actions that call the same bounded control service as the JSON API
 - live cancel in the console requires exactly one identifier: local `order_id`, `client_order_id`, or `exchange_order_id`
 
@@ -232,7 +234,8 @@ Deployment environment baseline:
 
 - `.env.deploy.api.example` is the baseline for API containers and binds `API_HOST=0.0.0.0`
 - `.env.deploy.worker.example` is the baseline for worker containers and sets `WORKER_RUN_ONCE=false`
-- `.env.example` remains the local-development baseline and should not be copied into deployment unchanged
+- `.env.example` remains the local-development baseline and focuses on local-only overrides
+- the example env files are intentionally minimal; unspecified values fall back to `app/config.py`
 - API and worker deployments should use separate env files even when they share the same database and exchange defaults
 
 Post-deploy smoke checks:
@@ -324,6 +327,7 @@ Current notification coverage:
 - worker risk rejections
 - backtest completed and skipped outcomes
 - market sync completed and failed outcomes from `POST /controls/market-sync`
+- append sync stores only candles newer than the latest stored candle, while backfill sync upserts the full fetched window to load older missing candles
 
 Webhook delivery behavior:
 
@@ -345,8 +349,16 @@ make db-up
 Default local connection string:
 
 ```bash
-postgresql+psycopg://trading_bot:trading_bot@127.0.0.1:5432/trading_bot
+postgresql+psycopg://trading_bot:trading_bot@127.0.0.1:5434/trading_bot
 ```
+
+Override the default host port when needed:
+
+```bash
+POSTGRES_HOST_PORT=5544 make db-up
+```
+
+Keep `DATABASE_URL` on the same port you expose from Docker Compose.
 
 To inspect database logs:
 
