@@ -2,12 +2,13 @@
 
 import type { FormEvent } from "react";
 import { useEffect, useState } from "react";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AlertTriangle,
   ArrowUpFromLine,
   CandlestickChart,
   Database,
+  Play,
   RefreshCcw,
   Settings2,
 } from "lucide-react";
@@ -19,8 +20,10 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
   getOperatorConfig,
   runMarketSync,
+  runWorkerCycle,
   type MarketSyncControlResponse,
   type OperatorConfigResponse,
+  type WorkerControlResponse,
 } from "@/lib/api";
 import { formatTimestamp } from "@/lib/format";
 
@@ -145,6 +148,7 @@ function ResultPanel({
 }
 
 export function ControlsPage() {
+  const queryClient = useQueryClient();
   const [form, setForm] = useState<MarketSyncFormState>({
     symbol: "",
     timeframe: "",
@@ -160,6 +164,26 @@ export function ControlsPage() {
 
   const marketSyncMutation = useMutation({
     mutationFn: runMarketSync,
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["status"] }),
+        queryClient.invalidateQueries({ queryKey: ["positions"] }),
+        queryClient.invalidateQueries({ queryKey: ["trades"] }),
+        queryClient.invalidateQueries({ queryKey: ["performance"] }),
+      ]);
+    },
+  });
+
+  const workerCycleMutation = useMutation({
+    mutationFn: runWorkerCycle,
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["status"] }),
+        queryClient.invalidateQueries({ queryKey: ["positions"] }),
+        queryClient.invalidateQueries({ queryKey: ["trades"] }),
+        queryClient.invalidateQueries({ queryKey: ["performance"] }),
+      ]);
+    },
   });
 
   useEffect(() => {
@@ -246,21 +270,70 @@ export function ControlsPage() {
         )}
 
         <div className="grid gap-5 xl:grid-cols-[minmax(0,1.1fr)_minmax(380px,0.9fr)]">
-          <Card>
-            <CardHeader>
-              <div>
-                <CardTitle>Run Market Sync</CardTitle>
-                <CardDescription>
-                  Choose the market slice to fetch, then store only new candles or backfill a wider
-                  history window.
-                </CardDescription>
-              </div>
-              <div className="rounded-2xl bg-amber-300/10 p-3 text-amber-100">
-                <CandlestickChart className="h-5 w-5" />
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-5">
-              <form className="space-y-5" onSubmit={handleSubmit}>
+          <div className="space-y-5">
+            <Card>
+              <CardHeader>
+                <div>
+                  <CardTitle>Run Worker Cycle</CardTitle>
+                  <CardDescription>
+                    Trigger one bounded worker pass using the current runtime defaults and stored
+                    candles.
+                  </CardDescription>
+                </div>
+                <div className="rounded-2xl bg-emerald-300/10 p-3 text-emerald-100">
+                  <Play className="h-5 w-5" />
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-sm text-slate-300">
+                  This action may execute a paper trade if the current strategy emits a valid signal
+                  and risk checks pass.
+                </div>
+
+                {workerCycleMutation.error instanceof Error ? (
+                  <div className="rounded-2xl border border-rose-400/25 bg-rose-400/10 px-4 py-3 text-sm text-rose-100">
+                    {workerCycleMutation.error.message}
+                  </div>
+                ) : null}
+
+                <div className="flex flex-wrap items-center gap-3">
+                  <button
+                    className="inline-flex items-center gap-2 rounded-2xl bg-emerald-300 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-emerald-200 disabled:cursor-not-allowed disabled:bg-slate-600 disabled:text-slate-300"
+                    disabled={workerCycleMutation.isPending}
+                    onClick={() => workerCycleMutation.mutate()}
+                    type="button"
+                  >
+                    {workerCycleMutation.isPending ? (
+                      <RefreshCcw className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Play className="h-4 w-4" />
+                    )}
+                    {workerCycleMutation.isPending ? "Running worker" : "Run worker cycle"}
+                  </button>
+                  <p className="text-sm text-slate-400">
+                    Uses the persisted runtime defaults currently shown above.
+                  </p>
+                </div>
+
+                <WorkerCycleResultPanel result={workerCycleMutation.data ?? null} />
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <div>
+                  <CardTitle>Run Market Sync</CardTitle>
+                  <CardDescription>
+                    Choose the market slice to fetch, then store only new candles or backfill a wider
+                    history window.
+                  </CardDescription>
+                </div>
+                <div className="rounded-2xl bg-amber-300/10 p-3 text-amber-100">
+                  <CandlestickChart className="h-5 w-5" />
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-5">
+                <form className="space-y-5" onSubmit={handleSubmit}>
                 <div className="grid gap-4 md:grid-cols-2">
                   <label className="space-y-2">
                     <span className="text-[11px] uppercase tracking-[0.18em] text-slate-400">
@@ -363,9 +436,10 @@ export function ControlsPage() {
                     This fetches candle data only. It does not place orders or run the worker.
                   </p>
                 </div>
-              </form>
-            </CardContent>
-          </Card>
+                </form>
+              </CardContent>
+            </Card>
+          </div>
 
           <div className="space-y-5">
             <Card>
@@ -425,5 +499,51 @@ export function ControlsPage() {
         </div>
       </div>
     </OperatorShell>
+  );
+}
+
+function WorkerCycleResultPanel({
+  result,
+}: {
+  result: WorkerControlResponse | null;
+}) {
+  if (!result) {
+    return (
+      <div className="flex min-h-40 items-center justify-center rounded-[1.8rem] border border-dashed border-white/10 bg-white/[0.02] px-6 text-center text-sm text-slate-400">
+        No worker-cycle run yet.
+      </div>
+    );
+  }
+
+  const variant =
+    result.status === "executed"
+      ? "success"
+      : result.status === "failed"
+        ? "danger"
+        : result.status === "skipped"
+          ? "warning"
+          : "info";
+
+  return (
+    <div className="space-y-3">
+      <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="text-sm font-medium text-white">{result.detail}</p>
+            <p className="mt-2 text-sm text-slate-400">
+              Signal {result.signal_action ?? "none"} {result.client_order_id ? `· ${result.client_order_id}` : ""}
+            </p>
+          </div>
+          <Badge variant={variant}>{result.status}</Badge>
+        </div>
+      </div>
+      <div className="flex flex-wrap gap-3">
+        <Badge variant="neutral">Order {result.order_id ?? "n/a"}</Badge>
+        <Badge variant="neutral">Trade {result.trade_id ?? "n/a"}</Badge>
+        <Badge variant={result.notified ? "success" : "neutral"}>
+          {result.notified ? "Notification sent" : "No notification"}
+        </Badge>
+      </div>
+    </div>
   );
 }
