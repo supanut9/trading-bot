@@ -246,12 +246,19 @@ class MarketSyncControlResponse(BaseModel):
     detail: str
     symbol: str
     timeframe: str
+    limit: int
+    backfill: bool = False
     fetched_count: int
     stored_count: int
     latest_open_time: datetime | None = None
     notified: bool
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class MarketSyncControlRequest(BaseModel):
+    limit: int | None = Field(default=None, ge=1, le=1000)
+    backfill: bool = False
 
 
 class LiveReconcileControlResponse(BaseModel):

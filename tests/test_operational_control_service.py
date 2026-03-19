@@ -113,11 +113,13 @@ def test_market_sync_control_returns_completed_result(monkeypatch) -> None:
             symbol: str,
             timeframe: str,
             limit: int,
+            backfill: bool = False,
         ) -> MarketDataSyncResult:
             assert exchange == settings.exchange_name
             assert symbol == settings.default_symbol
             assert timeframe == settings.default_timeframe
             assert limit == settings.market_data_sync_limit
+            assert backfill is False
             return MarketDataSyncResult(
                 fetched_count=4,
                 stored_count=2,
@@ -147,6 +149,8 @@ def test_market_sync_control_returns_completed_result(monkeypatch) -> None:
         detail="market data sync completed",
         symbol=settings.default_symbol,
         timeframe=settings.default_timeframe,
+        limit=settings.market_data_sync_limit,
+        backfill=False,
         fetched_count=4,
         stored_count=2,
         latest_open_time=datetime(2026, 1, 1, 3, tzinfo=UTC),
@@ -173,7 +177,9 @@ def test_market_sync_control_reports_no_new_candles(monkeypatch) -> None:
             symbol: str,
             timeframe: str,
             limit: int,
+            backfill: bool = False,
         ) -> MarketDataSyncResult:
+            assert backfill is False
             return MarketDataSyncResult(
                 fetched_count=4,
                 stored_count=0,

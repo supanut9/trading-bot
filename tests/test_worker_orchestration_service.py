@@ -221,7 +221,7 @@ def test_syncs_market_data_before_strategy_evaluation(tmp_path: Path) -> None:
             assert exchange == settings.exchange_name
             assert symbol == settings.default_symbol
             assert timeframe == settings.default_timeframe
-            assert limit == 100
+            assert limit == settings.market_data_sync_limit
             store_closes(session, settings, [10, 10, 10, 10, 10, 9, 9, 9, 20])
             return MarketDataSyncResult(
                 fetched_count=9,

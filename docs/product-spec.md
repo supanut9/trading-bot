@@ -50,6 +50,7 @@ Next implementation queue:
 - fetch candle data
 - ingest closed candle batches through a local API path
 - sync recent closed candles from a configured exchange adapter before worker execution when enabled
+- backfill older candles into an existing market-data store through an operator-initiated sync mode when more history is needed for backtests
 - run deterministic backtests over stored historical candles
 - calculate indicators
 - generate signals from deterministic strategy rules
@@ -83,8 +84,8 @@ Next implementation queue:
 - load deterministic local demo candle scenarios for no-action, buy-crossover, and sell-crossover operator workflows
 - export operational and backtest summary data as CSV for review and offline inspection
 - render an operator-facing reporting page over positions, trades, backtest summary data, and recent audit events
-- render a bounded operator console page for paper-trading workflows with one-click market sync, worker-cycle, and backtest actions
-- let operators run parameterized console backtests by choosing symbol, timeframe, EMA periods, and starting equity
+- render a bounded operator console page for paper-trading workflows with one-click market sync, worker-cycle, and live-operations actions
+- provide a dedicated backtest page with parameterized inputs and chart visualization for replay analysis
 - persist paper-runtime operator defaults for symbol, timeframe, and EMA periods so console actions do not depend only on startup env
 - extend the operator console with explicit live reconcile and live cancel controls while keeping all actions operator-initiated
 - render a compact reporting summary over the latest worker outcome, PnL, trade count, positions, and stale live state
