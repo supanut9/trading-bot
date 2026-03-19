@@ -846,3 +846,9 @@ The controls route now reads `/status` for the current live posture and adds exp
 Recovery exports and backend services already existed, but the reporting route still treated recovery as a future slice and left operators with CSVs for unresolved live-order review. The missing capability was a read-only browser surface for the same bounded recovery data, not more execution logic.
 
 The API now exposes `GET /reports/recovery` as a JSON dashboard slice over the existing reporting and recovery services. The Next.js `/reports` route uses that endpoint to render stale live orders, the unresolved recovery queue, recent reconcile or cancel events, and read-only recovery filters while preserving filtered `live-recovery.csv` exports.
+
+## 2026-03-20: Add Notification Delivery Reporting To The Next.js Reports Route
+
+Notification-delivery audits and filtered CSV exports already existed, but the reporting route still lacked the explicit delivery panel described in the docs. Operators needed the same bounded read-only slice in-browser so delivery failures could be narrowed without leaving the reporting surface.
+
+The API now exposes `GET /reports/notifications` as a JSON dashboard slice over the existing notification-delivery audit data. The Next.js `/reports` route uses that endpoint to render delivery summary cards, recent notification-delivery rows, read-only filters for status, channel, and related event type, and a filtered `notification-delivery.csv` export link.

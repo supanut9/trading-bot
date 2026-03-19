@@ -132,6 +132,43 @@ test("renders reporting analytics, recovery data, and export links", async () =>
       );
     }
 
+    if (url.includes("/reports/notifications")) {
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            delivery_count: 2,
+            failed_count: 1,
+            latest_delivery_at: "2026-03-19T02:00:00Z",
+            latest_delivery_status: "failed",
+            latest_delivery_channel: "webhook",
+            latest_related_event_type: "worker_cycle",
+            filters: {
+              status: null,
+              channel: null,
+              related_event_type: null,
+            },
+            events: [
+              {
+                id: 77,
+                created_at: "2026-03-19T02:00:00Z",
+                event_type: "notification_delivery",
+                source: "notification.webhook",
+                status: "failed",
+                detail: "delivery failed",
+                exchange: "binance",
+                symbol: "BTC/USDT",
+                timeframe: "1h",
+                channel: "webhook",
+                related_event_type: "worker_cycle",
+                correlation_id: "corr-123",
+                payload_json: "{\"channel\":\"webhook\"}",
+              },
+            ],
+          }),
+        ),
+      );
+    }
+
     return Promise.resolve(
       new Response(
         JSON.stringify({
@@ -196,6 +233,8 @@ test("renders reporting analytics, recovery data, and export links", async () =>
   expect(screen.getByText("Recovery Overview")).toBeInTheDocument();
   expect(screen.getByText("Recovery Queue")).toBeInTheDocument();
   expect(screen.getByText("Recovery Timeline")).toBeInTheDocument();
-  expect(screen.getAllByText("Live recovery")).toHaveLength(2);
+  expect(screen.getByText("Notification Delivery")).toBeInTheDocument();
+  expect(screen.getByText("Live recovery")).toBeInTheDocument();
+  expect(screen.getByText("Notification delivery")).toBeInTheDocument();
   expect(screen.getByText("Daily Rollup")).toBeInTheDocument();
 });

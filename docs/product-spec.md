@@ -36,8 +36,8 @@ Current production boundary:
 
 Next implementation queue:
 
-1. `feature/recovery-reporting-ui`
-2. `feature/notification-reporting-ui`
+1. `feature/notification-reporting-ui`
+2. `feature/audit-reporting-ui`
 
 ## Initial Market And Strategy
 

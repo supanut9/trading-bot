@@ -126,6 +126,7 @@ Report exports:
 - `GET /reports/trades.csv` exports recent trades as CSV and supports the same `limit` query parameter as `GET /trades`
 - `GET /reports/backtest-summary.csv` runs one backtest summary export against stored candles using current settings
 - `GET /reports/recovery` returns the read-only recovery dashboard slice used by the Next.js reporting route
+- `GET /reports/notifications` returns the read-only notification-delivery slice used by the Next.js reporting route
 - `GET /reports/audit.csv` exports recent audit events for control runs and notification delivery attempts
 - `GET /reports/notification-delivery.csv` exports notification-delivery audit rows
 - `GET /reports/live-recovery.csv` exports unresolved live-order recovery rows
@@ -223,6 +224,7 @@ Runtime log correlation:
 Notification delivery reporting:
 
 - `GET /reports` now includes notification-delivery summary cards and a recent delivery table
+- the Next.js `/reports` route now consumes `GET /reports/notifications` for the notification-delivery panel
 - `GET /reports/notification-delivery.csv` exports notification-delivery audit rows
 - the notification-delivery CSV export supports filtering by `notification_status`, `notification_channel`, and `notification_related_event_type`
 - `GET /reports` also includes a notification-delivery filter form, and the export link preserves the same active notification filters

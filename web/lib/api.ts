@@ -300,6 +300,39 @@ export type RecoveryDashboardResponse = {
   filters: RecoveryReportFilters;
 };
 
+export type NotificationReportFilters = {
+  status: string | null;
+  channel: string | null;
+  related_event_type: string | null;
+};
+
+export type AuditEventResponse = {
+  id: number;
+  created_at: string;
+  event_type: string;
+  source: string;
+  status: string;
+  detail: string;
+  exchange: string | null;
+  symbol: string | null;
+  timeframe: string | null;
+  channel: string | null;
+  related_event_type: string | null;
+  correlation_id: string | null;
+  payload_json: string | null;
+};
+
+export type NotificationDashboardResponse = {
+  delivery_count: number;
+  failed_count: number;
+  latest_delivery_at: string | null;
+  latest_delivery_status: string | null;
+  latest_delivery_channel: string | null;
+  latest_related_event_type: string | null;
+  filters: NotificationReportFilters;
+  events: AuditEventResponse[];
+};
+
 export const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "") ?? "http://127.0.0.1:8000";
 
@@ -353,6 +386,27 @@ export function getRecoveryDashboard(params?: {
   }
   const suffix = searchParams.toString();
   return request<RecoveryDashboardResponse>(`/reports/recovery${suffix ? `?${suffix}` : ""}`);
+}
+
+export function getNotificationDashboard(params?: {
+  notification_status?: string;
+  notification_channel?: string;
+  notification_related_event_type?: string;
+}): Promise<NotificationDashboardResponse> {
+  const searchParams = new URLSearchParams();
+  if (params?.notification_status) {
+    searchParams.set("notification_status", params.notification_status);
+  }
+  if (params?.notification_channel) {
+    searchParams.set("notification_channel", params.notification_channel);
+  }
+  if (params?.notification_related_event_type) {
+    searchParams.set("notification_related_event_type", params.notification_related_event_type);
+  }
+  const suffix = searchParams.toString();
+  return request<NotificationDashboardResponse>(
+    `/reports/notifications${suffix ? `?${suffix}` : ""}`,
+  );
 }
 
 export function getPositions(): Promise<PositionResponse[]> {

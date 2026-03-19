@@ -28,9 +28,11 @@ import {
 } from "@/components/ui/table";
 import {
   apiUrl,
+  getNotificationDashboard,
   getPerformanceSummary,
   getRecoveryDashboard,
   getStatus,
+  type NotificationDashboardResponse,
   type PerformanceAnalyticsResponse,
   type RecoveryDashboardResponse,
   type StatusResponse,
@@ -42,6 +44,12 @@ type RecoveryFilterState = {
   requires_review: "all" | "true" | "false";
   event_type: string;
   search: string;
+};
+
+type NotificationFilterState = {
+  status: string;
+  channel: string;
+  related_event_type: string;
 };
 
 function MetricBlock({
@@ -161,12 +169,32 @@ function buildRecoveryCsvHref(filters: RecoveryFilterState): string {
   return apiUrl(`/reports/live-recovery.csv${suffix ? `?${suffix}` : ""}`);
 }
 
+function buildNotificationCsvHref(filters: NotificationFilterState): string {
+  const params = new URLSearchParams();
+  if (filters.status) {
+    params.set("notification_status", filters.status);
+  }
+  if (filters.channel) {
+    params.set("notification_channel", filters.channel);
+  }
+  if (filters.related_event_type) {
+    params.set("notification_related_event_type", filters.related_event_type);
+  }
+  const suffix = params.toString();
+  return apiUrl(`/reports/notification-delivery.csv${suffix ? `?${suffix}` : ""}`);
+}
+
 export function ReportingPage() {
   const [recoveryFilters, setRecoveryFilters] = useState<RecoveryFilterState>({
     order_status: "",
     requires_review: "all",
     event_type: "",
     search: "",
+  });
+  const [notificationFilters, setNotificationFilters] = useState<NotificationFilterState>({
+    status: "",
+    channel: "",
+    related_event_type: "",
   });
 
   const recoveryQueryParams = {
@@ -178,8 +206,13 @@ export function ReportingPage() {
     recovery_event_type: recoveryFilters.event_type || undefined,
     recovery_search: recoveryFilters.search.trim() || undefined,
   };
+  const notificationQueryParams = {
+    notification_status: notificationFilters.status || undefined,
+    notification_channel: notificationFilters.channel || undefined,
+    notification_related_event_type: notificationFilters.related_event_type || undefined,
+  };
 
-  const [statusQuery, performanceQuery, recoveryQuery] = useQueries({
+  const [statusQuery, performanceQuery, recoveryQuery, notificationQuery] = useQueries({
     queries: [
       { queryKey: ["status"], queryFn: getStatus },
       { queryKey: ["performance"], queryFn: getPerformanceSummary },
@@ -187,12 +220,17 @@ export function ReportingPage() {
         queryKey: ["recovery-dashboard", recoveryQueryParams],
         queryFn: () => getRecoveryDashboard(recoveryQueryParams),
       },
+      {
+        queryKey: ["notification-dashboard", notificationQueryParams],
+        queryFn: () => getNotificationDashboard(notificationQueryParams),
+      },
     ],
   });
 
   const status = statusQuery.data as StatusResponse | undefined;
   const performance = performanceQuery.data as PerformanceAnalyticsResponse | undefined;
   const recovery = recoveryQuery.data as RecoveryDashboardResponse | undefined;
+  const notifications = notificationQuery.data as NotificationDashboardResponse | undefined;
   const summary = performance?.summaries[0];
 
   function updateRecoveryFilter<Key extends keyof RecoveryFilterState>(
@@ -200,6 +238,16 @@ export function ReportingPage() {
     value: RecoveryFilterState[Key],
   ) {
     setRecoveryFilters((current) => ({
+      ...current,
+      [key]: value,
+    }));
+  }
+
+  function updateNotificationFilter<Key extends keyof NotificationFilterState>(
+    key: Key,
+    value: NotificationFilterState[Key],
+  ) {
+    setNotificationFilters((current) => ({
       ...current,
       [key]: value,
     }));
@@ -230,7 +278,10 @@ export function ReportingPage() {
           </div>
         </header>
 
-        {statusQuery.isLoading || performanceQuery.isLoading || recoveryQuery.isLoading ? (
+        {statusQuery.isLoading ||
+        performanceQuery.isLoading ||
+        recoveryQuery.isLoading ||
+        notificationQuery.isLoading ? (
           <div className="grid gap-4 lg:grid-cols-4">
             <Skeleton className="h-32" />
             <Skeleton className="h-32" />
@@ -326,6 +377,11 @@ export function ReportingPage() {
                   description="Filtered live recovery export."
                   href={buildRecoveryCsvHref(recoveryFilters)}
                   label="Live recovery"
+                />
+                <ExportLink
+                  description="Filtered notification-delivery export."
+                  href={buildNotificationCsvHref(notificationFilters)}
+                  label="Notification delivery"
                 />
               </CardContent>
             </Card>
@@ -624,6 +680,131 @@ export function ReportingPage() {
         <Card>
           <CardHeader>
             <div>
+              <CardTitle>Notification Delivery</CardTitle>
+              <CardDescription>
+                Alert-delivery visibility with the same filtered slice as the CSV export.
+              </CardDescription>
+            </div>
+            <div className="rounded-2xl bg-sky-300/10 p-3 text-sky-200">
+              <Radar className="h-5 w-5" />
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-5">
+            <div className="grid gap-4 lg:grid-cols-4">
+              <MetricBlock
+                label="Deliveries"
+                value={String(notifications?.delivery_count ?? 0)}
+                detail="Filtered notification-delivery rows"
+              />
+              <MetricBlock
+                label="Failures"
+                value={String(notifications?.failed_count ?? 0)}
+                detail="Failed deliveries in the active slice"
+              />
+              <MetricBlock
+                label="Latest Channel"
+                value={notifications?.latest_delivery_channel ?? "n/a"}
+                detail={notifications?.latest_delivery_status ?? "No delivery yet"}
+              />
+              <MetricBlock
+                label="Latest Event"
+                value={notifications?.latest_related_event_type ?? "n/a"}
+                detail={
+                  notifications?.latest_delivery_at
+                    ? formatTimestamp(notifications.latest_delivery_at)
+                    : "No delivery timestamp"
+                }
+              />
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-3">
+              <label className="space-y-2">
+                <span className="text-[11px] uppercase tracking-[0.18em] text-slate-400">
+                  Status
+                </span>
+                <select
+                  className="w-full rounded-2xl border border-white/10 bg-[#09121a] px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-300/40 focus:ring-2 focus:ring-cyan-300/10"
+                  onChange={(event: ChangeEvent<HTMLSelectElement>) =>
+                    updateNotificationFilter("status", event.target.value)
+                  }
+                  value={notificationFilters.status}
+                >
+                  <option value="">All statuses</option>
+                  <option value="completed">completed</option>
+                  <option value="failed">failed</option>
+                </select>
+              </label>
+              <label className="space-y-2">
+                <span className="text-[11px] uppercase tracking-[0.18em] text-slate-400">
+                  Channel
+                </span>
+                <select
+                  className="w-full rounded-2xl border border-white/10 bg-[#09121a] px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-300/40 focus:ring-2 focus:ring-cyan-300/10"
+                  onChange={(event: ChangeEvent<HTMLSelectElement>) =>
+                    updateNotificationFilter("channel", event.target.value)
+                  }
+                  value={notificationFilters.channel}
+                >
+                  <option value="">All channels</option>
+                  <option value="log">log</option>
+                  <option value="webhook">webhook</option>
+                </select>
+              </label>
+              <label className="space-y-2">
+                <span className="text-[11px] uppercase tracking-[0.18em] text-slate-400">
+                  Related Event
+                </span>
+                <select
+                  className="w-full rounded-2xl border border-white/10 bg-[#09121a] px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-300/40 focus:ring-2 focus:ring-cyan-300/10"
+                  onChange={(event: ChangeEvent<HTMLSelectElement>) =>
+                    updateNotificationFilter("related_event_type", event.target.value)
+                  }
+                  value={notificationFilters.related_event_type}
+                >
+                  <option value="">All related events</option>
+                  <option value="worker_cycle">worker_cycle</option>
+                  <option value="backtest">backtest</option>
+                  <option value="live_reconcile.failed">live_reconcile.failed</option>
+                </select>
+              </label>
+            </div>
+
+            {notifications && notifications.events.length > 0 ? (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>When</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Channel</TableHead>
+                    <TableHead>Related Event</TableHead>
+                    <TableHead>Correlation</TableHead>
+                    <TableHead>Detail</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {notifications.events.map((event) => (
+                    <TableRow key={event.id}>
+                      <TableCell>{formatTimestamp(event.created_at)}</TableCell>
+                      <TableCell>{event.status}</TableCell>
+                      <TableCell>{event.channel ?? "-"}</TableCell>
+                      <TableCell>{event.related_event_type ?? "-"}</TableCell>
+                      <TableCell>{event.correlation_id ?? "-"}</TableCell>
+                      <TableCell>{event.detail}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            ) : (
+              <div className="flex min-h-40 items-center justify-center rounded-[1.8rem] border border-dashed border-white/10 bg-white/[0.02] px-6 text-center text-sm text-slate-400">
+                No notification-delivery rows matched the current filters.
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <div>
               <CardTitle>Daily Rollup</CardTitle>
               <CardDescription>Most recent trading-day aggregates from persisted analytics.</CardDescription>
             </div>
@@ -679,7 +860,7 @@ export function ReportingPage() {
               <WalletCards className="h-5 w-5" />
             </div>
           </CardHeader>
-          <CardContent className="grid gap-4 md:grid-cols-3">
+          <CardContent className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-sm text-slate-300">
               <p className="font-medium text-white">Analytics only</p>
               <p className="mt-2">
@@ -688,16 +869,24 @@ export function ReportingPage() {
               </p>
             </div>
             <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-sm text-slate-300">
-              <p className="font-medium text-white">Live recovery</p>
+              <p className="font-medium text-white">Recovery visibility</p>
               <p className="mt-2">
                 Recovery queue, stale orders, and recent recovery events now reuse read-only API
                 slices instead of leaving operators with CSV-only visibility.
               </p>
             </div>
             <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-sm text-slate-300">
-              <p className="font-medium text-white">CSV still first-class</p>
+              <p className="font-medium text-white">Notification visibility</p>
               <p className="mt-2">
-                Filtered live-recovery exports remain available for offline review.
+                Notification delivery rows and filter state now stay in the reporting route instead
+                of requiring CSV-only inspection.
+              </p>
+            </div>
+            <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-sm text-slate-300">
+              <p className="font-medium text-white">CSV first</p>
+              <p className="mt-2">
+                Export links still point directly to FastAPI CSV endpoints, preserving filtered live
+                recovery exports for offline review.
               </p>
             </div>
           </CardContent>
