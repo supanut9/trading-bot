@@ -130,6 +130,17 @@ export type MarketSyncControlResponse = {
   notified: boolean;
 };
 
+export type WorkerControlResponse = {
+  status: string;
+  detail: string;
+  signal_action: string | null;
+  client_order_id: string | null;
+  order_id: number | null;
+  trade_id: number | null;
+  position_quantity: string | null;
+  notified: boolean;
+};
+
 export const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "") ?? "http://127.0.0.1:8000";
 
@@ -189,5 +200,11 @@ export function runMarketSync(
   return request<MarketSyncControlResponse>("/controls/market-sync", {
     method: "POST",
     body: JSON.stringify(payload),
+  });
+}
+
+export function runWorkerCycle(): Promise<WorkerControlResponse> {
+  return request<WorkerControlResponse>("/controls/worker-cycle", {
+    method: "POST",
   });
 }

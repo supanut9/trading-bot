@@ -90,6 +90,24 @@ test("hydrates runtime defaults and runs market sync", async () => {
       );
     }
 
+    if (url.endsWith("/controls/worker-cycle")) {
+      expect(init?.method).toBe("POST");
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            status: "executed",
+            detail: "signal executed in paper mode",
+            signal_action: "buy",
+            client_order_id: "paper-btc-1h-20260319",
+            order_id: 44,
+            trade_id: 88,
+            position_quantity: "0.01",
+            notified: true,
+          }),
+        ),
+      );
+    }
+
     return Promise.reject(new Error(`Unexpected request: ${url}`));
   });
 
@@ -112,4 +130,11 @@ test("hydrates runtime defaults and runs market sync", async () => {
   expect(screen.getByText("SOL/USDT 15m")).toBeInTheDocument();
   expect(screen.getByText("42")).toBeInTheDocument();
   expect(screen.getByText("35")).toBeInTheDocument();
+
+  fireEvent.click(screen.getByRole("button", { name: "Run worker cycle" }));
+
+  await waitFor(() => expect(screen.getByText("signal executed in paper mode")).toBeInTheDocument());
+  expect(screen.getByText("executed")).toBeInTheDocument();
+  expect(screen.getByText("Order 44")).toBeInTheDocument();
+  expect(screen.getByText("Trade 88")).toBeInTheDocument();
 });

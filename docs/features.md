@@ -935,7 +935,7 @@ Main outputs:
 
 Status:
 
-- in progress on `feature/operator-runtime-config-ui`
+- merged to `main`
 
 Scope:
 
@@ -949,13 +949,31 @@ Main outputs:
 - form editing for strategy, symbol, timeframe, fast period, and slow period
 - result feedback for persisted runtime-default updates
 
+### 50. `feature/worker-cycle-ui`
+
+Status:
+
+- in progress on `feature/worker-cycle-ui`
+
+Scope:
+
+- add a real operator-triggered worker-cycle action to the Next.js controls surface
+- reuse the existing bounded `POST /controls/worker-cycle` API
+- keep execution feedback explicit without widening worker orchestration behavior
+
+Main outputs:
+
+- worker-cycle action panel in the Next.js controls route
+- result feedback for executed, skipped, or duplicate worker outcomes
+- dashboard refresh after a successful worker action
+
 ## Current Recommended Queue
 
 These are the next bounded features after the current `main` baseline:
 
-1. `feature/operator-runtime-config-ui`
-2. `feature/worker-cycle-ui`
+1. `feature/worker-cycle-ui`
+2. `feature/operator-backtest-ui`
 
 Current next feature:
 
-- `feature/operator-runtime-config-ui`
+- `feature/worker-cycle-ui`
