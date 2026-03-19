@@ -852,3 +852,9 @@ The API now exposes `GET /reports/recovery` as a JSON dashboard slice over the e
 Notification-delivery audits and filtered CSV exports already existed, but the reporting route still lacked the explicit delivery panel described in the docs. Operators needed the same bounded read-only slice in-browser so delivery failures could be narrowed without leaving the reporting surface.
 
 The API now exposes `GET /reports/notifications` as a JSON dashboard slice over the existing notification-delivery audit data. The Next.js `/reports` route uses that endpoint to render delivery summary cards, recent notification-delivery rows, read-only filters for status, channel, and related event type, and a filtered `notification-delivery.csv` export link.
+
+## 2026-03-20: Add Generic Audit Reporting To The Next.js Reports Route
+
+The reporting route already exposed narrower recovery and notification slices, but the broader audit feed still depended on a CSV export for real filtering. Operators needed the same read-only narrowing in-browser so one workflow or one failure mode could be isolated without leaving the reporting surface.
+
+The API now exposes `GET /reports/audit` as a JSON dashboard slice over the existing recent-audit data. The Next.js `/reports` route uses that endpoint to render audit summary cards, a generic audit filter form, richer audit metadata columns, and a filtered `audit.csv` export link while keeping the slice read-only.

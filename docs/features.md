@@ -1039,13 +1039,30 @@ Main outputs:
 - notification-delivery summary cards and recent-delivery table in the reporting route
 - read-only notification filters with matching filtered CSV export links
 
+### 55. `feature/audit-reporting-ui`
+
+Status:
+
+- in progress on `feature/audit-reporting-ui`
+
+Scope:
+
+- expose generic audit reporting in the Next.js reporting route
+- add a bounded JSON endpoint over the existing recent-audit slice
+- preserve filtered CSV export behavior while making cross-workflow audit review easier in-browser
+
+Main outputs:
+
+- `/reports/audit` JSON endpoint
+- generic audit summary, filter form, and recent-audit table in the reporting route
+- read-only audit filters with matching filtered CSV export links
+
 ## Current Recommended Queue
 
 These are the next bounded features after the current `main` baseline:
 
-1. `feature/notification-reporting-ui`
-2. `feature/audit-reporting-ui`
+1. `feature/audit-reporting-ui`
 
 Current next feature:
 
-- `feature/notification-reporting-ui`
+- `feature/audit-reporting-ui`

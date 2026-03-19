@@ -28,10 +28,12 @@ import {
 } from "@/components/ui/table";
 import {
   apiUrl,
+  getAuditDashboard,
   getNotificationDashboard,
   getPerformanceSummary,
   getRecoveryDashboard,
   getStatus,
+  type AuditDashboardResponse,
   type NotificationDashboardResponse,
   type PerformanceAnalyticsResponse,
   type RecoveryDashboardResponse,
@@ -50,6 +52,13 @@ type NotificationFilterState = {
   status: string;
   channel: string;
   related_event_type: string;
+};
+
+type AuditFilterState = {
+  event_type: string;
+  status: string;
+  source: string;
+  search: string;
 };
 
 function MetricBlock({
@@ -184,6 +193,24 @@ function buildNotificationCsvHref(filters: NotificationFilterState): string {
   return apiUrl(`/reports/notification-delivery.csv${suffix ? `?${suffix}` : ""}`);
 }
 
+function buildAuditCsvHref(filters: AuditFilterState): string {
+  const params = new URLSearchParams();
+  if (filters.event_type) {
+    params.set("audit_event_type", filters.event_type);
+  }
+  if (filters.status) {
+    params.set("audit_status", filters.status);
+  }
+  if (filters.source) {
+    params.set("audit_source", filters.source);
+  }
+  if (filters.search.trim()) {
+    params.set("audit_search", filters.search.trim());
+  }
+  const suffix = params.toString();
+  return apiUrl(`/reports/audit.csv${suffix ? `?${suffix}` : ""}`);
+}
+
 export function ReportingPage() {
   const [recoveryFilters, setRecoveryFilters] = useState<RecoveryFilterState>({
     order_status: "",
@@ -195,6 +222,12 @@ export function ReportingPage() {
     status: "",
     channel: "",
     related_event_type: "",
+  });
+  const [auditFilters, setAuditFilters] = useState<AuditFilterState>({
+    event_type: "",
+    status: "",
+    source: "",
+    search: "",
   });
 
   const recoveryQueryParams = {
@@ -211,8 +244,14 @@ export function ReportingPage() {
     notification_channel: notificationFilters.channel || undefined,
     notification_related_event_type: notificationFilters.related_event_type || undefined,
   };
+  const auditQueryParams = {
+    audit_event_type: auditFilters.event_type || undefined,
+    audit_status: auditFilters.status || undefined,
+    audit_source: auditFilters.source || undefined,
+    audit_search: auditFilters.search.trim() || undefined,
+  };
 
-  const [statusQuery, performanceQuery, recoveryQuery, notificationQuery] = useQueries({
+  const [statusQuery, performanceQuery, recoveryQuery, notificationQuery, auditQuery] = useQueries({
     queries: [
       { queryKey: ["status"], queryFn: getStatus },
       { queryKey: ["performance"], queryFn: getPerformanceSummary },
@@ -224,6 +263,10 @@ export function ReportingPage() {
         queryKey: ["notification-dashboard", notificationQueryParams],
         queryFn: () => getNotificationDashboard(notificationQueryParams),
       },
+      {
+        queryKey: ["audit-dashboard", auditQueryParams],
+        queryFn: () => getAuditDashboard(auditQueryParams),
+      },
     ],
   });
 
@@ -231,6 +274,7 @@ export function ReportingPage() {
   const performance = performanceQuery.data as PerformanceAnalyticsResponse | undefined;
   const recovery = recoveryQuery.data as RecoveryDashboardResponse | undefined;
   const notifications = notificationQuery.data as NotificationDashboardResponse | undefined;
+  const audit = auditQuery.data as AuditDashboardResponse | undefined;
   const summary = performance?.summaries[0];
 
   function updateRecoveryFilter<Key extends keyof RecoveryFilterState>(
@@ -248,6 +292,16 @@ export function ReportingPage() {
     value: NotificationFilterState[Key],
   ) {
     setNotificationFilters((current) => ({
+      ...current,
+      [key]: value,
+    }));
+  }
+
+  function updateAuditFilter<Key extends keyof AuditFilterState>(
+    key: Key,
+    value: AuditFilterState[Key],
+  ) {
+    setAuditFilters((current) => ({
       ...current,
       [key]: value,
     }));
@@ -281,7 +335,8 @@ export function ReportingPage() {
         {statusQuery.isLoading ||
         performanceQuery.isLoading ||
         recoveryQuery.isLoading ||
-        notificationQuery.isLoading ? (
+        notificationQuery.isLoading ||
+        auditQuery.isLoading ? (
           <div className="grid gap-4 lg:grid-cols-4">
             <Skeleton className="h-32" />
             <Skeleton className="h-32" />
@@ -382,6 +437,11 @@ export function ReportingPage() {
                   description="Filtered notification-delivery export."
                   href={buildNotificationCsvHref(notificationFilters)}
                   label="Notification delivery"
+                />
+                <ExportLink
+                  description="Filtered generic audit export."
+                  href={buildAuditCsvHref(auditFilters)}
+                  label="Audit feed"
                 />
               </CardContent>
             </Card>
@@ -805,6 +865,162 @@ export function ReportingPage() {
         <Card>
           <CardHeader>
             <div>
+              <CardTitle>Audit Feed</CardTitle>
+              <CardDescription>
+                Filtered generic audit rows across controls and notification delivery.
+              </CardDescription>
+            </div>
+            <div className="rounded-2xl bg-white/5 p-3 text-slate-200">
+              <NotebookTabs className="h-5 w-5" />
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-5">
+            <div className="grid gap-4 lg:grid-cols-4">
+              <MetricBlock
+                label="Audit Rows"
+                value={String(audit?.event_count ?? 0)}
+                detail="Filtered generic audit events"
+              />
+              <MetricBlock
+                label="Latest Event"
+                value={audit?.events[0]?.event_type ?? "n/a"}
+                detail={audit?.events[0]?.status ?? "No audit rows yet"}
+              />
+              <MetricBlock
+                label="Latest Source"
+                value={audit?.events[0]?.source ?? "n/a"}
+                detail={
+                  audit?.events[0]?.created_at
+                    ? formatTimestamp(audit.events[0].created_at)
+                    : "No audit timestamp"
+                }
+              />
+              <MetricBlock
+                label="Correlation"
+                value={audit?.events[0]?.correlation_id ?? "n/a"}
+                detail="Latest correlation id in the current slice"
+              />
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-[repeat(3,minmax(0,1fr))_minmax(0,1.2fr)]">
+              <label className="space-y-2">
+                <span className="text-[11px] uppercase tracking-[0.18em] text-slate-400">
+                  Event Type
+                </span>
+                <select
+                  className="w-full rounded-2xl border border-white/10 bg-[#09121a] px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-300/40 focus:ring-2 focus:ring-cyan-300/10"
+                  onChange={(event: ChangeEvent<HTMLSelectElement>) =>
+                    updateAuditFilter("event_type", event.target.value)
+                  }
+                  value={auditFilters.event_type}
+                >
+                  <option value="">All events</option>
+                  <option value="worker_cycle">worker_cycle</option>
+                  <option value="market_sync">market_sync</option>
+                  <option value="backtest">backtest</option>
+                  <option value="notification_delivery">notification_delivery</option>
+                  <option value="live_reconcile">live_reconcile</option>
+                  <option value="live_cancel">live_cancel</option>
+                </select>
+              </label>
+              <label className="space-y-2">
+                <span className="text-[11px] uppercase tracking-[0.18em] text-slate-400">
+                  Status
+                </span>
+                <select
+                  className="w-full rounded-2xl border border-white/10 bg-[#09121a] px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-300/40 focus:ring-2 focus:ring-cyan-300/10"
+                  onChange={(event: ChangeEvent<HTMLSelectElement>) =>
+                    updateAuditFilter("status", event.target.value)
+                  }
+                  value={auditFilters.status}
+                >
+                  <option value="">All statuses</option>
+                  <option value="completed">completed</option>
+                  <option value="failed">failed</option>
+                </select>
+              </label>
+              <label className="space-y-2">
+                <span className="text-[11px] uppercase tracking-[0.18em] text-slate-400">
+                  Source
+                </span>
+                <select
+                  className="w-full rounded-2xl border border-white/10 bg-[#09121a] px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-300/40 focus:ring-2 focus:ring-cyan-300/10"
+                  onChange={(event: ChangeEvent<HTMLSelectElement>) =>
+                    updateAuditFilter("source", event.target.value)
+                  }
+                  value={auditFilters.source}
+                >
+                  <option value="">All sources</option>
+                  <option value="api.control">api.control</option>
+                  <option value="notification.webhook">notification.webhook</option>
+                  <option value="notification.log">notification.log</option>
+                  <option value="scheduler">scheduler</option>
+                </select>
+              </label>
+              <label className="space-y-2">
+                <span className="text-[11px] uppercase tracking-[0.18em] text-slate-400">
+                  Search
+                </span>
+                <div className="relative">
+                  <Search className="pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-slate-500" />
+                  <input
+                    className="w-full rounded-2xl border border-white/10 bg-[#09121a] py-3 pl-10 pr-4 text-sm text-white outline-none transition focus:border-cyan-300/40 focus:ring-2 focus:ring-cyan-300/10"
+                    onChange={(event: ChangeEvent<HTMLInputElement>) =>
+                      updateAuditFilter("search", event.target.value)
+                    }
+                    placeholder="detail, symbol, correlation id, source"
+                    value={auditFilters.search}
+                  />
+                </div>
+              </label>
+            </div>
+
+            {audit && audit.events.length > 0 ? (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>When</TableHead>
+                    <TableHead>Event</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Source</TableHead>
+                    <TableHead>Exchange</TableHead>
+                    <TableHead>Symbol</TableHead>
+                    <TableHead>Timeframe</TableHead>
+                    <TableHead>Channel</TableHead>
+                    <TableHead>Related Event</TableHead>
+                    <TableHead>Correlation</TableHead>
+                    <TableHead>Detail</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {audit.events.map((event) => (
+                    <TableRow key={event.id}>
+                      <TableCell>{formatTimestamp(event.created_at)}</TableCell>
+                      <TableCell>{event.event_type}</TableCell>
+                      <TableCell>{event.status}</TableCell>
+                      <TableCell>{event.source}</TableCell>
+                      <TableCell>{event.exchange ?? "-"}</TableCell>
+                      <TableCell>{event.symbol ?? "-"}</TableCell>
+                      <TableCell>{event.timeframe ?? "-"}</TableCell>
+                      <TableCell>{event.channel ?? "-"}</TableCell>
+                      <TableCell>{event.related_event_type ?? "-"}</TableCell>
+                      <TableCell>{event.correlation_id ?? "-"}</TableCell>
+                      <TableCell>{event.detail}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            ) : (
+              <div className="flex min-h-40 items-center justify-center rounded-[1.8rem] border border-dashed border-white/10 bg-white/[0.02] px-6 text-center text-sm text-slate-400">
+                No audit rows matched the current filters.
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <div>
               <CardTitle>Daily Rollup</CardTitle>
               <CardDescription>Most recent trading-day aggregates from persisted analytics.</CardDescription>
             </div>
@@ -880,6 +1096,13 @@ export function ReportingPage() {
               <p className="mt-2">
                 Notification delivery rows and filter state now stay in the reporting route instead
                 of requiring CSV-only inspection.
+              </p>
+            </div>
+            <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-sm text-slate-300">
+              <p className="font-medium text-white">Audit visibility</p>
+              <p className="mt-2">
+                Generic audit rows now support the same read-only filtering model as the narrower
+                recovery and notification slices.
               </p>
             </div>
             <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-sm text-slate-300">

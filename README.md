@@ -92,6 +92,7 @@ The API now exposes basic operational visibility endpoints:
 - `GET /reports/backtest-summary.csv`
 - `GET /reports/recovery`
 - `GET /reports/notifications`
+- `GET /reports/audit`
 - `GET /reports/audit.csv`
 - `GET /reports/notification-delivery.csv`
 - `GET /reports/live-recovery.csv`

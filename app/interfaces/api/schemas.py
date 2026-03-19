@@ -424,3 +424,16 @@ class NotificationDashboardResponse(BaseModel):
     latest_related_event_type: str | None = None
     filters: NotificationReportFiltersResponse
     events: list[AuditEventResponse]
+
+
+class AuditReportFiltersResponse(BaseModel):
+    event_type: str | None = None
+    status: str | None = None
+    source: str | None = None
+    search: str | None = None
+
+
+class AuditDashboardResponse(BaseModel):
+    event_count: int
+    filters: AuditReportFiltersResponse
+    events: list[AuditEventResponse]
