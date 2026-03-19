@@ -242,6 +242,58 @@ def test_backtest_control_accepts_explicit_run_options(tmp_path: Path) -> None:
         teardown_client()
 
 
+def test_backtest_control_accepts_rule_builder_options(tmp_path: Path) -> None:
+    client, settings = build_client(tmp_path)
+    try:
+        store_closes(settings, [10, 10, 10, 10, 10, 9, 9, 9, 20])
+
+        response = client.post(
+            "/controls/backtest",
+            json={
+                "strategy_name": "rule_builder",
+                "symbol": settings.default_symbol,
+                "timeframe": settings.default_timeframe,
+                "starting_equity": "100",
+                "rules": {
+                    "shared_filters": {"logic": "all", "conditions": []},
+                    "buy_rules": {
+                        "logic": "all",
+                        "conditions": [
+                            {
+                                "indicator": "ema_cross",
+                                "operator": "bullish",
+                                "fast_period": 3,
+                                "slow_period": 5,
+                            }
+                        ],
+                    },
+                    "sell_rules": {
+                        "logic": "all",
+                        "conditions": [
+                            {
+                                "indicator": "ema_cross",
+                                "operator": "bearish",
+                                "fast_period": 3,
+                                "slow_period": 5,
+                            }
+                        ],
+                    },
+                },
+            },
+        )
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["status"] == "completed"
+        assert payload["strategy_name"] == "rule_builder"
+        assert payload["required_candles"] == 6
+        assert payload["fast_period"] is None
+        assert payload["slow_period"] is None
+        assert payload["rules"]["buy_rules"]["conditions"][0]["indicator"] == "ema_cross"
+    finally:
+        teardown_client()
+
+
 def test_backtest_control_returns_failed_for_invalid_period_selection(tmp_path: Path) -> None:
     client, settings = build_client(tmp_path)
     try:

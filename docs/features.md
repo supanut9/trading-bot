@@ -258,6 +258,25 @@ Main outputs:
 - bounded control flow that uses current runtime configuration only
 - response models for control outcomes
 
+### 14. `feature/rule-builder-backtest`
+
+Status:
+
+- in progress on `feature/rule-builder-backtest`
+
+Scope:
+
+- bounded `rule_builder` strategy for backtest only
+- reusable indicator helpers for configurable rule evaluation
+- control API support for structured backtest rule payloads
+- strategy docs and tests for rule-builder behavior
+
+Main outputs:
+
+- rule-builder strategy module with shared, buy, and sell rule groups
+- configurable backtest request and response payloads for rule sets
+- backtest-only strategy selection without changing worker runtime strategy
+
 ### 14. `feature/operator-ui-foundation`
 
 Status:

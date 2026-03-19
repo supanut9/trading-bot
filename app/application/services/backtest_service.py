@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from decimal import Decimal
 
 from app.domain.risk import PortfolioState, RiskLimits, RiskService, TradeContext
-from app.domain.strategies.base import Candle
+from app.domain.strategies.base import Candle, Strategy
 from app.domain.strategies.ema_crossover import EmaCrossoverStrategy
 
 
@@ -33,7 +33,7 @@ class BacktestService:
     def __init__(
         self,
         *,
-        strategy: EmaCrossoverStrategy | None = None,
+        strategy: Strategy | None = None,
         risk_service: RiskService | None = None,
         starting_equity: Decimal = Decimal("10000"),
     ) -> None:

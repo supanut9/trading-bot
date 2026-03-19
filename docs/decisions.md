@@ -799,9 +799,9 @@ The runtime now keeps `/console` focused on operational controls and moves repla
 
 The fixed EMA crossover replay path was useful as a baseline, but it was too rigid for exploratory testing and it pushed every strategy idea toward a new hardcoded Python module. Operators needed a way to combine indicator conditions, share filters across both sides, and keep buy and sell logic separate without widening the live runtime boundary at the same time.
 
-The backtest surface now supports a bounded `rule_builder` strategy alongside the legacy EMA preset. The builder combines reusable indicator conditions into `shared_filters`, `buy_rules`, and `sell_rules`, with `all` or `any` logic per group. The first cut is backtest-only and keeps worker/runtime execution on the existing EMA path, while `/console/backtest` now uses Alpine.js to manage the richer rule-editing UI without introducing a separate frontend application.
+The backtest surface now supports a bounded `rule_builder` strategy alongside the legacy EMA preset. The builder combines reusable indicator conditions into `shared_filters`, `buy_rules`, and `sell_rules`, with `all` or `any` logic per group. The first cut is backtest-only and keeps worker/runtime execution on the existing EMA path, while the control API now accepts a structured rule payload that the Next.js operator UI can evolve around.
 
-The first rule-builder page proved too configuration-heavy when shown all at once. The console now keeps the rule engine underneath, but the `/console/backtest` UI stays preset-only so operators can run curated combinations without dealing with builder controls.
+The initial UX should stay preset-first even though the underlying rule engine is more flexible. Operators can use curated combinations first, while the bounded JSON payload keeps room for a richer Next.js backtest builder later without widening the live runtime boundary.
 
 ## 2026-03-19
 
