@@ -953,7 +953,7 @@ Main outputs:
 
 Status:
 
-- in progress on `feature/worker-cycle-ui`
+- merged to `main`
 
 Scope:
 
@@ -989,7 +989,7 @@ Main outputs:
 
 Status:
 
-- in progress on `feature/live-ops-ui`
+- merged to `main`
 
 Scope:
 
@@ -1007,7 +1007,7 @@ Main outputs:
 
 Status:
 
-- in progress on `feature/recovery-reporting-ui`
+- merged to `main`
 
 Scope:
 
@@ -1025,7 +1025,7 @@ Main outputs:
 
 Status:
 
-- in progress on `feature/notification-reporting-ui`
+- merged to `main`
 
 Scope:
 
@@ -1043,7 +1043,7 @@ Main outputs:
 
 Status:
 
-- in progress on `feature/audit-reporting-ui`
+- merged to `main`
 
 Scope:
 
@@ -1061,8 +1061,8 @@ Main outputs:
 
 These are the next bounded features after the current `main` baseline:
 
-1. `feature/audit-reporting-ui`
+- no operator-ux follow-up feature is currently queued in this document
 
 Current next feature:
 
-- `feature/audit-reporting-ui`
+- not yet defined
