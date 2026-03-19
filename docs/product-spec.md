@@ -36,7 +36,7 @@ Current production boundary:
 
 Next implementation queue:
 
-1. `feature/audit-reporting-ui`
+1. no feature currently queued; define the next bounded unit before additional implementation
 
 ## Initial Market And Strategy
 

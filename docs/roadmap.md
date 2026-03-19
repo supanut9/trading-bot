@@ -71,7 +71,7 @@ Current repo baseline:
 
 Recommended next feature queue:
 
-1. `feature/audit-reporting-ui`
+1. no feature currently queued; define the next bounded unit before starting Phase 11 work
 
 ## Phase 1
 
