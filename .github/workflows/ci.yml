@@ -23,8 +23,18 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "yarn"
+          cache-dependency-path: web/yarn.lock
+
       - name: Install dependencies
         run: python -m pip install -e ".[dev]"
+
+      - name: Install web dependencies
+        run: make install-web
 
       - name: Run lint
         run: make lint
@@ -42,8 +52,18 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "yarn"
+          cache-dependency-path: web/yarn.lock
+
       - name: Install dependencies
         run: python -m pip install -e ".[dev]"
+
+      - name: Install web dependencies
+        run: make install-web
 
       - name: Run tests
         run: make test
