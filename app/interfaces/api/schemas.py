@@ -389,3 +389,38 @@ class RecoveryDashboardResponse(BaseModel):
     latest_recovery_event_status: str | None = None
     latest_recovery_event_context: str | None = None
     filters: RecoveryReportFiltersResponse
+
+
+class NotificationReportFiltersResponse(BaseModel):
+    status: str | None = None
+    channel: str | None = None
+    related_event_type: str | None = None
+
+
+class AuditEventResponse(BaseModel):
+    id: int
+    created_at: datetime
+    event_type: str
+    source: str
+    status: str
+    detail: str
+    exchange: str | None = None
+    symbol: str | None = None
+    timeframe: str | None = None
+    channel: str | None = None
+    related_event_type: str | None = None
+    correlation_id: str | None = None
+    payload_json: str | None = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class NotificationDashboardResponse(BaseModel):
+    delivery_count: int
+    failed_count: int
+    latest_delivery_at: str | None = None
+    latest_delivery_status: str | None = None
+    latest_delivery_channel: str | None = None
+    latest_related_event_type: str | None = None
+    filters: NotificationReportFiltersResponse
+    events: list[AuditEventResponse]

@@ -1021,13 +1021,31 @@ Main outputs:
 - recovery queue, stale-order, and recovery-timeline panels in the reporting route
 - read-only recovery filters with matching filtered CSV export links
 
+### 54. `feature/notification-reporting-ui`
+
+Status:
+
+- in progress on `feature/notification-reporting-ui`
+
+Scope:
+
+- expose notification-delivery reporting in the Next.js reporting route
+- add a bounded JSON endpoint over the existing notification-delivery audit slice
+- preserve filtered CSV export behavior while making delivery failures easier to inspect in-browser
+
+Main outputs:
+
+- `/reports/notifications` JSON endpoint
+- notification-delivery summary cards and recent-delivery table in the reporting route
+- read-only notification filters with matching filtered CSV export links
+
 ## Current Recommended Queue
 
 These are the next bounded features after the current `main` baseline:
 
-1. `feature/recovery-reporting-ui`
-2. `feature/notification-reporting-ui`
+1. `feature/notification-reporting-ui`
+2. `feature/audit-reporting-ui`
 
 Current next feature:
 
-- `feature/recovery-reporting-ui`
+- `feature/notification-reporting-ui`

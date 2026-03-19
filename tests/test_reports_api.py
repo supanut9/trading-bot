@@ -369,3 +369,57 @@ def test_recovery_dashboard_returns_filtered_recovery_data(tmp_path: Path) -> No
         assert "client_order_id=filtered-order" in payload["recovery_events"][0]["context"]
     finally:
         teardown_client(session)
+
+
+def test_notification_dashboard_returns_filtered_delivery_data(tmp_path: Path) -> None:
+    client, session, _settings = build_client(tmp_path)
+    try:
+        AuditService(session=session).record_notification_delivery(
+            source="notification.webhook",
+            channel="webhook",
+            status="failed",
+            detail="delivery failed",
+            related_event_type="worker_cycle",
+            payload={
+                "metadata": {
+                    "exchange": "binance",
+                    "symbol": "BTC/USDT",
+                    "timeframe": "1h",
+                },
+                "correlation_id": "corr-123",
+            },
+        )
+        AuditService(session=session).record_notification_delivery(
+            source="notification.log",
+            channel="log",
+            status="completed",
+            detail="delivery ok",
+            related_event_type="backtest",
+            payload={
+                "metadata": {
+                    "exchange": "binance",
+                    "symbol": "BTC/USDT",
+                    "timeframe": "1h",
+                }
+            },
+        )
+        session.commit()
+
+        response = client.get(
+            "/reports/notifications?notification_status=failed&notification_channel=webhook"
+        )
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["delivery_count"] == 1
+        assert payload["failed_count"] == 1
+        assert payload["latest_delivery_status"] == "failed"
+        assert payload["latest_delivery_channel"] == "webhook"
+        assert payload["latest_related_event_type"] == "worker_cycle"
+        assert payload["filters"]["status"] == "failed"
+        assert payload["filters"]["channel"] == "webhook"
+        assert len(payload["events"]) == 1
+        assert payload["events"][0]["event_type"] == "notification_delivery"
+        assert payload["events"][0]["correlation_id"] == "corr-123"
+    finally:
+        teardown_client(session)

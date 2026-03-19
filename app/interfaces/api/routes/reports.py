@@ -12,6 +12,9 @@ from app.application.services.status_service import StatusService
 from app.config import Settings, get_settings
 from app.infrastructure.database.session import get_session, get_session_factory_dependency
 from app.interfaces.api.schemas import (
+    AuditEventResponse,
+    NotificationDashboardResponse,
+    NotificationReportFiltersResponse,
     RecoveryDashboardResponse,
     RecoveryEventResponse,
     RecoveryOrderResponse,
@@ -176,6 +179,45 @@ def get_recovery_dashboard(
             event_type=dashboard.recovery_filters.event_type,
             search=dashboard.recovery_filters.search,
         ),
+    )
+
+
+@router.get("/notifications", response_model=NotificationDashboardResponse)
+def get_notification_dashboard(
+    session: Session = session_dependency,
+    settings: Settings = settings_dependency,
+    session_factory: sessionmaker[Session] = session_factory_dependency,
+    notification_status: str | None = None,
+    notification_channel: str | None = None,
+    notification_related_event_type: str | None = None,
+) -> NotificationDashboardResponse:
+    filters = _build_notification_filters(
+        status=notification_status,
+        channel=notification_channel,
+        related_event_type=notification_related_event_type,
+    )
+    dashboard = ReportingDashboardService(
+        session,
+        settings,
+        session_factory=session_factory,
+        notification_filters=filters,
+    ).build_dashboard()
+    return NotificationDashboardResponse(
+        delivery_count=dashboard.notification_delivery_count,
+        failed_count=dashboard.notification_delivery_failed_count,
+        latest_delivery_at=dashboard.latest_notification_delivery_at,
+        latest_delivery_status=dashboard.latest_notification_delivery_status,
+        latest_delivery_channel=dashboard.latest_notification_delivery_channel,
+        latest_related_event_type=dashboard.latest_notification_related_event_type,
+        filters=NotificationReportFiltersResponse(
+            status=dashboard.notification_filters.status,
+            channel=dashboard.notification_filters.channel,
+            related_event_type=dashboard.notification_filters.related_event_type,
+        ),
+        events=[
+            AuditEventResponse.model_validate(event)
+            for event in dashboard.notification_delivery_events
+        ],
     )
 
 
