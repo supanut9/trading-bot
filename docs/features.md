@@ -917,7 +917,7 @@ Main outputs:
 
 Status:
 
-- in progress on `feature/operator-reporting-ui`
+- merged to `main`
 
 Scope:
 
@@ -931,13 +931,31 @@ Main outputs:
 - performance summary, equity-curve, and daily-rollup visibility in Next.js
 - direct CSV export links for operational and performance datasets
 
+### 49. `feature/operator-runtime-config-ui`
+
+Status:
+
+- in progress on `feature/operator-runtime-config-ui`
+
+Scope:
+
+- replace the runtime placeholder route with a real Next.js runtime-defaults editor
+- reuse the existing `/controls/operator-config` API for read and write behavior
+- keep runtime-default updates bounded to persisted paper defaults without widening execution logic
+
+Main outputs:
+
+- `/runtime` route in `web/` for runtime defaults
+- form editing for strategy, symbol, timeframe, fast period, and slow period
+- result feedback for persisted runtime-default updates
+
 ## Current Recommended Queue
 
 These are the next bounded features after the current `main` baseline:
 
-1. `feature/operator-reporting-ui`
-2. `feature/runtime-operator-config`
+1. `feature/operator-runtime-config-ui`
+2. `feature/worker-cycle-ui`
 
 Current next feature:
 
-- `feature/operator-reporting-ui`
+- `feature/operator-runtime-config-ui`
