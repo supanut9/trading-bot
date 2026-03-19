@@ -36,8 +36,8 @@ Current production boundary:
 
 Next implementation queue:
 
-1. `feature/live-ops-ui`
-2. `feature/recovery-reporting-ui`
+1. `feature/recovery-reporting-ui`
+2. `feature/notification-reporting-ui`
 
 ## Initial Market And Strategy
 
@@ -91,6 +91,7 @@ Next implementation queue:
 - provide a dedicated reporting page in Next.js with performance analytics, equity-curve visibility, and direct CSV export links
 - provide a dedicated backtest page with parameterized inputs and chart visualization for replay analysis
 - provide preset-first backtest strategy selection backed by curated rule-builder presets
+- provide read-only Next.js recovery reporting with stale-order visibility, unresolved live-order queue, recent recovery events, and filtered export links
 - persist paper-runtime operator defaults for symbol, timeframe, and EMA periods so operator actions do not depend only on startup env
 - render a compact reporting summary over the latest worker outcome, PnL, trade count, positions, and stale live state
 - derive durable operator-facing performance analytics from persisted trades and positions without adding a dedicated summary table first

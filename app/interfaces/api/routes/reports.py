@@ -6,9 +6,18 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from app.application.services.audit_service import AuditEventFilters
 from app.application.services.live_order_recovery_report_service import RecoveryReportFilters
+from app.application.services.reporting_dashboard_service import ReportingDashboardService
 from app.application.services.reporting_export_service import ReportingExportService
+from app.application.services.status_service import StatusService
 from app.config import Settings, get_settings
 from app.infrastructure.database.session import get_session, get_session_factory_dependency
+from app.interfaces.api.schemas import (
+    RecoveryDashboardResponse,
+    RecoveryEventResponse,
+    RecoveryOrderResponse,
+    RecoveryReportFiltersResponse,
+    StaleLiveOrderResponse,
+)
 
 router = APIRouter(prefix="/reports", tags=["reports"])
 session_dependency = Depends(get_session)
@@ -103,6 +112,71 @@ def export_backtest_summary(
         session_factory=session_factory,
     ).export_backtest_summary_csv()
     return _csv_response("backtest-summary.csv", content)
+
+
+@router.get("/recovery", response_model=RecoveryDashboardResponse)
+def get_recovery_dashboard(
+    session: Session = session_dependency,
+    settings: Settings = settings_dependency,
+    session_factory: sessionmaker[Session] = session_factory_dependency,
+    recovery_order_status: str | None = None,
+    recovery_requires_review: bool | None = None,
+    recovery_event_type: str | None = None,
+    recovery_search: str | None = None,
+) -> RecoveryDashboardResponse:
+    filters = _build_recovery_filters(
+        order_status=recovery_order_status,
+        requires_review=recovery_requires_review,
+        event_type=recovery_event_type,
+        search=recovery_search,
+    )
+    dashboard = ReportingDashboardService(
+        session,
+        settings,
+        session_factory=session_factory,
+        recovery_filters=filters,
+    ).build_dashboard()
+    status = StatusService(settings, session=session).get_status()
+    return RecoveryDashboardResponse(
+        live_trading_enabled=dashboard.live_trading_enabled,
+        live_trading_halted=dashboard.live_trading_halted,
+        live_safety_status=str(status["live_safety_status"]),
+        stale_threshold_minutes=settings.stale_live_order_threshold_minutes,
+        stale_live_orders=[
+            StaleLiveOrderResponse.model_validate(order) for order in dashboard.stale_live_orders
+        ],
+        unresolved_orders=[
+            RecoveryOrderResponse(
+                id=order.order.id,
+                symbol=order.order.symbol,
+                side=order.order.side,
+                status=order.order.status,
+                client_order_id=order.order.client_order_id,
+                exchange_order_id=order.order.exchange_order_id,
+                quantity=order.order.quantity,
+                price=order.order.price,
+                updated_at=order.order.updated_at,
+                requires_operator_review=order.requires_operator_review,
+                next_action=order.next_action,
+            )
+            for order in dashboard.recovery_orders
+        ],
+        recovery_events=[
+            RecoveryEventResponse.model_validate(event) for event in dashboard.recovery_events
+        ],
+        unresolved_live_orders=dashboard.unresolved_live_orders,
+        recovery_event_count=dashboard.recovery_event_count,
+        latest_recovery_event_at=dashboard.latest_recovery_event_at,
+        latest_recovery_event_type=dashboard.latest_recovery_event_type,
+        latest_recovery_event_status=dashboard.latest_recovery_event_status,
+        latest_recovery_event_context=dashboard.latest_recovery_event_context,
+        filters=RecoveryReportFiltersResponse(
+            order_status=dashboard.recovery_filters.order_status,
+            requires_review=dashboard.recovery_filters.requires_review,
+            event_type=dashboard.recovery_filters.event_type,
+            search=dashboard.recovery_filters.search,
+        ),
+    )
 
 
 @router.get("/audit.csv")

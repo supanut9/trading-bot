@@ -327,3 +327,65 @@ class LiveCancelControlResponse(BaseModel):
     notified: bool
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class RecoveryReportFiltersResponse(BaseModel):
+    order_status: str | None = None
+    requires_review: bool | None = None
+    event_type: str | None = None
+    search: str | None = None
+
+
+class StaleLiveOrderResponse(BaseModel):
+    id: int
+    symbol: str
+    side: str
+    status: str
+    client_order_id: str | None
+    exchange_order_id: str | None
+    updated_at: datetime
+    age_minutes: int
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class RecoveryOrderResponse(BaseModel):
+    id: int
+    symbol: str
+    side: str
+    status: str
+    client_order_id: str | None
+    exchange_order_id: str | None
+    quantity: Decimal
+    price: Decimal | None
+    updated_at: datetime
+    requires_operator_review: bool
+    next_action: str
+
+
+class RecoveryEventResponse(BaseModel):
+    created_at: datetime
+    event_type: str
+    source: str
+    status: str
+    detail: str
+    context: str
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class RecoveryDashboardResponse(BaseModel):
+    live_trading_enabled: bool
+    live_trading_halted: bool
+    live_safety_status: str
+    stale_threshold_minutes: int
+    stale_live_orders: list[StaleLiveOrderResponse]
+    unresolved_orders: list[RecoveryOrderResponse]
+    recovery_events: list[RecoveryEventResponse]
+    unresolved_live_orders: int
+    recovery_event_count: int
+    latest_recovery_event_at: str | None = None
+    latest_recovery_event_type: str | None = None
+    latest_recovery_event_status: str | None = None
+    latest_recovery_event_context: str | None = None
+    filters: RecoveryReportFiltersResponse

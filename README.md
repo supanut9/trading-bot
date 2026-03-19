@@ -90,6 +90,7 @@ The API now exposes basic operational visibility endpoints:
 - `GET /reports/positions.csv`
 - `GET /reports/trades.csv`
 - `GET /reports/backtest-summary.csv`
+- `GET /reports/recovery`
 - `GET /reports/audit.csv`
 - `GET /reports/notification-delivery.csv`
 - `GET /reports/live-recovery.csv`

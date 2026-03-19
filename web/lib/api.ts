@@ -242,6 +242,64 @@ export type LiveCancelControlResponse = {
   notified: boolean;
 };
 
+export type RecoveryReportFilters = {
+  order_status: string | null;
+  requires_review: boolean | null;
+  event_type: string | null;
+  search: string | null;
+};
+
+export type StaleLiveOrderResponse = {
+  id: number;
+  symbol: string;
+  side: string;
+  status: string;
+  client_order_id: string | null;
+  exchange_order_id: string | null;
+  updated_at: string;
+  age_minutes: number;
+};
+
+export type RecoveryOrderResponse = {
+  id: number;
+  symbol: string;
+  side: string;
+  status: string;
+  client_order_id: string | null;
+  exchange_order_id: string | null;
+  quantity: string;
+  price: string | null;
+  updated_at: string;
+  requires_operator_review: boolean;
+  next_action: string;
+};
+
+export type RecoveryEventResponse = {
+  created_at: string;
+  event_type: string;
+  source: string;
+  status: string;
+  detail: string;
+  context: string;
+};
+
+export type RecoveryDashboardResponse = {
+  live_trading_enabled: boolean;
+  live_trading_halted: boolean;
+  live_safety_status: string;
+  stale_threshold_minutes: number;
+  stale_live_orders: StaleLiveOrderResponse[];
+  unresolved_orders: RecoveryOrderResponse[];
+  recovery_events: RecoveryEventResponse[];
+  unresolved_live_orders: number;
+  recovery_event_count: number;
+  latest_recovery_event_at: string | null;
+  latest_recovery_event_type: string | null;
+  latest_recovery_event_status: string | null;
+  latest_recovery_event_context: string | null;
+  filters: RecoveryReportFilters;
+};
+
 export const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "") ?? "http://127.0.0.1:8000";
 
@@ -272,6 +330,29 @@ export function getStatus(): Promise<StatusResponse> {
 
 export function getPerformanceSummary(): Promise<PerformanceAnalyticsResponse> {
   return request<PerformanceAnalyticsResponse>("/performance/summary");
+}
+
+export function getRecoveryDashboard(params?: {
+  recovery_order_status?: string;
+  recovery_requires_review?: boolean;
+  recovery_event_type?: string;
+  recovery_search?: string;
+}): Promise<RecoveryDashboardResponse> {
+  const searchParams = new URLSearchParams();
+  if (params?.recovery_order_status) {
+    searchParams.set("recovery_order_status", params.recovery_order_status);
+  }
+  if (params?.recovery_requires_review !== undefined) {
+    searchParams.set("recovery_requires_review", String(params.recovery_requires_review));
+  }
+  if (params?.recovery_event_type) {
+    searchParams.set("recovery_event_type", params.recovery_event_type);
+  }
+  if (params?.recovery_search) {
+    searchParams.set("recovery_search", params.recovery_search);
+  }
+  const suffix = searchParams.toString();
+  return request<RecoveryDashboardResponse>(`/reports/recovery${suffix ? `?${suffix}` : ""}`);
 }
 
 export function getPositions(): Promise<PositionResponse[]> {

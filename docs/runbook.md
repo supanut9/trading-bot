@@ -125,6 +125,7 @@ Report exports:
 - `GET /reports/positions.csv` exports the current positions view as CSV
 - `GET /reports/trades.csv` exports recent trades as CSV and supports the same `limit` query parameter as `GET /trades`
 - `GET /reports/backtest-summary.csv` runs one backtest summary export against stored candles using current settings
+- `GET /reports/recovery` returns the read-only recovery dashboard slice used by the Next.js reporting route
 - `GET /reports/audit.csv` exports recent audit events for control runs and notification delivery attempts
 - `GET /reports/notification-delivery.csv` exports notification-delivery audit rows
 - `GET /reports/live-recovery.csv` exports unresolved live-order recovery rows
@@ -205,6 +206,7 @@ Stale live order visibility:
 Live order recovery report:
 
 - `GET /reports` now includes a compact recovery summary over unresolved live orders and recent recovery events
+- the Next.js `/reports` route now consumes `GET /reports/recovery` for recovery queue, stale-order, and timeline visibility
 - `GET /reports` also includes a recovery queue with `review_required` and `next_action` columns plus a recovery timeline of recent live reconcile and live cancel events
 - the recovery timeline now includes a context column derived from audit payloads such as reconcile counts or cancel identifiers
 - `/reports` now supports recovery filters for order status, review-required state, event type, and free-text search
