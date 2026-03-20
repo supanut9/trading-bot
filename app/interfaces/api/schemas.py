@@ -147,6 +147,33 @@ class CandleBatchIngestionResponse(BaseModel):
     latest_open_time: datetime
 
 
+class MarketDataCoverageResponse(BaseModel):
+    exchange: str
+    symbol: str
+    timeframe: str
+    candle_count: int
+    first_open_time: datetime | None = None
+    latest_open_time: datetime | None = None
+    latest_close_time: datetime | None = None
+    required_candles: int
+    additional_candles_needed: int
+    satisfies_required_candles: bool
+    freshness_status: str
+    readiness_status: str
+    detail: str
+
+    model_config = ConfigDict(from_attributes=True)
+
+    @field_validator("first_open_time", "latest_open_time", "latest_close_time")
+    @classmethod
+    def normalize_optional_datetime(cls, value: datetime | None) -> datetime | None:
+        if value is None:
+            return None
+        if value.tzinfo is None:
+            return value.replace(tzinfo=UTC)
+        return value.astimezone(UTC)
+
+
 class DemoScenarioLoadResponse(BaseModel):
     scenario: str
     detail: str

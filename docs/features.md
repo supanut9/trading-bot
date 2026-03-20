@@ -1079,7 +1079,7 @@ Main outputs:
 
 Status:
 
-- in progress on `feature/backtest-run-history`
+- implemented on `main`
 
 Scope:
 
@@ -1097,7 +1097,7 @@ Main outputs:
 
 Status:
 
-- planned
+- implemented on `main`
 
 Scope:
 
@@ -1113,11 +1113,8 @@ Main outputs:
 
 ## Current Recommended Queue
 
-These are the next bounded features after the current `main` baseline:
+The Phase 11 research-first queue is complete on `main`.
 
-1. `feature/backtest-run-history`
-2. `feature/market-data-coverage-readiness`
+Next bounded feature:
 
-Current next feature:
-
-- `feature/backtest-run-history`
+- to be defined before the next implementation branch

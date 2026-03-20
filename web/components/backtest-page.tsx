@@ -12,6 +12,7 @@ import {
   SlidersHorizontal,
 } from "lucide-react";
 
+import { MarketCoveragePanel } from "@/components/market-coverage-panel";
 import { OperatorShell } from "@/components/operator-shell";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -26,11 +27,13 @@ import {
 } from "@/components/ui/table";
 import {
   getBacktestRuns,
+  getMarketDataCoverage,
   getOperatorConfig,
   runBacktest,
   type BacktestControlRequest,
   type BacktestControlResponse,
   type BacktestRunResponse,
+  type MarketDataCoverageResponse,
   type OperatorConfigResponse,
   type StrategyRuleBuilderRequest,
 } from "@/lib/api";
@@ -955,6 +958,27 @@ export function BacktestPage() {
     queryKey: ["backtest-runs"],
     queryFn: () => getBacktestRuns(8),
   });
+  const coverageQuery = useQuery<MarketDataCoverageResponse>({
+    queryKey: [
+      "market-data-coverage",
+      form.strategy_name,
+      form.symbol,
+      form.timeframe,
+      form.fast_period,
+      form.slow_period,
+      form.strategy_name === "rule_builder" ? JSON.stringify(form.rules) : "ema",
+    ],
+    enabled: Boolean(form.symbol.trim() && form.timeframe.trim()),
+    queryFn: () =>
+      getMarketDataCoverage({
+        strategy_name: form.strategy_name,
+        symbol: form.symbol.trim(),
+        timeframe: form.timeframe.trim(),
+        fast_period: Number(form.fast_period),
+        slow_period: Number(form.slow_period),
+        rules: form.strategy_name === "rule_builder" ? cloneRules(form.rules) : undefined,
+      }),
+  });
 
   const backtestMutation = useMutation({
     mutationFn: runBacktest,
@@ -1105,6 +1129,14 @@ export function BacktestPage() {
         ) : operatorConfigQuery.data ? (
           <SummaryStrip operatorConfig={operatorConfigQuery.data} />
         ) : null}
+
+        <MarketCoveragePanel
+          coverage={coverageQuery.data}
+          description="Inspect stored range, replay minimum, and freshness before submitting the next replay."
+          errorMessage={coverageQuery.error instanceof Error ? coverageQuery.error.message : null}
+          isLoading={coverageQuery.isLoading}
+          title="Replay Readiness"
+        />
 
         <div className="grid gap-5 xl:grid-cols-[minmax(0,1.05fr)_minmax(400px,0.95fr)]">
           <Card>

@@ -1,17 +1,28 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
 from app.application.services.demo_scenario_service import (
     DemoScenarioService,
     UnknownDemoScenarioError,
 )
+from app.application.services.market_data_coverage_service import MarketDataCoverageService
 from app.application.services.market_data_service import CandleInput, MarketDataService
+from app.application.services.operational_control_service import (
+    BACKTEST_STRATEGY_EMA_CROSSOVER,
+    BacktestRunOptions,
+)
 from app.config import get_settings
 from app.infrastructure.database.session import get_session
+from app.interfaces.api.backtest_rule_mapping import to_rule_builder_config
 from app.interfaces.api.schemas import (
     CandleBatchIngestionRequest,
     CandleBatchIngestionResponse,
     DemoScenarioLoadResponse,
+    MarketDataCoverageResponse,
+    StrategyRuleBuilderRequest,
 )
 
 router = APIRouter(tags=["market-data"])
@@ -58,6 +69,46 @@ def ingest_candles(
         stored_count=len(stored),
         latest_open_time=latest_open_time,
     )
+
+
+@router.get(
+    "/market-data/coverage",
+    response_model=MarketDataCoverageResponse,
+    status_code=status.HTTP_200_OK,
+)
+def get_market_data_coverage(
+    session: Session = session_dependency,
+    strategy_name: str = BACKTEST_STRATEGY_EMA_CROSSOVER,
+    exchange: str | None = None,
+    symbol: str | None = None,
+    timeframe: str | None = None,
+    fast_period: Annotated[int | None, Query(ge=1)] = None,
+    slow_period: Annotated[int | None, Query(ge=1)] = None,
+    rules_json: str | None = None,
+) -> MarketDataCoverageResponse:
+    settings = get_settings()
+    rules = None
+    if rules_json:
+        try:
+            rules = StrategyRuleBuilderRequest.model_validate_json(rules_json)
+        except ValidationError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=str(exc),
+            ) from exc
+
+    result = MarketDataCoverageService(session).get_coverage(
+        options=BacktestRunOptions(
+            strategy_name=strategy_name,
+            exchange=exchange or settings.exchange_name,
+            symbol=symbol or settings.default_symbol,
+            timeframe=timeframe or settings.default_timeframe,
+            fast_period=fast_period or settings.strategy_fast_period,
+            slow_period=slow_period or settings.strategy_slow_period,
+            rules=to_rule_builder_config(rules),
+        )
+    )
+    return MarketDataCoverageResponse.model_validate(result)
 
 
 @router.post(

@@ -112,11 +112,12 @@ Manual controls:
 - `POST /controls/market-sync` fetches recent closed candles for the configured exchange and either the effective runtime symbol/timeframe or an explicitly supplied market override, then stores them through the market data service
 - `POST /controls/backtest` runs one backtest over stored candles and can now accept either the legacy EMA inputs or a structured rule-builder payload with separate shared, buy, and sell groups
 - bounded backtest runs now persist one summary history row for later review and backtest form hydration
+- `GET /market-data/coverage` returns stored candle range, replay minimum, freshness status, and readiness guidance for the selected market slice and replay shape
 - live worker execution now rejects a new same-side live submission when an unresolved live order already exists for that market
 - `POST /controls/live-halt` persists the live-entry halt state used by status and worker execution
 - control endpoints do not accept arbitrary trading parameters; they only use current application configuration
 - the browser UI now lives in the Next.js app under `web/` and consumes these API endpoints instead of backend-rendered HTML pages
-- the Next.js operator surface now includes `/backtest` for replay analysis and `/reports` for performance analytics and direct CSV export links
+- the Next.js operator surface now includes `/backtest` for replay analysis, replay-readiness coverage, `/controls` for market intake and market-coverage checks, and `/reports` for performance analytics and direct CSV export links
 
 Report exports:
 

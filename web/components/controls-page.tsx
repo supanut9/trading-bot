@@ -16,12 +16,14 @@ import {
   XCircle,
 } from "lucide-react";
 
+import { MarketCoveragePanel } from "@/components/market-coverage-panel";
 import { OperatorShell } from "@/components/operator-shell";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   getOperatorConfig,
+  getMarketDataCoverage,
   getStatus,
   runLiveCancel,
   runLiveHalt,
@@ -31,6 +33,7 @@ import {
   type LiveCancelControlResponse,
   type LiveHaltControlResponse,
   type LiveReconcileControlResponse,
+  type MarketDataCoverageResponse,
   type MarketSyncControlResponse,
   type OperatorConfigResponse,
   type StatusResponse,
@@ -352,6 +355,30 @@ export function ControlsPage() {
     queryKey: ["status"],
     queryFn: getStatus,
   });
+  const coverageQuery = useQuery<MarketDataCoverageResponse>({
+    queryKey: [
+      "market-data-coverage",
+      "controls",
+      operatorConfigQuery.data?.strategy_name ?? "ema_crossover",
+      form.symbol,
+      form.timeframe,
+      operatorConfigQuery.data?.fast_period ?? 0,
+      operatorConfigQuery.data?.slow_period ?? 0,
+    ],
+    enabled: Boolean(
+      operatorConfigQuery.data &&
+        form.symbol.trim() &&
+        form.timeframe.trim(),
+    ),
+    queryFn: () =>
+      getMarketDataCoverage({
+        strategy_name: operatorConfigQuery.data?.strategy_name ?? "ema_crossover",
+        symbol: form.symbol.trim(),
+        timeframe: form.timeframe.trim(),
+        fast_period: operatorConfigQuery.data?.fast_period,
+        slow_period: operatorConfigQuery.data?.slow_period,
+      }),
+  });
 
   async function invalidateOperationalQueries() {
     await Promise.all([
@@ -500,6 +527,14 @@ export function ControlsPage() {
             </p>
           </div>
         )}
+
+        <MarketCoveragePanel
+          coverage={coverageQuery.data}
+          description="Use the stored-range view to decide whether you should sync more candles before the next replay."
+          errorMessage={coverageQuery.error instanceof Error ? coverageQuery.error.message : null}
+          isLoading={coverageQuery.isLoading}
+          title="Market Coverage"
+        />
 
         <div className="grid gap-5 xl:grid-cols-[minmax(0,1.1fr)_minmax(380px,0.9fr)]">
           <div className="space-y-5">
