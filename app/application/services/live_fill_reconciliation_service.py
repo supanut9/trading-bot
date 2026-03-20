@@ -57,85 +57,81 @@ class LiveFillReconciliationService:
                 remote.average_fill_price is not None and remote.executed_quantity > Decimal("0")
             ),
         )
+
         transition_live_order(order, next_status=resolution.status)
         if remote.exchange_order_id:
             order.exchange_order_id = remote.exchange_order_id
 
-        existing_trades = self._trades.list_by_order_id(order.id)
-        if order.status != "filled":
-            self._session.commit()
-            return LiveFillReconciliationResult(
-                order_id=order.id,
-                client_order_id=order.client_order_id,
-                exchange_order_id=order.exchange_order_id,
-                status=order.status,
-                detail=resolution.detail,
-                trade_created=False,
-                requires_operator_review=requires_operator_review(order.status),
-            )
+        # Hardening: reconcile any NEW executed quantity found on the exchange
+        to_reconcile_qty = remote.executed_quantity - order.executed_quantity
+        trade_created = False
 
-        if existing_trades:
-            position = self._positions.get(
+        if to_reconcile_qty > Decimal("0") and remote.average_fill_price is not None:
+            # Calculate the effective price for this incremental fill portion
+            # Cumulative Cost = Remote Qty * Remote Avg
+            # Previous Cost = Local Executed Qty * Local Avg
+            cumulative_cost = remote.executed_quantity * remote.average_fill_price
+            previous_cost = order.executed_quantity * (order.average_fill_price or Decimal("0"))
+            incremental_cost = cumulative_cost - previous_cost
+            incremental_price = incremental_cost / to_reconcile_qty
+
+            if order.signal_price:
+                from app.core.logger import get_logger
+
+                logger = get_logger(__name__)
+                slippage_bps = (
+                    (remote.average_fill_price - order.signal_price)
+                    / order.signal_price
+                    * Decimal("10000")
+                )
+                if order.side == "sell":
+                    slippage_bps = -slippage_bps
+
+                logger.info(
+                    "live_order_partial_fill_slippage exchange=%s symbol=%s order_id=%s "
+                    "side=%s signal_price=%.4f cumulative_fill_price=%.4f slippage_bps=%.1f "
+                    "incremental_qty=%s",
+                    order.exchange,
+                    order.symbol,
+                    order.id,
+                    order.side,
+                    order.signal_price,
+                    remote.average_fill_price,
+                    slippage_bps,
+                    to_reconcile_qty,
+                )
+
+            self._trades.create(
                 exchange=order.exchange,
                 symbol=order.symbol,
-                mode=order.mode,
-            )
-            self._session.commit()
-            return LiveFillReconciliationResult(
+                side=order.side,
+                quantity=to_reconcile_qty,
+                price=incremental_price,
                 order_id=order.id,
-                client_order_id=order.client_order_id,
-                exchange_order_id=order.exchange_order_id,
-                status=order.status,
-                detail="live order already reconciled",
-                trade_created=False,
-                requires_operator_review=False,
-                position_quantity=position.quantity if position is not None else None,
             )
+            self._apply_position_update(order, to_reconcile_qty, incremental_price)
 
-        avg_fill_price = remote.average_fill_price
-        if order.signal_price and avg_fill_price:
-            from app.core.logger import get_logger
+            # Update order tracking fields
+            order.executed_quantity = remote.executed_quantity
+            order.average_fill_price = remote.average_fill_price
+            trade_created = True
 
-            logger = get_logger(__name__)
-            slippage_bps = (
-                (avg_fill_price - order.signal_price) / order.signal_price * Decimal("10000")
-            )
-            if order.side == "sell":
-                slippage_bps = -slippage_bps
-
-            logger.info(
-                "live_order_filled_slippage exchange=%s symbol=%s order_id=%s "
-                "side=%s signal_price=%.4f fill_price=%.4f slippage_bps=%.1f",
-                order.exchange,
-                order.symbol,
-                order.id,
-                order.side,
-                order.signal_price,
-                avg_fill_price,
-                slippage_bps,
-            )
-
-        self._trades.create(
+        position = self._positions.get(
             exchange=order.exchange,
             symbol=order.symbol,
-            side=order.side,
-            quantity=remote.executed_quantity,
-            price=avg_fill_price,
-            order_id=order.id,
-        )
-        position = self._apply_position_update(
-            order, remote.executed_quantity, remote.average_fill_price
+            mode=order.mode,
         )
         self._session.commit()
+
         return LiveFillReconciliationResult(
             order_id=order.id,
             client_order_id=order.client_order_id,
             exchange_order_id=order.exchange_order_id,
             status=order.status,
             detail=resolution.detail,
-            trade_created=True,
-            requires_operator_review=False,
-            position_quantity=position.quantity,
+            trade_created=trade_created,
+            requires_operator_review=requires_operator_review(order.status),
+            position_quantity=position.quantity if position is not None else None,
         )
 
     def _apply_position_update(
