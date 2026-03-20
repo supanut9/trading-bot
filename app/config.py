@@ -129,6 +129,10 @@ class Settings(BaseSettings):
         default=120,
         alias="STALE_LIVE_ORDER_THRESHOLD_MINUTES",
     )
+    live_consecutive_exchange_error_auto_halt_threshold: int | None = Field(
+        default=None,
+        alias="LIVE_CONSECUTIVE_EXCHANGE_ERROR_AUTO_HALT_THRESHOLD",
+    )
     notification_channel: Literal["none", "log", "webhook"] = Field(
         default="none",
         alias="NOTIFICATION_CHANNEL",
