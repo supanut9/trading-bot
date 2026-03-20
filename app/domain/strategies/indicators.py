@@ -46,3 +46,11 @@ def calculate_rsi(prices: Sequence[Decimal], period: int) -> Decimal:
 
     relative_strength = average_gain / average_loss
     return Decimal("100") - (Decimal("100") / (Decimal("1") + relative_strength))
+
+
+def calculate_volume_sma(volumes: Sequence[Decimal], period: int) -> Decimal:
+    if period <= 0:
+        raise ValueError("period must be positive")
+    if len(volumes) < period:
+        raise ValueError("not enough volumes to calculate SMA")
+    return sum(volumes[-period:], start=Decimal("0")) / Decimal(period)

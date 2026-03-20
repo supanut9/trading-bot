@@ -58,6 +58,14 @@ class Settings(BaseSettings):
         default="https://api.binance.com",
         alias="MARKET_DATA_API_BASE_URL",
     )
+    strategy_rsi_filter_enabled: bool = Field(default=False, alias="STRATEGY_RSI_FILTER_ENABLED")
+    strategy_rsi_period: int = Field(default=14, alias="STRATEGY_RSI_PERIOD")
+    strategy_rsi_overbought: float = Field(default=70.0, alias="STRATEGY_RSI_OVERBOUGHT")
+    strategy_rsi_oversold: float = Field(default=30.0, alias="STRATEGY_RSI_OVERSOLD")
+    strategy_volume_filter_enabled: bool = Field(
+        default=False, alias="STRATEGY_VOLUME_FILTER_ENABLED"
+    )
+    strategy_volume_ma_period: int = Field(default=20, alias="STRATEGY_VOLUME_MA_PERIOD")
     backtest_slippage_pct: float = Field(default=0.0005, alias="BACKTEST_SLIPPAGE_PCT")
     backtest_fee_pct: float = Field(default=0.001, alias="BACKTEST_FEE_PCT")
     backtest_overfitting_threshold_pct: float = Field(

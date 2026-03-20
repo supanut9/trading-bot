@@ -306,6 +306,10 @@ class BacktestControlRequest(BaseModel):
     fee_pct: Decimal | None = None
     walk_forward_split_ratio: Decimal | None = None
     rules: "StrategyRuleBuilderRequest | None" = None
+    rsi_period: int | None = None
+    rsi_overbought: Decimal | None = None
+    rsi_oversold: Decimal | None = None
+    volume_ma_period: int | None = None
 
 
 class StrategyRuleConditionRequest(BaseModel):
