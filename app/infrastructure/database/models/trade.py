@@ -20,5 +20,7 @@ class TradeRecord(TimestampMixin, Base):
     side: Mapped[str] = mapped_column(String(10), nullable=False)
     quantity: Mapped[Decimal] = mapped_column(Numeric(20, 8), nullable=False)
     price: Mapped[Decimal] = mapped_column(Numeric(20, 8), nullable=False)
+    realized_pnl: Mapped[Decimal | None] = mapped_column(Numeric(20, 8))
     fee_amount: Mapped[Decimal | None] = mapped_column(Numeric(20, 8))
+
     fee_asset: Mapped[str | None] = mapped_column(String(20))
