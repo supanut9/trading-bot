@@ -9,6 +9,7 @@ from app.application.services.operational_control_service import (
     MarketSyncRunOptions,
     OperationalControlService,
 )
+from app.application.services.qualification_service import QualificationService
 from app.config import Settings, get_settings
 from app.infrastructure.database.session import get_session_factory_dependency
 from app.interfaces.api.backtest_rule_mapping import (
@@ -27,6 +28,8 @@ from app.interfaces.api.schemas import (
     MarketSyncControlResponse,
     OperatorConfigRequest,
     OperatorConfigResponse,
+    QualificationGateResponse,
+    QualificationReportResponse,
     SymbolRulesControlResponse,
     WorkerControlResponse,
 )
@@ -249,3 +252,33 @@ def refresh_symbol_rules(
         session_factory=session_factory,
     ).refresh_symbol_rules(source="api.control")
     return SymbolRulesControlResponse.model_validate(result)
+
+
+@router.get(
+    "/qualification",
+    response_model=QualificationReportResponse,
+    status_code=status.HTTP_200_OK,
+)
+def get_qualification(
+    settings: Settings = settings_dependency,
+    session_factory: sessionmaker[Session] = session_factory_dependency,
+) -> QualificationReportResponse:
+    with session_factory() as session:
+        report = QualificationService(session).evaluate(
+            exchange=settings.exchange_name,
+            symbol=settings.default_symbol,
+        )
+    return QualificationReportResponse(
+        exchange=report.exchange,
+        symbol=report.symbol,
+        all_passed=report.all_passed,
+        gates=[
+            QualificationGateResponse(
+                name=g.name,
+                passed=g.passed,
+                reason=g.reason,
+                evidence=g.evidence,
+            )
+            for g in report.gates
+        ],
+    )
