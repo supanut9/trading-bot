@@ -85,6 +85,11 @@ class PaperExecutionService:
             submitted_reason=request.submitted_reason,
         )
 
+        position, realized_pnl = self._apply_position_update(
+            current_position=current_position,
+            request=request,
+        )
+
         trade = self._trades.create(
             exchange=request.exchange,
             symbol=request.symbol,
@@ -92,11 +97,7 @@ class PaperExecutionService:
             quantity=request.quantity,
             price=request.price,
             order_id=order.id,
-        )
-
-        position, realized_pnl = self._apply_position_update(
-            current_position=current_position,
-            request=request,
+            realized_pnl=realized_pnl if request.side == "sell" else None,
         )
 
         self._session.commit()
@@ -148,7 +149,10 @@ class PaperExecutionService:
             return position, Decimal("0")
 
         closed_quantity = request.quantity
+        if existing_average is None:
+            raise ValueError("cannot calculate realized pnl without an average entry price")
         realized_pnl = (request.price - existing_average) * closed_quantity
+
         new_quantity = existing_quantity - closed_quantity
         new_average = existing_average if new_quantity > Decimal("0") else None
 

@@ -15,6 +15,9 @@ class RiskLimits:
     risk_per_trade_pct: Decimal
     max_open_positions: int
     max_daily_loss_pct: Decimal
+    max_weekly_loss_pct: Decimal = Decimal("0.10")
+    max_concurrent_exposure_pct: Decimal = Decimal("1.0")
+    max_consecutive_losses: int = 5
     paper_trading_only: bool = True
     live_trading_halted: bool = False
     live_max_order_notional: Decimal | None = None
@@ -28,6 +31,9 @@ class PortfolioState:
     open_positions: int
     current_position_quantity: Decimal
     daily_realized_loss_pct: Decimal
+    weekly_realized_loss_pct: Decimal
+    concurrent_exposure_pct: Decimal
+    consecutive_losses: int
     trading_mode: Literal["paper", "live"]
 
 
@@ -42,3 +48,4 @@ class RiskDecision:
     approved: bool
     reason: str
     quantity: Decimal = Decimal("0")
+    is_hard_violation: bool = False

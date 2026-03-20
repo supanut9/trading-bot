@@ -33,6 +33,31 @@ class RiskService:
             return RiskDecision(
                 approved=False,
                 reason="daily loss limit reached",
+                is_hard_violation=True,
+            )
+
+        if is_entry and portfolio.weekly_realized_loss_pct >= self._limits.max_weekly_loss_pct:
+            return RiskDecision(
+                approved=False,
+                reason="weekly loss limit reached",
+                is_hard_violation=True,
+            )
+
+        if is_entry and portfolio.consecutive_losses >= self._limits.max_consecutive_losses:
+            return RiskDecision(
+                approved=False,
+                reason=f"max consecutive losses ({self._limits.max_consecutive_losses}) reached",
+                is_hard_violation=True,
+            )
+
+        if (
+            is_entry
+            and portfolio.concurrent_exposure_pct >= self._limits.max_concurrent_exposure_pct
+        ):
+            return RiskDecision(
+                approved=False,
+                reason="max concurrent exposure reached",
+                is_hard_violation=True,
             )
 
         position_notional = portfolio.account_equity * self._limits.risk_per_trade_pct
@@ -65,6 +90,7 @@ class RiskService:
                 return RiskDecision(
                     approved=False,
                     reason="live order notional exceeds configured limit",
+                    is_hard_violation=True,
                 )
 
         if (
@@ -77,6 +103,7 @@ class RiskService:
             return RiskDecision(
                 approved=False,
                 reason="live position quantity exceeds configured limit",
+                is_hard_violation=True,
             )
 
         return RiskDecision(

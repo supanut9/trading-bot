@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from decimal import Decimal
 
 from sqlalchemy.orm import Session
@@ -30,6 +30,7 @@ from app.infrastructure.database.repositories.position_repository import Positio
 from app.infrastructure.database.repositories.shadow_blocked_signal_repository import (
     ShadowBlockedSignalRepository,
 )
+from app.infrastructure.database.repositories.trade_repository import TradeRepository
 from app.infrastructure.exchanges.factory import build_market_data_exchange_client
 from app.infrastructure.executions.base import ExecutionService, ExecutionUnavailableError
 
@@ -282,12 +283,39 @@ class WorkerOrchestrationService:
         )
         if not risk_decision.approved:
             logger.warning(
-                "worker_cycle_rejected exchange=%s symbol=%s signal=%s reason=%s",
+                "worker_cycle_rejected exchange=%s symbol=%s signal=%s reason=%s hard=%s",
                 self._settings.exchange_name,
                 self._symbol,
                 signal.action,
                 risk_decision.reason,
+                risk_decision.is_hard_violation,
             )
+
+            if (
+                risk_decision.is_hard_violation
+                and self._trading_mode == "live"
+                and self._settings.live_trading_enabled
+            ):
+                logger.critical(
+                    "critical_risk_gate_violated action=halting_live_execution reason=%s",
+                    risk_decision.reason,
+                )
+                LiveOperatorControlService(self._session, self._settings).set_live_trading_halted(
+                    halted=True,
+                    updated_by="system",
+                    reason=f"Risk Guard: {risk_decision.reason}",
+                )
+                self._session.commit()
+                return WorkerCycleResult(
+                    status="auto_halted",
+                    detail=(
+                        f"live trading halted due to critical risk violation: "
+                        f"{risk_decision.reason}"
+                    ),
+                    signal_action=signal.action,
+                    client_order_id=client_order_id,
+                )
+
             if self._trading_mode == "shadow":
                 ShadowBlockedSignalRepository(self._session).create(
                     exchange=self._settings.exchange_name,
@@ -449,19 +477,59 @@ class WorkerOrchestrationService:
         )
         base_equity = Decimal(str(self._settings.paper_account_equity))
         account_equity = base_equity + realized_pnl
+
         if base_equity > Decimal("0") and realized_pnl < Decimal("0"):
             daily_realized_loss_pct = abs(realized_pnl) / base_equity
         else:
             daily_realized_loss_pct = Decimal("0")
 
+        # Hard Risk Gates: Additional stats
+        mode = "paper" if self._trading_mode == "shadow" else self._trading_mode
+        trades = TradeRepository(self._session)
+
+        # Weekly realized loss (last 7 days)
+        seven_days_ago = datetime.now() - timedelta(days=7)
+        weekly_pnl = trades.get_realized_pnl_sum(
+            exchange=self._settings.exchange_name,
+            symbol=self._symbol,
+            mode=mode,
+            since=seven_days_ago,
+        )
+        if base_equity > Decimal("0") and weekly_pnl < Decimal("0"):
+            weekly_realized_loss_pct = abs(weekly_pnl) / base_equity
+        else:
+            weekly_realized_loss_pct = Decimal("0")
+
+        # Consecutive losses
+        consecutive_losses = trades.get_consecutive_losses(
+            exchange=self._settings.exchange_name,
+            symbol=self._symbol,
+            mode=mode,
+        )
+
+        # Concurrent exposure (current position notional / equity)
+        current_quantity = (
+            current_position.quantity if current_position is not None else Decimal("0")
+        )
+        # We use the position's average entry price for exposure calculation or 0 if none
+        current_price = (
+            current_position.average_entry_price if current_position is not None else Decimal("0")
+        )
+        current_notional = current_quantity * (current_price or Decimal("0"))
+        if account_equity > Decimal("0"):
+            concurrent_exposure_pct = current_notional / account_equity
+        else:
+            concurrent_exposure_pct = Decimal("0")
+
         return PortfolioState(
             account_equity=account_equity,
             open_positions=1 if self._has_open_quantity(current_position) else 0,
-            current_position_quantity=(
-                current_position.quantity if current_position is not None else Decimal("0")
-            ),
+            current_position_quantity=current_quantity,
             daily_realized_loss_pct=daily_realized_loss_pct,
-            trading_mode="paper" if self._trading_mode == "shadow" else self._trading_mode,
+            weekly_realized_loss_pct=weekly_realized_loss_pct,
+            concurrent_exposure_pct=concurrent_exposure_pct,
+            consecutive_losses=consecutive_losses,
+            trading_mode=mode,
         )
 
     @staticmethod

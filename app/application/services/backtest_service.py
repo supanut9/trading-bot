@@ -263,6 +263,9 @@ class BacktestService:
             open_positions=1 if position_quantity > Decimal("0") else 0,
             current_position_quantity=position_quantity,
             daily_realized_loss_pct=daily_realized_loss_pct,
+            weekly_realized_loss_pct=Decimal("0"),
+            concurrent_exposure_pct=Decimal("0"),
+            consecutive_losses=0,
             trading_mode="paper",
         )
 

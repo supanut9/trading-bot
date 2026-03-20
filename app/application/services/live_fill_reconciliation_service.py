@@ -164,7 +164,7 @@ class LiveFillReconciliationService:
                 average_entry_price=new_average,
                 realized_pnl=existing_realized,
                 unrealized_pnl=Decimal("0"),
-            )
+            ), Decimal("0")
 
         if current_position is None or current_position.average_entry_price is None:
             raise ValueError(
@@ -185,4 +185,4 @@ class LiveFillReconciliationService:
             average_entry_price=new_average,
             realized_pnl=existing_realized + realized_pnl,
             unrealized_pnl=Decimal("0"),
-        )
+        ), realized_pnl

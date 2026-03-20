@@ -73,6 +73,7 @@ class TradeRepository:
         quantity: Decimal,
         price: Decimal,
         order_id: int | None = None,
+        realized_pnl: Decimal | None = None,
         fee_amount: Decimal | None = None,
         fee_asset: str | None = None,
     ) -> TradeRecord:
@@ -83,9 +84,63 @@ class TradeRepository:
             side=side,
             quantity=quantity,
             price=price,
+            realized_pnl=realized_pnl,
             fee_amount=fee_amount,
             fee_asset=fee_asset,
         )
+
         self._session.add(record)
         self._session.flush()
         return record
+
+    def get_realized_pnl_sum(
+        self,
+        *,
+        exchange: str,
+        symbol: str,
+        mode: str,
+        since: datetime,
+    ) -> Decimal:
+        statement = (
+            select(TradeRecord.realized_pnl)
+            .join(OrderRecord, OrderRecord.id == TradeRecord.order_id)
+            .where(
+                TradeRecord.exchange == exchange,
+                TradeRecord.symbol == symbol,
+                OrderRecord.mode == mode,
+                TradeRecord.realized_pnl.isnot(None),
+                TradeRecord.created_at >= since,
+            )
+        )
+        pnl_values = self._session.execute(statement).scalars().all()
+        return sum(pnl_values, Decimal("0"))
+
+    def get_consecutive_losses(
+        self,
+        *,
+        exchange: str,
+        symbol: str,
+        mode: str,
+    ) -> int:
+        statement = (
+            select(TradeRecord.realized_pnl)
+            .join(OrderRecord, OrderRecord.id == TradeRecord.order_id)
+            .where(
+                TradeRecord.exchange == exchange,
+                TradeRecord.symbol == symbol,
+                OrderRecord.mode == mode,
+                TradeRecord.realized_pnl.isnot(None),
+            )
+            .order_by(TradeRecord.created_at.desc(), TradeRecord.id.desc())
+            .limit(20)
+        )
+        pnl_values = self._session.execute(statement).scalars().all()
+        count: int = 0
+        for pnl in pnl_values:
+            if pnl is not None:
+                val: Decimal = pnl
+                if val < Decimal("0"):
+                    count += 1
+                elif val >= Decimal("0"):
+                    break
+        return count

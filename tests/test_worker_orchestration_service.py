@@ -417,8 +417,9 @@ def test_rejects_live_buy_when_order_notional_exceeds_limit(tmp_path: Path) -> N
         mock_svc.return_value.evaluate.return_value = MagicMock(all_passed=True)
         result = service.run_cycle()
 
-    assert result.status == "risk_rejected"
-    assert result.detail == "live order notional exceeds configured limit"
+    assert result.status == "auto_halted"
+    assert "critical risk violation" in result.detail
+    assert "live order notional exceeds configured limit" in result.detail
 
 
 def test_rejects_live_buy_when_position_quantity_exceeds_limit(tmp_path: Path) -> None:
@@ -438,8 +439,9 @@ def test_rejects_live_buy_when_position_quantity_exceeds_limit(tmp_path: Path) -
         mock_svc.return_value.evaluate.return_value = MagicMock(all_passed=True)
         result = service.run_cycle()
 
-    assert result.status == "risk_rejected"
-    assert result.detail == "live position quantity exceeds configured limit"
+    assert result.status == "auto_halted"
+    assert "critical risk violation" in result.detail
+    assert "live position quantity exceeds configured limit" in result.detail
 
 
 def test_rejects_live_mode_when_strategy_not_qualified(tmp_path: Path) -> None:
