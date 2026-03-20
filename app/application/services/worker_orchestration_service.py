@@ -147,6 +147,31 @@ class WorkerOrchestrationService:
             return WorkerCycleResult(status="no_candles", detail="not enough candles")
 
         if self._trading_mode == "live":
+            from app.application.services.live_risk_hard_gate_service import LiveRiskHardGateService
+
+            hard_gate_report = LiveRiskHardGateService(self._session, self._settings).evaluate(
+                exchange=self._settings.exchange_name,
+                symbol=self._symbol,
+            )
+            if hard_gate_report.should_halt:
+                logger.warning(
+                    "worker_cycle_halted reason=live_risk_hard_gate_violation "
+                    "exchange=%s symbol=%s detail=%s",
+                    self._settings.exchange_name,
+                    self._symbol,
+                    hard_gate_report.reason,
+                )
+                LiveOperatorControlService(self._session, self._settings).set_live_trading_halted(
+                    halted=True,
+                    updated_by="system",
+                    reason=hard_gate_report.reason,
+                )
+                self._session.commit()
+                return WorkerCycleResult(
+                    status="auto_halted",
+                    detail=f"live trading halted automatically: {hard_gate_report.reason}",
+                )
+
             report = QualificationService(self._session).evaluate(
                 exchange=self._settings.exchange_name,
                 symbol=self._symbol,

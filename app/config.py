@@ -46,6 +46,26 @@ class Settings(BaseSettings):
         default=None,
         alias="LIVE_MAX_POSITION_QUANTITY",
     )
+    live_max_daily_loss_notional: Decimal | None = Field(
+        default=None,
+        alias="LIVE_MAX_DAILY_LOSS_NOTIONAL",
+    )
+    live_max_weekly_loss_notional: Decimal | None = Field(
+        default=None,
+        alias="LIVE_MAX_WEEKLY_LOSS_NOTIONAL",
+    )
+    live_max_concurrent_exposure_notional: Decimal | None = Field(
+        default=None,
+        alias="LIVE_MAX_CONCURRENT_EXPOSURE_NOTIONAL",
+    )
+    live_consecutive_loss_auto_halt_threshold: int | None = Field(
+        default=None,
+        alias="LIVE_CONSECUTIVE_LOSS_AUTO_HALT_THRESHOLD",
+    )
+    live_repeated_reject_auto_halt_threshold: int | None = Field(
+        default=None,
+        alias="LIVE_REPEATED_REJECT_AUTO_HALT_THRESHOLD",
+    )
     worker_poll_interval_seconds: int = Field(default=60, alias="WORKER_POLL_INTERVAL_SECONDS")
     worker_run_once: bool = Field(default=True, alias="WORKER_RUN_ONCE")
     market_data_sync_enabled: bool = Field(default=False, alias="MARKET_DATA_SYNC_ENABLED")
@@ -137,15 +157,39 @@ class Settings(BaseSettings):
             raise ValueError(
                 "EXCHANGE_API_KEY and EXCHANGE_API_SECRET are required when live trading is enabled"
             )
-        if self.live_max_order_notional is not None and self.live_max_order_notional <= Decimal(
-            "0"
-        ):
+
+        limit_order_notional = self.live_max_order_notional
+        if limit_order_notional is not None and limit_order_notional <= Decimal("0"):
             raise ValueError("LIVE_MAX_ORDER_NOTIONAL must be positive when provided")
-        if (
-            self.live_max_position_quantity is not None
-            and self.live_max_position_quantity <= Decimal("0")
-        ):
+
+        limit_pos_qty = self.live_max_position_quantity
+        if limit_pos_qty is not None and limit_pos_qty <= Decimal("0"):
             raise ValueError("LIVE_MAX_POSITION_QUANTITY must be positive when provided")
+
+        limit_daily_notional = self.live_max_daily_loss_notional
+        if limit_daily_notional is not None and limit_daily_notional <= Decimal("0"):
+            raise ValueError("LIVE_MAX_DAILY_LOSS_NOTIONAL must be positive when provided")
+
+        limit_weekly_notional = self.live_max_weekly_loss_notional
+        if limit_weekly_notional is not None and limit_weekly_notional <= Decimal("0"):
+            raise ValueError("LIVE_MAX_WEEKLY_LOSS_NOTIONAL must be positive when provided")
+
+        limit_exposure = self.live_max_concurrent_exposure_notional
+        if limit_exposure is not None and limit_exposure <= Decimal("0"):
+            raise ValueError("LIVE_MAX_CONCURRENT_EXPOSURE_NOTIONAL must be positive when provided")
+
+        limit_consec_loss = self.live_consecutive_loss_auto_halt_threshold
+        if limit_consec_loss is not None and limit_consec_loss <= 0:
+            raise ValueError(
+                "LIVE_CONSECUTIVE_LOSS_AUTO_HALT_THRESHOLD must be positive when provided"
+            )
+
+        limit_rejects = self.live_repeated_reject_auto_halt_threshold
+        if limit_rejects is not None and limit_rejects <= 0:
+            raise ValueError(
+                "LIVE_REPEATED_REJECT_AUTO_HALT_THRESHOLD must be positive when provided"
+            )
+
         return self
 
     @property

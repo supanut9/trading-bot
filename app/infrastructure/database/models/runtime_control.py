@@ -14,4 +14,5 @@ class RuntimeControlRecord(TimestampMixin, Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     control_name: Mapped[str] = mapped_column(String(100), nullable=False)
     bool_value: Mapped[bool] = mapped_column(nullable=False)
+    string_value: Mapped[str | None] = mapped_column(String(255), nullable=True)
     updated_by: Mapped[str] = mapped_column(String(100), nullable=False)
