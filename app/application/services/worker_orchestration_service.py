@@ -62,6 +62,16 @@ class WorkerOrchestrationService:
         self._strategy = strategy or EmaCrossoverStrategy(
             fast_period=self._fast_period,
             slow_period=self._slow_period,
+            rsi_period=(
+                settings.strategy_rsi_period if settings.strategy_rsi_filter_enabled else None
+            ),
+            rsi_overbought=Decimal(str(settings.strategy_rsi_overbought)),
+            rsi_oversold=Decimal(str(settings.strategy_rsi_oversold)),
+            volume_ma_period=(
+                settings.strategy_volume_ma_period
+                if settings.strategy_volume_filter_enabled
+                else None
+            ),
         )
         live_halt_state = LiveOperatorControlService(
             session, settings

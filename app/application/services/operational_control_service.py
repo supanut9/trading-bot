@@ -68,12 +68,19 @@ class BacktestRunOptions:
     fee_pct: Decimal | None = None
     walk_forward_split_ratio: Decimal | None = None
     rules: RuleBuilderStrategyConfig | None = None
+    rsi_period: int | None = None
+    rsi_overbought: Decimal | None = None
+    rsi_oversold: Decimal | None = None
+    volume_ma_period: int | None = None
 
 
 def required_candles_for_backtest_options(options: BacktestRunOptions) -> int:
     if options.strategy_name == BACKTEST_STRATEGY_RULE_BUILDER and options.rules is not None:
         return options.rules.minimum_candles()
-    return max((options.slow_period or 0) + 1, 0)
+    base = max((options.slow_period or 0) + 1, 0)
+    rsi_min = (options.rsi_period + 1) if options.rsi_period is not None else 0
+    vol_min = options.volume_ma_period if options.volume_ma_period is not None else 0
+    return max(base, rsi_min, vol_min)
 
 
 @dataclass(frozen=True, slots=True)
@@ -1068,6 +1075,10 @@ class OperationalControlService:
                 slippage_pct=active.slippage_pct,
                 fee_pct=active.fee_pct,
                 walk_forward_split_ratio=active.walk_forward_split_ratio,
+                rsi_period=active.rsi_period,
+                rsi_overbought=active.rsi_overbought,
+                rsi_oversold=active.rsi_oversold,
+                volume_ma_period=active.volume_ma_period,
             )
         if strategy_name == BACKTEST_STRATEGY_RULE_BUILDER:
             rules = active.rules or self._default_rule_builder_config(defaults)
@@ -1127,6 +1138,10 @@ class OperationalControlService:
         return EmaCrossoverStrategy(
             fast_period=options.fast_period or 0,
             slow_period=options.slow_period or 0,
+            rsi_period=options.rsi_period,
+            rsi_overbought=options.rsi_overbought or Decimal("70"),
+            rsi_oversold=options.rsi_oversold or Decimal("30"),
+            volume_ma_period=options.volume_ma_period,
         )
 
     @staticmethod

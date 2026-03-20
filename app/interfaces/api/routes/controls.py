@@ -118,6 +118,10 @@ def run_backtest(
             fee_pct=payload.fee_pct,
             walk_forward_split_ratio=payload.walk_forward_split_ratio,
             rules=to_rule_builder_config(payload.rules),
+            rsi_period=payload.rsi_period,
+            rsi_overbought=payload.rsi_overbought,
+            rsi_oversold=payload.rsi_oversold,
+            volume_ma_period=payload.volume_ma_period,
         ),
         source="api.control",
     )
