@@ -114,6 +114,8 @@ def run_backtest(
             fast_period=payload.fast_period,
             slow_period=payload.slow_period,
             starting_equity=payload.starting_equity,
+            slippage_pct=payload.slippage_pct,
+            fee_pct=payload.fee_pct,
             rules=to_rule_builder_config(payload.rules),
         ),
         source="api.control",

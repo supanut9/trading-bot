@@ -184,7 +184,10 @@ def test_backtest_control_returns_summary_for_completed_run(tmp_path: Path) -> N
         assert payload["candle_count"] == 9
         assert payload["required_candles"] == 6
         assert payload["total_trades"] == 2
-        assert payload["ending_equity"] == "10000.00000000"
+        assert Decimal(payload["ending_equity"]) <= Decimal("10000")
+        assert payload["total_fees_paid"] is not None
+        assert payload["slippage_pct"] is not None
+        assert payload["fee_pct"] is not None
         assert payload["strategy_name"] == "ema_crossover"
         assert payload["symbol"] == settings.default_symbol
         assert payload["timeframe"] == settings.default_timeframe

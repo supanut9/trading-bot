@@ -113,10 +113,13 @@ def test_notifies_backtest_completion_event() -> None:
             ending_equity=Decimal("10150"),
             total_return_pct=Decimal("1.5"),
             realized_pnl=Decimal("150"),
+            total_fees_paid=Decimal("0"),
             max_drawdown_pct=Decimal("2.3"),
             total_trades=2,
             winning_trades=1,
             losing_trades=0,
+            slippage_pct=Decimal("0"),
+            fee_pct=Decimal("0"),
             executions=tuple(),
         ),
     )

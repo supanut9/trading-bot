@@ -34,4 +34,7 @@ class BacktestRunRecord(TimestampMixin, Base):
     total_trades: Mapped[int | None]
     winning_trades: Mapped[int | None]
     losing_trades: Mapped[int | None]
+    total_fees_paid: Mapped[Decimal | None] = mapped_column(Numeric(20, 8))
+    slippage_pct: Mapped[Decimal | None] = mapped_column(Numeric(10, 8))
+    fee_pct: Mapped[Decimal | None] = mapped_column(Numeric(10, 8))
     rules_json: Mapped[str | None] = mapped_column(Text)

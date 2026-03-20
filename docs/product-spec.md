@@ -37,9 +37,39 @@ Current production boundary:
 - non-target for current production readiness: live trading with exchange-facing execution
 - live capabilities remain groundwork until the runbook live-capable checklist is completed operationally, not just in code
 
+Project completion boundary:
+
+- one approved strategy has demonstrated positive expectancy after costs in walk-forward out-of-sample and shadow validation, and can execute real-money trades under hard risk gates with auditable reconciliation and fail-closed incident handling
+- profitable operation in all market conditions is not a delivery target; the system's job is to execute a validated strategy correctly and stop when conditions are outside its operating envelope
+
 Next implementation queue:
 
-- Phase 11 research-first queue completed on `main`
+Strategy quality (must come before live work):
+
+1. `feature/realistic-backtest-cost-modeling`
+2. `feature/walk-forward-validation`
+3. `feature/signal-quality-improvements`
+
+Live readiness:
+
+4. `feature/exchange-rule-enforcement`
+5. `feature/shadow-strategy-runtime`
+6. `feature/strategy-qualification-gates`
+
+Live execution infrastructure:
+
+7. `feature/live-risk-hard-gates`
+8. `feature/smart-order-execution`
+9. `feature/validate-only-live-orders`
+10. `feature/live-ledger-reconciliation-hardening`
+
+Live deployment and iteration:
+
+11. `feature/production-secrets-and-ops-hardening`
+12. `feature/canary-live-rollout`
+13. `feature/live-incident-auto-halt`
+14. `feature/live-performance-review-loop`
+15. `feature/strategy-iteration-workflow`
 
 ## Initial Market And Strategy
 
