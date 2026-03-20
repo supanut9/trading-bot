@@ -1171,7 +1171,7 @@ Main outputs:
 
 Status:
 
-- in progress on `feature/exchange-rule-enforcement`
+- implemented on `main` (PR #85)
 
 Scope:
 
@@ -1189,7 +1189,7 @@ Main outputs:
 
 Status:
 
-- in progress on feature/shadow-strategy-runtime
+- implemented on `main` (PR #86)
 
 Scope:
 
@@ -1208,7 +1208,7 @@ Main outputs:
 
 Status:
 
-- planned
+- in progress on `feature/strategy-qualification-gates`
 
 Scope:
 
@@ -1398,4 +1398,4 @@ Live trading should stay disabled until the strategy quality features (59-61) ar
 
 Next bounded feature:
 
-- `feature/realistic-backtest-cost-modeling`
+- `feature/live-risk-hard-gates`

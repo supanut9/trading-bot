@@ -599,3 +599,17 @@ class ShadowQualityReportResponse(BaseModel):
     recent_trades: list[ShadowTradeResponse]
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class QualificationGateResponse(BaseModel):
+    name: str
+    passed: bool
+    reason: str
+    evidence: str | None = None
+
+
+class QualificationReportResponse(BaseModel):
+    exchange: str
+    symbol: str
+    all_passed: bool
+    gates: list[QualificationGateResponse]
