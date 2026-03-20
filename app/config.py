@@ -75,6 +75,8 @@ class Settings(BaseSettings):
     live_limit_order_timeout_seconds: int = Field(
         default=10, alias="LIVE_LIMIT_ORDER_TIMEOUT_SECONDS"
     )
+    live_order_validate_only: bool = Field(default=False, alias="LIVE_ORDER_VALIDATE_ONLY")
+
     worker_poll_interval_seconds: int = Field(default=60, alias="WORKER_POLL_INTERVAL_SECONDS")
     worker_run_once: bool = Field(default=True, alias="WORKER_RUN_ONCE")
     market_data_sync_enabled: bool = Field(default=False, alias="MARKET_DATA_SYNC_ENABLED")

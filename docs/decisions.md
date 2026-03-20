@@ -892,3 +892,16 @@ A smart order execution feature is added to the live infrastructure phase to min
 Qualification gates are revised to require cost-adjusted out-of-sample evidence and shadow-versus-backtest drift within bounds rather than in-sample backtest metrics alone.
 
 A strategy iteration workflow closes the feedback loop when live performance falls below walk-forward expectations, defining how the strategy is re-validated and re-promoted rather than left running on a degrading edge.
+## 2026-03-21
+
+### Decision
+
+Add a `live_order_validate_only` setting and support dry-run live order submission through the exchange's test endpoint.
+
+### Reason
+
+Operators need a way to verify that live order signing, parameters, and exchange connectivity are working correctly without actually committing real-money trades. The Binance `/api/v3/order/test` endpoint provides this validation without creating an order ID or executing a fill.
+
+### Consequence
+
+The `LiveExecutionService` now honors the `live_order_validate_only` setting. When enabled, live orders are submitted to the test endpoint, and their status is immediately transitioned to `canceled` (terminal) in the local database to avoid unnecessary reconciliation attempts for orders that do not exist on the exchange.
