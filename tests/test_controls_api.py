@@ -1,6 +1,7 @@
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
+from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 from sqlalchemy import func, select
@@ -703,7 +704,13 @@ def test_worker_cycle_control_refuses_live_mode_without_live_executor(tmp_path: 
             },
         )()
         try:
-            response = client.post("/controls/worker-cycle")
+            with patch(
+                "app.application.services.worker_orchestration_service.QualificationService"
+            ) as mock_qual:
+                mock_qual.return_value.evaluate.return_value = type(
+                    "Report", (), {"all_passed": True}
+                )()
+                response = client.post("/controls/worker-cycle")
         finally:
             worker_module.build_execution_service = original_build_execution
 
@@ -726,7 +733,13 @@ def test_worker_cycle_control_rejects_live_entry_when_halted(tmp_path: Path) -> 
         settings.exchange_api_secret = "secret"
         store_closes(settings, [10, 10, 10, 10, 10, 9, 9, 9, 20])
 
-        response = client.post("/controls/worker-cycle")
+        with patch(
+            "app.application.services.worker_orchestration_service.QualificationService"
+        ) as mock_qual:
+            mock_qual.return_value.evaluate.return_value = type(
+                "Report", (), {"all_passed": True}
+            )()
+            response = client.post("/controls/worker-cycle")
 
         assert response.status_code == 200
         payload = response.json()
@@ -791,7 +804,13 @@ def test_worker_cycle_control_uses_runtime_halt_override(tmp_path: Path) -> None
         halt_response = client.post("/controls/live-halt", json={"halted": True})
         assert halt_response.status_code == 200
 
-        response = client.post("/controls/worker-cycle")
+        with patch(
+            "app.application.services.worker_orchestration_service.QualificationService"
+        ) as mock_qual:
+            mock_qual.return_value.evaluate.return_value = type(
+                "Report", (), {"all_passed": True}
+            )()
+            response = client.post("/controls/worker-cycle")
 
         assert response.status_code == 200
         payload = response.json()
@@ -831,7 +850,13 @@ def test_worker_cycle_control_rejects_duplicate_live_order(tmp_path: Path) -> No
         finally:
             session.close()
 
-        response = client.post("/controls/worker-cycle")
+        with patch(
+            "app.application.services.worker_orchestration_service.QualificationService"
+        ) as mock_qual:
+            mock_qual.return_value.evaluate.return_value = type(
+                "Report", (), {"all_passed": True}
+            )()
+            response = client.post("/controls/worker-cycle")
 
         assert response.status_code == 200
         payload = response.json()

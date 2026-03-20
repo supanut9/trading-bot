@@ -289,6 +289,20 @@ export type LiveCancelControlResponse = {
   notified: boolean;
 };
 
+export type QualificationGateResponse = {
+  name: string;
+  passed: boolean;
+  reason: string;
+  evidence: Record<string, any> | null;
+};
+
+export type QualificationReportResponse = {
+  exchange: string;
+  symbol: string;
+  all_passed: boolean;
+  gates: QualificationGateResponse[];
+};
+
 export type RecoveryReportFilters = {
   order_status: string | null;
   requires_review: boolean | null;
@@ -600,4 +614,8 @@ export function runBacktest(
     method: "POST",
     body: JSON.stringify(payload),
   });
+}
+
+export function getQualification(): Promise<QualificationReportResponse> {
+  return request<QualificationReportResponse>("/controls/qualification");
 }

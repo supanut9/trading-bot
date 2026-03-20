@@ -73,15 +73,15 @@ Recommended next feature queue:
 
 Strategy quality first — these three features must come before any live deployment work:
 
-- 1. `feature/realistic-backtest-cost-modeling`
-- 2. `feature/walk-forward-validation`
-- 3. `feature/signal-quality-improvements`
+- 1. `feature/realistic-backtest-cost-modeling` (implemented on `main`)
+- 2. `feature/walk-forward-validation` (implemented on `main`)
+- 3. `feature/signal-quality-improvements` (implemented on `main`)
 
 Live readiness — exchange correctness, shadow validation, and qualification gates:
 
-- 4. `feature/exchange-rule-enforcement`
-- 5. `feature/shadow-strategy-runtime`
-- 6. `feature/strategy-qualification-gates`
+- 4. `feature/exchange-rule-enforcement` (implemented on `main`)
+- 5. `feature/shadow-strategy-runtime` (implemented on `main`)
+- 6. `feature/strategy-qualification-gates` (implemented on `feature/strategy-qualification-gates`)
 
 Live execution infrastructure — risk gates, smart order routing, submission proof, and ledger:
 

@@ -1115,7 +1115,7 @@ Main outputs:
 
 Status:
 
-- planned
+- implemented on `main`
 
 Scope:
 
@@ -1133,7 +1133,7 @@ Main outputs:
 
 Status:
 
-- planned
+- implemented on `main`
 
 Scope:
 
@@ -1208,7 +1208,7 @@ Main outputs:
 
 Status:
 
-- in progress on `feature/strategy-qualification-gates`
+- implemented on `feature/strategy-qualification-gates`
 
 Scope:
 

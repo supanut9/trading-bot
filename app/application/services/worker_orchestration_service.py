@@ -11,6 +11,7 @@ from app.application.services.market_data_service import MarketDataService
 from app.application.services.market_data_sync_service import MarketDataSyncService
 from app.application.services.operator_runtime_config_service import OperatorRuntimeConfig
 from app.application.services.paper_execution_service import PaperExecutionRequest
+from app.application.services.qualification_service import QualificationService
 from app.application.services.symbol_rules_service import SymbolRulesService
 from app.config import Settings
 from app.core.logger import get_logger
@@ -144,6 +145,22 @@ class WorkerOrchestrationService:
                 self._slow_period + 1,
             )
             return WorkerCycleResult(status="no_candles", detail="not enough candles")
+
+        if self._trading_mode == "live":
+            report = QualificationService(self._session).evaluate(
+                exchange=self._settings.exchange_name,
+                symbol=self._symbol,
+            )
+            if not report.all_passed:
+                logger.warning(
+                    "worker_cycle_rejected reason=strategy_not_qualified exchange=%s symbol=%s",
+                    self._settings.exchange_name,
+                    self._symbol,
+                )
+                return WorkerCycleResult(
+                    status="not_qualified",
+                    detail="strategy has not passed all qualification gates",
+                )
 
         strategy_input = [
             Candle(
