@@ -42,6 +42,10 @@ test("hydrates defaults and runs ema backtest", async () => {
   fetchMock.mockImplementation((input: URL | RequestInfo, init?: RequestInit) => {
     const url = input.toString();
 
+    if (url.includes("/reports/backtest-runs")) {
+      return Promise.resolve(new Response(JSON.stringify({ run_count: 0, runs: [] })));
+    }
+
     if (url.endsWith("/controls/operator-config")) {
       return Promise.resolve(
         new Response(
@@ -151,6 +155,10 @@ test("hydrates defaults and runs ema backtest", async () => {
 test("submits rule-builder preset payload", async () => {
   fetchMock.mockImplementation((input: URL | RequestInfo, init?: RequestInit) => {
     const url = input.toString();
+
+    if (url.includes("/reports/backtest-runs")) {
+      return Promise.resolve(new Response(JSON.stringify({ run_count: 0, runs: [] })));
+    }
 
     if (url.endsWith("/controls/operator-config")) {
       return Promise.resolve(
@@ -301,6 +309,10 @@ test("submits rule-builder preset payload", async () => {
 test("submits edited rule-builder conditions", async () => {
   fetchMock.mockImplementation((input: URL | RequestInfo, init?: RequestInit) => {
     const url = input.toString();
+
+    if (url.includes("/reports/backtest-runs")) {
+      return Promise.resolve(new Response(JSON.stringify({ run_count: 0, runs: [] })));
+    }
 
     if (url.endsWith("/controls/operator-config")) {
       return Promise.resolve(
@@ -483,4 +495,105 @@ test("submits edited rule-builder conditions", async () => {
 
   await waitFor(() => expect(screen.getByText("backtest completed")).toBeInTheDocument());
   expect(screen.getByText("Estimated minimum candles: 51")).toBeInTheDocument();
+});
+
+test("loads a recent run back into the form", async () => {
+  fetchMock.mockImplementation((input: URL | RequestInfo) => {
+    const url = input.toString();
+
+    if (url.includes("/reports/backtest-runs")) {
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            run_count: 1,
+            runs: [
+              {
+                id: 9,
+                created_at: "2026-03-20T03:40:00Z",
+                source: "api.control",
+                status: "completed",
+                detail: "backtest completed",
+                strategy_name: "rule_builder",
+                exchange: "binance",
+                symbol: "ETH/USDT",
+                timeframe: "4h",
+                fast_period: null,
+                slow_period: null,
+                starting_equity_input: "25000.00000000",
+                candle_count: 180,
+                required_candles: 51,
+                starting_equity: "25000.00000000",
+                ending_equity: "25500.00000000",
+                realized_pnl: "500.00000000",
+                total_return_pct: "2.00000000",
+                max_drawdown_pct: "0.75000000",
+                total_trades: 3,
+                winning_trades: 2,
+                losing_trades: 1,
+                rules: {
+                  shared_filters: { logic: "all", conditions: [] },
+                  buy_rules: {
+                    logic: "all",
+                    conditions: [
+                      {
+                        indicator: "ema_cross",
+                        operator: "bullish",
+                        fast_period: 12,
+                        slow_period: 26,
+                      },
+                    ],
+                  },
+                  sell_rules: {
+                    logic: "all",
+                    conditions: [
+                      {
+                        indicator: "ema_cross",
+                        operator: "bearish",
+                        fast_period: 12,
+                        slow_period: 26,
+                      },
+                    ],
+                  },
+                },
+              },
+            ],
+          }),
+        ),
+      );
+    }
+
+    if (url.endsWith("/controls/operator-config")) {
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            status: "completed",
+            detail: "operator runtime config loaded",
+            strategy_name: "ema_crossover",
+            exchange: "binance",
+            symbol: "BTC/USDT",
+            timeframe: "1h",
+            fast_period: 20,
+            slow_period: 50,
+            source: "runtime_config",
+            changed: false,
+            notified: false,
+          }),
+        ),
+      );
+    }
+
+    return Promise.reject(new Error(`Unexpected request: ${url}`));
+  });
+
+  renderWithQueryClient();
+
+  await waitFor(() => expect(screen.getByRole("button", { name: "Load run" })).toBeInTheDocument());
+  fireEvent.click(screen.getByRole("button", { name: "Load run" }));
+
+  await waitFor(() => expect(screen.getByDisplayValue("ETH/USDT")).toBeInTheDocument());
+  expect(screen.getByDisplayValue("4h")).toBeInTheDocument();
+  expect(screen.getByLabelText("Starting Equity")).toHaveValue(25000);
+  expect(screen.getByLabelText("Fast EMA")).toHaveValue(12);
+  expect(screen.getByLabelText("Slow EMA")).toHaveValue(26);
+  expect(screen.getAllByDisplayValue("rule_builder").length).toBeGreaterThan(0);
 });

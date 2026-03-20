@@ -128,12 +128,44 @@ Notes:
 - this table is a compact runtime audit feed, not a full log sink
 - `payload_json` keeps event-specific context without widening the schema for every new control or notification detail
 
+### `backtest_runs`
+
+Purpose:
+
+- store summary-level replay history for operator review and backtest form hydration
+
+Key columns:
+
+- source
+- status
+- detail
+- strategy_name
+- exchange
+- symbol
+- timeframe
+- fast_period
+- slow_period
+- starting_equity_input
+- candle_count
+- required_candles
+- ending_equity
+- realized_pnl
+- total_return_pct
+- max_drawdown_pct
+- rules_json
+
+Notes:
+
+- this table stores one summary row per replay attempt rather than a full execution ledger
+- `rules_json` preserves rule-builder payloads for later hydration without widening the schema for every condition shape
+
 ## Relationships
 
 - `orders` may produce zero or more `trades`
 - `trades` affect `positions`
 - `candles` feed strategies but are not directly tied to order rows
 - `audit_events` reference runtime outcomes by context rather than foreign-key linkage
+- `backtest_runs` keep replay history independent from trade and audit tables because replay outcomes are simulated and review-oriented
 
 ## Operational Notes
 

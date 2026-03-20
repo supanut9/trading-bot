@@ -7,7 +7,9 @@ from pathlib import Path
 from fastapi.testclient import TestClient
 
 from app.application.services.audit_service import AuditService
+from app.application.services.backtest_run_history_service import BacktestRunHistoryService
 from app.application.services.market_data_service import CandleInput, MarketDataService
+from app.application.services.operational_control_service import BacktestControlResult
 from app.application.services.paper_execution_service import (
     PaperExecutionRequest,
     PaperExecutionService,
@@ -168,6 +170,109 @@ def test_backtest_summary_report_exports_csv_rows(tmp_path: Path) -> None:
         assert len(rows) == 1
         assert rows[0]["status"] in {"completed", "skipped"}
         assert rows[0]["detail"] != ""
+    finally:
+        teardown_client(session)
+
+
+def test_backtest_runs_dashboard_returns_recent_runs(tmp_path: Path) -> None:
+    client, session, _settings = build_client(tmp_path)
+    try:
+        BacktestRunHistoryService(session=session).record_run(
+            source="api.control",
+            result=BacktestControlResult(
+                status="completed",
+                detail="backtest completed",
+                notified=False,
+                strategy_name="ema_crossover",
+                exchange="binance",
+                symbol="BTC/USDT",
+                timeframe="1h",
+                fast_period=12,
+                slow_period=26,
+                starting_equity_input=Decimal("10000"),
+                candle_count=120,
+                required_candles=27,
+                starting_equity=Decimal("10000"),
+                ending_equity=Decimal("10250"),
+                realized_pnl=Decimal("250"),
+                total_return_pct=Decimal("2.5"),
+                max_drawdown_pct=Decimal("1.1"),
+                total_trades=4,
+                winning_trades=3,
+                losing_trades=1,
+            ),
+        )
+        session.commit()
+
+        response = client.get("/reports/backtest-runs")
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["run_count"] == 1
+        assert payload["runs"][0]["source"] == "api.control"
+        assert payload["runs"][0]["strategy_name"] == "ema_crossover"
+        assert payload["runs"][0]["fast_period"] == 12
+        assert payload["runs"][0]["total_return_pct"] == "2.50000000"
+    finally:
+        teardown_client(session)
+
+
+def test_backtest_runs_csv_export_filters_limit(tmp_path: Path) -> None:
+    client, session, _settings = build_client(tmp_path)
+    try:
+        history = BacktestRunHistoryService(session=session)
+        history.record_run(
+            source="api.control",
+            result=BacktestControlResult(
+                status="completed",
+                detail="backtest completed",
+                notified=False,
+                strategy_name="ema_crossover",
+                exchange="binance",
+                symbol="BTC/USDT",
+                timeframe="1h",
+                fast_period=12,
+                slow_period=26,
+                starting_equity_input=Decimal("10000"),
+                candle_count=120,
+                required_candles=27,
+                starting_equity=Decimal("10000"),
+                ending_equity=Decimal("10250"),
+                realized_pnl=Decimal("250"),
+                total_return_pct=Decimal("2.5"),
+                max_drawdown_pct=Decimal("1.1"),
+                total_trades=4,
+                winning_trades=3,
+                losing_trades=1,
+            ),
+        )
+        history.record_run(
+            source="cli.backtest",
+            result=BacktestControlResult(
+                status="skipped",
+                detail="not_enough_candles",
+                notified=False,
+                strategy_name="rule_builder",
+                exchange="binance",
+                symbol="ETH/USDT",
+                timeframe="4h",
+                fast_period=None,
+                slow_period=None,
+                starting_equity_input=Decimal("15000"),
+                candle_count=20,
+                required_candles=51,
+            ),
+        )
+        session.commit()
+
+        response = client.get("/reports/backtest-runs.csv?limit=1")
+
+        assert response.status_code == 200
+        rows = read_csv_rows(response.text)
+        assert len(rows) == 1
+        assert rows[0]["source"] == "cli.backtest"
+        assert rows[0]["strategy_name"] == "rule_builder"
+        assert rows[0]["required_candles"] == "51"
     finally:
         teardown_client(session)
 

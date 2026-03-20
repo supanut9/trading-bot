@@ -10,6 +10,7 @@ from app.application.services.market_data_sync_service import MarketDataSyncResu
 from app.config import Settings, get_settings
 from app.infrastructure.database.base import Base
 from app.infrastructure.database.models.audit_event import AuditEventRecord
+from app.infrastructure.database.models.backtest_run import BacktestRunRecord
 from app.infrastructure.database.models.order import OrderRecord
 from app.infrastructure.database.models.runtime_control import RuntimeControlRecord
 from app.infrastructure.database.models.trade import TradeRecord
@@ -187,6 +188,14 @@ def test_backtest_control_returns_summary_for_completed_run(tmp_path: Path) -> N
         assert payload["strategy_name"] == "ema_crossover"
         assert payload["symbol"] == settings.default_symbol
         assert payload["timeframe"] == settings.default_timeframe
+        session = create_session_factory(settings)()
+        try:
+            run_count = session.execute(
+                select(func.count()).select_from(BacktestRunRecord)
+            ).scalar_one()
+        finally:
+            session.close()
+        assert run_count == 1
     finally:
         teardown_client()
 

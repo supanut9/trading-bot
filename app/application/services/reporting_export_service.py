@@ -4,6 +4,7 @@ from io import StringIO
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.application.services.audit_service import AuditEventFilters, AuditService
+from app.application.services.backtest_run_history_service import BacktestRunHistoryService
 from app.application.services.live_order_recovery_report_service import (
     LiveOrderRecoveryReportService,
     RecoveryReportFilters,
@@ -23,6 +24,7 @@ class ReportingExportService:
         session_factory: sessionmaker[Session] | None = None,
     ) -> None:
         self._audit = AuditService(session=session)
+        self._backtest_runs = BacktestRunHistoryService(session=session)
         self._recovery = LiveOrderRecoveryReportService(session)
         self._operations = OperationsService(session)
         self._performance = PerformanceAnalyticsService(session)
@@ -95,7 +97,12 @@ class ReportingExportService:
         result = OperationalControlService(
             self._settings,
             session_factory=self._session_factory,
-        ).run_backtest(notify=False, audit=False, source="reporting.snapshot")
+        ).run_backtest(
+            notify=False,
+            audit=False,
+            record_history=False,
+            source="reporting.snapshot",
+        )
 
         output = StringIO()
         writer = csv.writer(output)
@@ -131,6 +138,66 @@ class ReportingExportService:
                 result.losing_trades,
             ]
         )
+        return output.getvalue()
+
+    def export_backtest_runs_csv(self, *, limit: int = 20) -> str:
+        output = StringIO()
+        writer = csv.writer(output)
+        writer.writerow(
+            [
+                "id",
+                "created_at",
+                "source",
+                "status",
+                "detail",
+                "strategy_name",
+                "exchange",
+                "symbol",
+                "timeframe",
+                "fast_period",
+                "slow_period",
+                "starting_equity_input",
+                "candle_count",
+                "required_candles",
+                "starting_equity",
+                "ending_equity",
+                "realized_pnl",
+                "total_return_pct",
+                "max_drawdown_pct",
+                "total_trades",
+                "winning_trades",
+                "losing_trades",
+                "rules_json",
+            ]
+        )
+        for run in self._backtest_runs.list_recent(limit=limit):
+            writer.writerow(
+                [
+                    run.id,
+                    run.created_at.isoformat(),
+                    run.source,
+                    run.status,
+                    run.detail,
+                    run.strategy_name,
+                    run.exchange,
+                    run.symbol,
+                    run.timeframe,
+                    run.fast_period,
+                    run.slow_period,
+                    run.starting_equity_input,
+                    run.candle_count,
+                    run.required_candles,
+                    run.starting_equity,
+                    run.ending_equity,
+                    run.realized_pnl,
+                    run.total_return_pct,
+                    run.max_drawdown_pct,
+                    run.total_trades,
+                    run.winning_trades,
+                    run.losing_trades,
+                    run.rules_payload,
+                ]
+            )
         return output.getvalue()
 
     def export_audit_events_csv(

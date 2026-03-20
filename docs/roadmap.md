@@ -71,9 +71,8 @@ Current repo baseline:
 
 Recommended next feature queue:
 
-1. `feature/rule-builder-editor-ui`
-2. `feature/backtest-run-history`
-3. `feature/market-data-coverage-readiness`
+1. `feature/backtest-run-history`
+2. `feature/market-data-coverage-readiness`
 
 ## Phase 1
 

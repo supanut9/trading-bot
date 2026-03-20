@@ -166,6 +166,37 @@ export type BacktestControlResponse = {
   executions: BacktestExecutionResponse[];
 };
 
+export type BacktestRunResponse = {
+  id: number;
+  created_at: string;
+  source: string;
+  status: string;
+  detail: string;
+  strategy_name: string;
+  exchange: string;
+  symbol: string;
+  timeframe: string;
+  fast_period: number | null;
+  slow_period: number | null;
+  starting_equity_input: string;
+  candle_count: number;
+  required_candles: number;
+  starting_equity: string | null;
+  ending_equity: string | null;
+  realized_pnl: string | null;
+  total_return_pct: string | null;
+  max_drawdown_pct: string | null;
+  total_trades: number | null;
+  winning_trades: number | null;
+  losing_trades: number | null;
+  rules: StrategyRuleBuilderRequest | null;
+};
+
+export type BacktestRunHistoryResponse = {
+  run_count: number;
+  runs: BacktestRunResponse[];
+};
+
 export type OperatorConfigRequest = {
   strategy_name: string;
   symbol: string;
@@ -455,6 +486,10 @@ export function getTrades(limit = 8): Promise<TradeResponse[]> {
 
 export function getOperatorConfig(): Promise<OperatorConfigResponse> {
   return request<OperatorConfigResponse>("/controls/operator-config");
+}
+
+export function getBacktestRuns(limit = 12): Promise<BacktestRunHistoryResponse> {
+  return request<BacktestRunHistoryResponse>(`/reports/backtest-runs?limit=${limit}`);
 }
 
 export function updateOperatorConfig(
