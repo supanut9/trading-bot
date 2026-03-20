@@ -415,6 +415,29 @@ class WorkerOrchestrationService:
                 client_order_id,
                 exc,
             )
+            # Record exchange failure in audit log
+            from app.application.services.audit_service import AuditService
+            from app.application.services.live_incident_auto_halt_service import (
+                LiveIncidentAutoHaltService,
+            )
+
+            AuditService(session=self._session).record_event(
+                event_type="worker_cycle",
+                source="worker",
+                status="failed",
+                detail=f"exchange_error: {exc}",
+                exchange=self._settings.exchange_name,
+                symbol=self._symbol,
+                timeframe=self._timeframe,
+            )
+            self._session.commit()
+
+            # Check if we need to auto-halt based on consecutive exchange errors
+            if self._trading_mode == "live":
+                LiveIncidentAutoHaltService(
+                    self._session, self._settings
+                ).evaluate_and_halt_if_needed()
+
             return WorkerCycleResult(
                 status="execution_failed",
                 detail=str(exc),
