@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from app.application.services.audit_service import AuditEventFilters
 from app.application.services.backtest_run_history_service import BacktestRunHistoryService
 from app.application.services.live_order_recovery_report_service import RecoveryReportFilters
+from app.application.services.live_performance_review_service import LivePerformanceReviewService
 from app.application.services.operator_runtime_config_service import OperatorRuntimeConfigService
 from app.application.services.reporting_dashboard_service import ReportingDashboardService
 from app.application.services.reporting_export_service import ReportingExportService
@@ -20,6 +21,7 @@ from app.interfaces.api.schemas import (
     AuditReportFiltersResponse,
     BacktestRunHistoryResponse,
     BacktestRunResponse,
+    LivePerformanceReviewResponse,
     NotificationDashboardResponse,
     NotificationReportFiltersResponse,
     RecoveryDashboardResponse,
@@ -354,6 +356,22 @@ def get_shadow_report(
             symbol=config.symbol,
         )
     return ShadowQualityReportResponse.model_validate(report, from_attributes=True)
+
+
+@router.get("/performance-review", response_model=LivePerformanceReviewResponse, status_code=200)
+def get_performance_review(
+    settings: Settings = settings_dependency,
+    session_factory: sessionmaker[Session] = session_factory_dependency,
+    review_period_days: int = 30,
+) -> LivePerformanceReviewResponse:
+    with session_factory() as session:
+        config = OperatorRuntimeConfigService(session, settings).get_effective_config()
+        review = LivePerformanceReviewService(session).get_performance_review(
+            exchange=settings.exchange_name,
+            symbol=config.symbol,
+            review_period_days=review_period_days,
+        )
+    return LivePerformanceReviewResponse.model_validate(review, from_attributes=True)
 
 
 @router.get("/notification-delivery.csv")

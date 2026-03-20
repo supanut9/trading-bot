@@ -4,6 +4,7 @@ import type { ChangeEvent } from "react";
 import { useState } from "react";
 import { useQueries } from "@tanstack/react-query";
 import {
+  ActivitySquare,
   ArrowUpRight,
   Download,
   LineChart,
@@ -31,9 +32,11 @@ import {
   getAuditDashboard,
   getNotificationDashboard,
   getPerformanceSummary,
+  getPerformanceReview,
   getRecoveryDashboard,
   getStatus,
   type AuditDashboardResponse,
+  type LivePerformanceReviewResponse,
   type NotificationDashboardResponse,
   type PerformanceAnalyticsResponse,
   type RecoveryDashboardResponse,
@@ -251,7 +254,14 @@ export function ReportingPage() {
     audit_search: auditFilters.search.trim() || undefined,
   };
 
-  const [statusQuery, performanceQuery, recoveryQuery, notificationQuery, auditQuery] = useQueries({
+  const [
+    statusQuery,
+    performanceQuery,
+    recoveryQuery,
+    notificationQuery,
+    auditQuery,
+    performanceReviewQuery,
+  ] = useQueries({
     queries: [
       { queryKey: ["status"], queryFn: getStatus },
       { queryKey: ["performance"], queryFn: getPerformanceSummary },
@@ -267,6 +277,10 @@ export function ReportingPage() {
         queryKey: ["audit-dashboard", auditQueryParams],
         queryFn: () => getAuditDashboard(auditQueryParams),
       },
+      {
+        queryKey: ["performance-review"],
+        queryFn: () => getPerformanceReview(30),
+      },
     ],
   });
 
@@ -275,6 +289,7 @@ export function ReportingPage() {
   const recovery = recoveryQuery.data as RecoveryDashboardResponse | undefined;
   const notifications = notificationQuery.data as NotificationDashboardResponse | undefined;
   const audit = auditQuery.data as AuditDashboardResponse | undefined;
+  const performanceReview = performanceReviewQuery.data as LivePerformanceReviewResponse | undefined;
   const summary = performance?.summaries[0];
 
   function updateRecoveryFilter<Key extends keyof RecoveryFilterState>(
@@ -1061,6 +1076,208 @@ export function ReportingPage() {
             ) : (
               <div className="flex min-h-48 items-center justify-center rounded-[1.8rem] border border-dashed border-white/10 bg-white/[0.02] px-6 text-center text-sm text-slate-400">
                 No daily performance rows yet.
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <div>
+              <CardTitle>Performance Review</CardTitle>
+              <CardDescription>
+                Live vs shadow vs OOS comparison with health indicators and operator recommendation.
+              </CardDescription>
+            </div>
+            <div className="rounded-2xl bg-violet-300/10 p-3 text-violet-200">
+              <ActivitySquare className="h-5 w-5" />
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-5">
+            {performanceReviewQuery.isLoading ? (
+              <div className="grid gap-4 lg:grid-cols-4">
+                <Skeleton className="h-32" />
+                <Skeleton className="h-32" />
+                <Skeleton className="h-32" />
+                <Skeleton className="h-32" />
+              </div>
+            ) : performanceReview ? (
+              <>
+                {/* Recommendation banner */}
+                <div
+                  className={[
+                    "rounded-[1.8rem] border p-5",
+                    performanceReview.recommendation === "keep_running"
+                      ? "border-emerald-400/30 bg-emerald-400/10"
+                      : performanceReview.recommendation === "reduce_risk"
+                        ? "border-yellow-400/30 bg-yellow-400/10"
+                        : performanceReview.recommendation === "pause_and_rework"
+                          ? "border-orange-400/30 bg-orange-400/10"
+                          : "border-red-400/30 bg-red-400/10",
+                  ].join(" ")}
+                >
+                  <div className="flex flex-wrap items-center gap-3">
+                    <p
+                      className={[
+                        "text-lg font-semibold uppercase tracking-wide",
+                        performanceReview.recommendation === "keep_running"
+                          ? "text-emerald-300"
+                          : performanceReview.recommendation === "reduce_risk"
+                            ? "text-yellow-300"
+                            : performanceReview.recommendation === "pause_and_rework"
+                              ? "text-orange-300"
+                              : "text-red-300",
+                      ].join(" ")}
+                    >
+                      {performanceReview.recommendation.replace(/_/g, " ")}
+                    </p>
+                    <span className="text-xs text-slate-400">
+                      Period: {performanceReview.review_period_days} days
+                    </span>
+                  </div>
+                  <ul className="mt-3 space-y-1">
+                    {performanceReview.recommendation_reasons.map((reason) => (
+                      <li key={reason} className="text-sm text-slate-300">
+                        &bull; {reason}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                {/* Comparison table: Live vs Shadow vs OOS */}
+                <div>
+                  <p className="mb-3 text-[11px] uppercase tracking-[0.2em] text-slate-400">
+                    Live vs Shadow vs OOS Comparison
+                  </p>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Metric</TableHead>
+                        <TableHead>Live</TableHead>
+                        <TableHead>Shadow</TableHead>
+                        <TableHead>OOS Baseline</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      <TableRow>
+                        <TableCell>Trades</TableCell>
+                        <TableCell>{performanceReview.live_metrics?.trade_count ?? "—"}</TableCell>
+                        <TableCell>{performanceReview.shadow_metrics.trade_count}</TableCell>
+                        <TableCell>
+                          {performanceReview.oos_baseline?.oos_total_trades ?? "—"}
+                        </TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell>Win rate %</TableCell>
+                        <TableCell>
+                          {formatDecimal(performanceReview.live_metrics?.win_rate_pct)}
+                        </TableCell>
+                        <TableCell>
+                          {formatDecimal(performanceReview.shadow_metrics.win_rate_pct)}
+                        </TableCell>
+                        <TableCell>—</TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell>Expectancy</TableCell>
+                        <TableCell>
+                          {formatSignedDecimal(performanceReview.live_metrics?.expectancy)}
+                        </TableCell>
+                        <TableCell>
+                          {formatSignedDecimal(performanceReview.shadow_metrics.expectancy)}
+                        </TableCell>
+                        <TableCell>
+                          {performanceReview.oos_baseline
+                            ? formatSignedDecimal(performanceReview.oos_baseline.oos_return_pct)
+                            : "—"}
+                        </TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell>Max drawdown %</TableCell>
+                        <TableCell>
+                          {formatDecimal(performanceReview.live_metrics?.max_drawdown_pct)}
+                        </TableCell>
+                        <TableCell>
+                          {formatDecimal(performanceReview.shadow_metrics.max_drawdown_pct)}
+                        </TableCell>
+                        <TableCell>
+                          {performanceReview.oos_baseline
+                            ? formatDecimal(performanceReview.oos_baseline.oos_drawdown_pct)
+                            : "—"}
+                        </TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell>Total net PnL</TableCell>
+                        <TableCell>
+                          {formatSignedDecimal(performanceReview.live_metrics?.total_net_pnl)}
+                        </TableCell>
+                        <TableCell>
+                          {formatSignedDecimal(performanceReview.shadow_metrics.total_net_pnl)}
+                        </TableCell>
+                        <TableCell>—</TableCell>
+                      </TableRow>
+                    </TableBody>
+                  </Table>
+                </div>
+
+                {/* Health indicators */}
+                <div>
+                  <p className="mb-3 text-[11px] uppercase tracking-[0.2em] text-slate-400">
+                    Health Indicators
+                  </p>
+                  <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                    <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-sm text-slate-300">
+                      <p className="font-medium text-white">Slippage vs model %</p>
+                      <p className="mt-2">
+                        {formatDecimal(performanceReview.health_indicators.slippage_vs_model_pct)}
+                      </p>
+                    </div>
+                    <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-sm text-slate-300">
+                      <p className="font-medium text-white">Shadow vs OOS expectancy drift %</p>
+                      <p className="mt-2">
+                        {formatSignedDecimal(
+                          performanceReview.health_indicators.shadow_vs_oos_expectancy_drift,
+                        )}
+                      </p>
+                    </div>
+                    <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-sm text-slate-300">
+                      <p className="font-medium text-white">Live vs shadow win rate drift %</p>
+                      <p className="mt-2">
+                        {formatSignedDecimal(
+                          performanceReview.health_indicators.live_vs_shadow_win_rate_drift,
+                        )}
+                      </p>
+                    </div>
+                    <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-sm text-slate-300">
+                      <p className="font-medium text-white">Consecutive losses</p>
+                      <p className="mt-2">
+                        {performanceReview.health_indicators.consecutive_losses}
+                      </p>
+                    </div>
+                    <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-sm text-slate-300">
+                      <p className="font-medium text-white">Signal frequency / week</p>
+                      <p className="mt-2">
+                        {formatDecimal(
+                          performanceReview.health_indicators.signal_frequency_per_week,
+                        )}
+                      </p>
+                    </div>
+                    {performanceReview.live_metrics ? (
+                      <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-sm text-slate-300">
+                        <p className="font-medium text-white">Avg slippage % (live)</p>
+                        <p className="mt-2">
+                          {formatDecimal(performanceReview.live_metrics.avg_slippage_pct)}{" "}
+                          <span className="text-slate-500">
+                            ({performanceReview.live_metrics.slippage_sample_count} samples)
+                          </span>
+                        </p>
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className="flex min-h-40 items-center justify-center rounded-[1.8rem] border border-dashed border-white/10 bg-white/[0.02] px-6 text-center text-sm text-slate-400">
+                Performance review unavailable.
               </div>
             )}
           </CardContent>

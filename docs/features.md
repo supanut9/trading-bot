@@ -1232,7 +1232,7 @@ Main outputs:
 
 Status:
 
-- planned
+- implemented on `main` (PR #90, #94)
 
 Scope:
 
@@ -1250,7 +1250,7 @@ Main outputs:
 
 Status:
 
-- planned
+- implemented on `main` (PR #91)
 
 Scope:
 
@@ -1270,7 +1270,7 @@ Main outputs:
 
 Status:
 
-- planned
+- implemented on `main` (PR #92)
 
 Scope:
 
@@ -1288,7 +1288,7 @@ Main outputs:
 
 Status:
 
-- planned
+- implemented on `main` (PR #93)
 
 Scope:
 
@@ -1306,7 +1306,7 @@ Main outputs:
 
 Status:
 
-- planned
+- implemented on `main` (PR #96)
 
 Scope:
 
@@ -1324,7 +1324,7 @@ Main outputs:
 
 Status:
 
-- planned
+- implemented on `main` (PR #97)
 
 Scope:
 
@@ -1342,7 +1342,7 @@ Main outputs:
 
 Status:
 
-- planned
+- implemented on `main` (PR #98)
 
 Scope:
 
@@ -1360,7 +1360,7 @@ Main outputs:
 
 Status:
 
-- planned
+- in progress on `feature/live-performance-review-loop`
 
 Scope:
 
@@ -1394,8 +1394,8 @@ Main outputs:
 
 ## Current Recommended Queue
 
-Live trading should stay disabled until the strategy quality features (59-61) are delivered and pass walk-forward and qualification gates. Safety infrastructure features (62-71) enable deployment; strategy quality features (59-61, 63-64) determine whether deploying is worth doing.
+Features 59–72 are complete or in progress. The system is now canary-live capable with full safety infrastructure in place and a live performance review loop.
 
 Next bounded feature:
 
-- `feature/live-risk-hard-gates`
+- `feature/strategy-iteration-workflow`

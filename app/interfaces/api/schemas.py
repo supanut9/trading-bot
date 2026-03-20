@@ -613,3 +613,61 @@ class QualificationReportResponse(BaseModel):
     symbol: str
     all_passed: bool
     gates: list[QualificationGateResponse]
+
+
+class LiveModeMetricsResponse(BaseModel):
+    trade_count: int
+    win_rate_pct: Decimal | None
+    expectancy: Decimal | None
+    max_drawdown_pct: Decimal | None
+    total_net_pnl: Decimal
+    total_fees_paid: Decimal
+    avg_slippage_pct: Decimal | None
+    slippage_sample_count: int
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ShadowModeMetricsResponse(BaseModel):
+    trade_count: int
+    win_rate_pct: Decimal | None
+    expectancy: Decimal | None
+    max_drawdown_pct: Decimal | None
+    total_net_pnl: Decimal
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class OOSBaselineResponse(BaseModel):
+    backtest_run_id: int
+    run_date: datetime
+    oos_return_pct: Decimal
+    oos_drawdown_pct: Decimal
+    oos_total_trades: int
+    in_sample_return_pct: Decimal
+    overfitting_warning: bool
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class StrategyHealthIndicatorsResponse(BaseModel):
+    slippage_vs_model_pct: Decimal | None
+    shadow_vs_oos_expectancy_drift: Decimal | None
+    live_vs_shadow_win_rate_drift: Decimal | None
+    consecutive_losses: int
+    signal_frequency_per_week: Decimal | None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class LivePerformanceReviewResponse(BaseModel):
+    live_metrics: LiveModeMetricsResponse | None
+    shadow_metrics: ShadowModeMetricsResponse
+    oos_baseline: OOSBaselineResponse | None
+    health_indicators: StrategyHealthIndicatorsResponse
+    recommendation: str
+    recommendation_reasons: list[str]
+    review_period_days: int
+    generated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)

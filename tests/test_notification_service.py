@@ -43,6 +43,7 @@ def build_settings(**overrides: object) -> Settings:
     return Settings(
         APP_NAME="trading-bot",
         APP_ENV="test",
+        DATABASE_URL="postgresql://localhost/test",
         EXCHANGE_NAME="binance",
         DEFAULT_SYMBOL="BTC/USDT",
         DEFAULT_TIMEFRAME="1h",
