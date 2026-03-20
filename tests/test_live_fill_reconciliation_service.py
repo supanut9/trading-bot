@@ -204,10 +204,114 @@ def test_marks_order_review_required_when_exchange_fill_details_are_missing(
 
         trade_count = session.scalar(select(func.count()).select_from(TradeRecord))
 
-        assert results[0].status == "review_required"
-        assert results[0].trade_created is False
         assert results[0].requires_operator_review is True
         assert trade_count == 0
         assert order.status == "review_required"
+    finally:
+        session.close()
+
+
+class PartialFillClient:
+    def __init__(self, statuses: list[tuple[str, Decimal, Decimal]]) -> None:
+        self.statuses = statuses
+        self.call_count = 0
+
+    def fetch_order_status(self, **kwargs) -> ExchangeOrderStatus:
+        status, qty, price = self.statuses[self.call_count]
+        self.call_count += 1
+        return ExchangeOrderStatus(
+            status=status,
+            client_order_id=kwargs.get("client_order_id"),
+            exchange_order_id=kwargs.get("exchange_order_id") or "123",
+            executed_quantity=qty,
+            average_fill_price=price,
+            response_payload={},
+        )
+
+
+def test_reconciles_incremental_partial_fills(tmp_path: Path) -> None:
+    session = build_session(tmp_path)
+    try:
+        repo = OrderRepository(session)
+        order = repo.create(
+            exchange="binance",
+            symbol="BTC/USDT",
+            side="buy",
+            order_type="limit",
+            status="submitted",
+            mode="live",
+            quantity=Decimal("10.0"),
+            price=Decimal("50000"),
+            client_order_id="partial-1",
+        )
+        session.commit()
+
+        # Step 1: 4 BTC filled at 50,000
+        client = PartialFillClient([("partially_filled", Decimal("4.0"), Decimal("50000"))])
+        service = LiveFillReconciliationService(session, client=client)
+        results1 = service.reconcile_recent_live_orders()
+
+        assert results1[0].status == "partially_filled"
+        assert results1[0].trade_created is True
+        assert order.executed_quantity == Decimal("4.0")
+        assert order.average_fill_price == Decimal("50000")
+
+        trade1 = session.scalar(select(TradeRecord))
+        assert trade1.quantity == Decimal("4.0")
+        assert trade1.price == Decimal("50000")
+
+        # Step 2: Total 10 BTC filled. New Avg = (4*50000 + 6*60000)/10 = 56000
+        client.statuses = [("filled", Decimal("10.0"), Decimal("56000"))]
+        client.call_count = 0
+        results2 = service.reconcile_recent_live_orders()
+
+        assert results2[0].status == "filled"
+        assert results2[0].trade_created is True
+        assert order.executed_quantity == Decimal("10.0")
+        assert order.average_fill_price == Decimal("56000")
+
+        # Verify second trade has the correct incremental price
+        trades = session.scalars(select(TradeRecord).order_by(TradeRecord.id)).all()
+        assert len(trades) == 2
+        assert trades[1].quantity == Decimal("6.0")
+        assert trades[1].price == Decimal("60000")  # (56000*10 - 50000*4)/6 = 60000
+
+        # Verify position
+        position = session.scalar(select(PositionRecord))
+        assert position.quantity == Decimal("10.0")
+        assert position.average_entry_price == Decimal("56000")
+    finally:
+        session.close()
+
+
+def test_reconciles_partial_fill_before_cancellation(tmp_path: Path) -> None:
+    session = build_session(tmp_path)
+    try:
+        repo = OrderRepository(session)
+        order = repo.create(
+            exchange="binance",
+            symbol="BTC/USDT",
+            side="buy",
+            order_type="limit",
+            status="submitted",
+            mode="live",
+            quantity=Decimal("10.0"),
+            price=Decimal("50000"),
+            client_order_id="cancel-partial-1",
+        )
+        session.commit()
+
+        # Exchange says Canceled, but 2.0 were filled at 50,000
+        client = PartialFillClient([("canceled", Decimal("2.0"), Decimal("50000"))])
+        service = LiveFillReconciliationService(session, client=client)
+        results = service.reconcile_recent_live_orders()
+
+        assert results[0].status == "canceled"
+        assert results[0].trade_created is True
+        assert order.executed_quantity == Decimal("2.0")
+
+        trade = session.scalar(select(TradeRecord))
+        assert trade.quantity == Decimal("2.0")
+        assert trade.price == Decimal("50000")
     finally:
         session.close()

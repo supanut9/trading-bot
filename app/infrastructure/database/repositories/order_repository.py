@@ -29,6 +29,7 @@ class OrderRepository:
         price: Decimal | None = None,
         signal_price: Decimal | None = None,
         average_fill_price: Decimal | None = None,
+        executed_quantity: Decimal = Decimal("0"),
         client_order_id: str | None = None,
         exchange_order_id: str | None = None,
         submitted_reason: str | None = None,
@@ -44,10 +45,12 @@ class OrderRepository:
             price=price,
             signal_price=signal_price,
             average_fill_price=average_fill_price,
+            executed_quantity=executed_quantity,
             client_order_id=client_order_id,
             exchange_order_id=exchange_order_id,
             submitted_reason=submitted_reason,
         )
+
         self._session.add(record)
         try:
             self._session.flush()
