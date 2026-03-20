@@ -1,8 +1,10 @@
 from decimal import Decimal
 from pathlib import Path
+from unittest.mock import MagicMock
 
 import pytest
 from sqlalchemy import func, select
+from sqlalchemy.orm import Session
 
 from app.application.services.live_execution_service import (
     DuplicateLiveOrderError,
@@ -44,7 +46,7 @@ class RecordingLiveClient:
         )
 
 
-def build_service(tmp_path: Path) -> tuple[LiveExecutionService, object]:
+def build_service(tmp_path: Path) -> tuple[LiveExecutionService, Session]:
     settings = Settings(
         DATABASE_URL=f"sqlite:///{tmp_path / 'live_execution.db'}",
         PAPER_TRADING=False,
@@ -305,3 +307,61 @@ def test_honors_live_order_validate_only_setting(tmp_path: Path) -> None:
     # Validated orders map to 'canceled' (terminal state) to avoid reconciliation
     assert result.order.status == "canceled"
     assert result.order.exchange_order_id is None
+
+
+def test_snaps_limit_price_to_tick_size(tmp_path: Path) -> None:
+    settings = Settings(
+        DATABASE_URL=f"sqlite:///{tmp_path / 'live_tick_snapping.db'}",
+        PAPER_TRADING=False,
+        LIVE_TRADING_ENABLED=True,
+        EXCHANGE_API_KEY="key",
+        EXCHANGE_API_SECRET="secret",
+        LIVE_ORDER_ROUTING_MODE="limit",
+        LIVE_LIMIT_ORDER_OFFSET_BPS=0,  # No offset to isolate snapping
+    )
+    engine = create_engine_from_settings(settings)
+    Base.metadata.create_all(bind=engine)
+    session = create_session_factory(settings)()
+
+    from app.application.services.symbol_rules_service import SymbolRulesService
+    from app.infrastructure.exchanges.base import ExchangeSymbolRules, MarketDataExchangeClient
+
+    mock_exchange_client = MagicMock(spec=MarketDataExchangeClient)
+    mock_exchange_client.fetch_symbol_rules.return_value = ExchangeSymbolRules(
+        exchange="binance",
+        symbol="BTC/USDT",
+        min_qty=Decimal("0.0001"),
+        max_qty=Decimal("100"),
+        step_size=Decimal("0.0001"),
+        min_notional=Decimal("10"),
+        tick_size=Decimal("0.5"),  # 0.5 Tick size
+    )
+    SymbolRulesService(session).refresh_rules(
+        exchange_client=mock_exchange_client,
+        exchange="binance",
+        symbol="BTC/USDT",
+    )
+    session.commit()
+
+    client = RecordingLiveClient()
+    service = LiveExecutionService(session, settings, client=client)
+
+    service.execute(
+        PaperExecutionRequest(
+            exchange="binance",
+            symbol="BTC/USDT",
+            side="buy",
+            quantity=Decimal("0.1"),
+            price=Decimal("50000.77"),  # Should snap to 50000.5
+            mode="live",
+            client_order_id="tick-snapping-test",
+        )
+    )
+
+    assert client.calls[0].price == Decimal("50000.5")
+    # Verify signal price remains original
+    order = session.scalar(
+        select(OrderRecord).where(OrderRecord.client_order_id == "tick-snapping-test")
+    )
+    assert order.price == Decimal("50000.5")
+    assert order.signal_price == Decimal("50000.77")

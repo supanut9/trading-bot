@@ -26,6 +26,11 @@ def snap_to_step(value: Decimal, step: Decimal) -> Decimal:
     return (value // step) * step
 
 
+def snap_to_tick(price: Decimal, tick_size: Decimal) -> Decimal:
+    """Round price down to the nearest multiple of tick_size."""
+    return snap_to_step(price, tick_size)
+
+
 def validate_and_snap_quantity(
     quantity: Decimal,
     price: Decimal,
@@ -54,5 +59,22 @@ def validate_and_snap_quantity(
         raise OrderRuleViolation(
             f"order notional {notional:.2f} is below exchange minimum {rules.min_notional}"
         )
+
+    return snapped
+
+
+def validate_and_snap_price(
+    price: Decimal,
+    rules: SymbolRules,
+) -> Decimal:
+    """
+    Snap price to tick_size and validate against exchange rules.
+    Returns the snapped price if valid.
+    Raises OrderRuleViolation with a descriptive reason if any rule is violated.
+    """
+    snapped = snap_to_tick(price, rules.tick_size)
+
+    if snapped <= Decimal("0"):
+        raise OrderRuleViolation(f"price {price} rounds to zero with tick_size {rules.tick_size}")
 
     return snapped

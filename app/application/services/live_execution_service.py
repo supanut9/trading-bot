@@ -85,6 +85,17 @@ class LiveExecutionService:
                 # Sell above signal price to reduce fill cost
                 price = signal_price * (Decimal("1") + offset_ratio)
 
+        if order_type == "limit":
+            from app.application.services.symbol_rules_service import SymbolRulesService
+            from app.domain.order_rules import validate_and_snap_price
+
+            rules = SymbolRulesService(self._session).get_rules(
+                exchange=request.exchange,
+                symbol=request.symbol,
+            )
+            if rules:
+                price = validate_and_snap_price(price, rules)
+
         # Fee-aware pre-submit check
         round_trip_fee_pct = Decimal(str(self._settings.live_fee_pct)) * Decimal("2")
         expected_profit_pct = Decimal(self._settings.live_expected_profit_bps) / Decimal("10000")
