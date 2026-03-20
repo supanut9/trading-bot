@@ -27,6 +27,7 @@ from app.interfaces.api.schemas import (
     MarketSyncControlResponse,
     OperatorConfigRequest,
     OperatorConfigResponse,
+    SymbolRulesControlResponse,
     WorkerControlResponse,
 )
 
@@ -216,3 +217,35 @@ def run_live_cancel(
         source="api.control",
     )
     return LiveCancelControlResponse.model_validate(result)
+
+
+@router.get(
+    "/symbol-rules",
+    response_model=SymbolRulesControlResponse,
+    status_code=status.HTTP_200_OK,
+)
+def get_symbol_rules(
+    settings: Settings = settings_dependency,
+    session_factory: sessionmaker[Session] = session_factory_dependency,
+) -> SymbolRulesControlResponse:
+    result = OperationalControlService(
+        settings,
+        session_factory=session_factory,
+    ).get_symbol_rules()
+    return SymbolRulesControlResponse.model_validate(result)
+
+
+@router.post(
+    "/symbol-rules/refresh",
+    response_model=SymbolRulesControlResponse,
+    status_code=status.HTTP_200_OK,
+)
+def refresh_symbol_rules(
+    settings: Settings = settings_dependency,
+    session_factory: sessionmaker[Session] = session_factory_dependency,
+) -> SymbolRulesControlResponse:
+    result = OperationalControlService(
+        settings,
+        session_factory=session_factory,
+    ).refresh_symbol_rules(source="api.control")
+    return SymbolRulesControlResponse.model_validate(result)

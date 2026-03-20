@@ -1,5 +1,6 @@
 from decimal import Decimal
 
+from app.domain.order_rules import SymbolRules
 from app.domain.risk import PortfolioState, RiskLimits, RiskService, TradeContext
 from app.domain.strategies.base import Signal
 
@@ -264,3 +265,102 @@ def test_allows_live_exit_when_live_trading_is_halted() -> None:
 
     assert decision.approved is True
     assert decision.reason == "risk checks passed"
+
+
+def build_btc_rules(
+    *,
+    min_qty: str = "0.00001",
+    max_qty: str = "9000",
+    step_size: str = "0.00001",
+    min_notional: str = "10",
+) -> SymbolRules:
+    return SymbolRules(
+        exchange="binance",
+        symbol="BTC/USDT",
+        min_qty=Decimal(min_qty),
+        max_qty=Decimal(max_qty),
+        step_size=Decimal(step_size),
+        min_notional=Decimal(min_notional),
+        tick_size=Decimal("0.01"),
+    )
+
+
+def test_snaps_quantity_to_step_size_when_symbol_rules_present() -> None:
+    service = RiskService(
+        RiskLimits(
+            risk_per_trade_pct=Decimal("0.01"),
+            max_open_positions=1,
+            max_daily_loss_pct=Decimal("0.03"),
+            paper_trading_only=True,
+            symbol_rules=build_btc_rules(step_size="0.001"),
+        )
+    )
+
+    decision = service.evaluate(
+        portfolio=PortfolioState(
+            account_equity=Decimal("10000"),
+            open_positions=0,
+            current_position_quantity=Decimal("0"),
+            daily_realized_loss_pct=Decimal("0.00"),
+            trading_mode="paper",
+        ),
+        trade=TradeContext(signal=build_signal(), entry_price=Decimal("50000")),
+    )
+
+    assert decision.approved is True
+    # raw quantity = 10000 * 0.01 / 50000 = 0.002, snapped to 0.001 step => 0.002 exactly
+    assert decision.quantity == Decimal("0.002")
+
+
+def test_rejects_when_quantity_below_min_qty_after_snap() -> None:
+    # raw qty = 10000 * 0.0001 / 50000 = 0.00002; step_size=0.00001 snaps to 0.00002;
+    # 0.00002 < min_qty=0.001 → rejected
+    service = RiskService(
+        RiskLimits(
+            risk_per_trade_pct=Decimal("0.0001"),
+            max_open_positions=1,
+            max_daily_loss_pct=Decimal("0.03"),
+            paper_trading_only=True,
+            symbol_rules=build_btc_rules(min_qty="0.001", step_size="0.00001"),
+        )
+    )
+
+    decision = service.evaluate(
+        portfolio=PortfolioState(
+            account_equity=Decimal("10000"),
+            open_positions=0,
+            current_position_quantity=Decimal("0"),
+            daily_realized_loss_pct=Decimal("0.00"),
+            trading_mode="paper",
+        ),
+        trade=TradeContext(signal=build_signal(), entry_price=Decimal("50000")),
+    )
+
+    assert decision.approved is False
+    assert "below exchange minimum" in decision.reason
+
+
+def test_rejects_when_notional_below_min_after_snap() -> None:
+    service = RiskService(
+        RiskLimits(
+            risk_per_trade_pct=Decimal("0.01"),
+            max_open_positions=1,
+            max_daily_loss_pct=Decimal("0.03"),
+            paper_trading_only=True,
+            symbol_rules=build_btc_rules(min_notional="200"),
+        )
+    )
+
+    decision = service.evaluate(
+        portfolio=PortfolioState(
+            account_equity=Decimal("100"),
+            open_positions=0,
+            current_position_quantity=Decimal("0"),
+            daily_realized_loss_pct=Decimal("0.00"),
+            trading_mode="paper",
+        ),
+        trade=TradeContext(signal=build_signal(), entry_price=Decimal("50000")),
+    )
+
+    assert decision.approved is False
+    assert "below exchange minimum" in decision.reason

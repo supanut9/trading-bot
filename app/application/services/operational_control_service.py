@@ -32,6 +32,7 @@ from app.application.services.operator_runtime_config_service import (
     OperatorRuntimeConfig,
     OperatorRuntimeConfigService,
 )
+from app.application.services.symbol_rules_service import SymbolRulesService
 from app.application.services.worker_orchestration_service import WorkerOrchestrationService
 from app.config import Settings
 from app.domain.risk import RiskLimits, RiskService
@@ -221,6 +222,21 @@ class OperatorConfigControlResult:
     source: str
     changed: bool = False
     notified: bool = False
+
+
+@dataclass(frozen=True, slots=True)
+class SymbolRulesControlResult:
+    status: str
+    detail: str
+    exchange: str
+    symbol: str
+    min_qty: Decimal | None = None
+    max_qty: Decimal | None = None
+    step_size: Decimal | None = None
+    min_notional: Decimal | None = None
+    tick_size: Decimal | None = None
+    fetched_at: str | None = None
+    source: str | None = None
 
 
 class OperationalControlService:
@@ -747,6 +763,64 @@ class OperationalControlService:
             fast_period=config.fast_period,
             slow_period=config.slow_period,
             source=config.source,
+        )
+
+    def get_symbol_rules(self) -> SymbolRulesControlResult:
+        config = self._get_effective_operator_config()
+        with self._session_factory() as session:
+            result = SymbolRulesService(session).get_rules_result(
+                exchange=self._settings.exchange_name,
+                symbol=config.symbol,
+            )
+        if result is None:
+            return SymbolRulesControlResult(
+                status="not_found",
+                detail="no symbol rules stored; run refresh to fetch from exchange",
+                exchange=self._settings.exchange_name,
+                symbol=config.symbol,
+            )
+        return SymbolRulesControlResult(
+            status="completed",
+            detail="symbol rules loaded from database",
+            exchange=result.exchange,
+            symbol=result.symbol,
+            min_qty=result.min_qty,
+            max_qty=result.max_qty,
+            step_size=result.step_size,
+            min_notional=result.min_notional,
+            tick_size=result.tick_size,
+            fetched_at=result.fetched_at,
+            source=result.source,
+        )
+
+    def refresh_symbol_rules(self, *, source: str = "internal") -> SymbolRulesControlResult:
+        config = self._get_effective_operator_config()
+        try:
+            with self._session_factory() as session:
+                result = SymbolRulesService(session).refresh_rules(
+                    exchange_client=build_market_data_exchange_client(self._settings),
+                    exchange=self._settings.exchange_name,
+                    symbol=config.symbol,
+                )
+        except Exception as exc:
+            return SymbolRulesControlResult(
+                status="failed",
+                detail=f"failed to refresh symbol rules: {exc}",
+                exchange=self._settings.exchange_name,
+                symbol=config.symbol,
+            )
+        return SymbolRulesControlResult(
+            status="completed",
+            detail="symbol rules refreshed from exchange",
+            exchange=result.exchange,
+            symbol=result.symbol,
+            min_qty=result.min_qty,
+            max_qty=result.max_qty,
+            step_size=result.step_size,
+            min_notional=result.min_notional,
+            tick_size=result.tick_size,
+            fetched_at=result.fetched_at,
+            source=result.source,
         )
 
     def run_update_operator_config(

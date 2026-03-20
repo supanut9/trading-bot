@@ -1152,7 +1152,7 @@ Main outputs:
 
 Status:
 
-- planned
+- implemented on `main` (PR #84)
 
 Scope:
 
@@ -1171,7 +1171,7 @@ Main outputs:
 
 Status:
 
-- planned
+- in progress on `feature/exchange-rule-enforcement`
 
 Scope:
 
