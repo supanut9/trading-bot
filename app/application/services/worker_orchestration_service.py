@@ -5,7 +5,10 @@ from decimal import Decimal
 from sqlalchemy.orm import Session
 
 from app.application.services.execution_factory import build_execution_service
-from app.application.services.live_execution_service import DuplicateLiveOrderError
+from app.application.services.live_execution_service import (
+    DuplicateLiveOrderError,
+    InsufficientExpectedProfitError,
+)
 from app.application.services.live_operator_control_service import LiveOperatorControlService
 from app.application.services.market_data_service import MarketDataService
 from app.application.services.market_data_sync_service import MarketDataSyncService
@@ -145,6 +148,18 @@ class WorkerOrchestrationService:
                 self._slow_period + 1,
             )
             return WorkerCycleResult(status="no_candles", detail="not enough candles")
+
+        if self._trading_mode == "live" and self._settings.live_order_routing_mode == "limit":
+            from app.application.services.smart_order_fallback_service import (
+                SmartOrderFallbackService,
+            )
+            from app.infrastructure.exchanges.factory import build_live_order_exchange_client
+
+            client = build_live_order_exchange_client(self._settings)
+            fallback_service = SmartOrderFallbackService(
+                self._session, self._settings, client=client
+            )
+            fallback_service.process_fallbacks()
 
         if self._trading_mode == "live":
             from app.application.services.live_risk_hard_gate_service import LiveRiskHardGateService
@@ -354,6 +369,22 @@ class WorkerOrchestrationService:
             )
             return WorkerCycleResult(
                 status="duplicate_live_order",
+                detail=str(exc),
+                signal_action=signal.action,
+                client_order_id=client_order_id,
+            )
+        except InsufficientExpectedProfitError as exc:
+            logger.warning(
+                "worker_cycle_rejected reason=insufficient_expected_profit "
+                "exchange=%s symbol=%s signal=%s client_order_id=%s detail=%s",
+                self._settings.exchange_name,
+                self._symbol,
+                signal.action,
+                client_order_id,
+                exc,
+            )
+            return WorkerCycleResult(
+                status="insufficient_expected_profit",
                 detail=str(exc),
                 signal_action=signal.action,
                 client_order_id=client_order_id,

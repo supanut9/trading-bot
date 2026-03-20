@@ -8,6 +8,8 @@ from app.application.services.live_order_state import (
     transition_live_order,
 )
 from app.application.services.paper_execution_service import PaperExecutionRequest
+from app.config import Settings
+from app.core.logger import get_logger
 from app.infrastructure.database.models.order import OrderRecord
 from app.infrastructure.database.models.position import PositionRecord
 from app.infrastructure.database.repositories.order_repository import OrderRepository
@@ -18,9 +20,15 @@ from app.infrastructure.exchanges.base import (
     LiveOrderExchangeClient,
 )
 
+logger = get_logger(__name__)
+
 
 class DuplicateLiveOrderError(ValueError):
     """Raised when a matching unresolved live order already exists."""
+
+
+class InsufficientExpectedProfitError(ValueError):
+    """Raised when expected profit does not cover fees."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -33,8 +41,11 @@ class LiveExecutionResult:
 
 
 class LiveExecutionService:
-    def __init__(self, session: Session, *, client: LiveOrderExchangeClient) -> None:
+    def __init__(
+        self, session: Session, settings: Settings, *, client: LiveOrderExchangeClient
+    ) -> None:
         self._session = session
+        self._settings = settings
         self._client = client
         self._orders = OrderRepository(session)
         self._positions = PositionRepository(session)
@@ -60,15 +71,48 @@ class LiveExecutionService:
         )
         self._validate_no_duplicate_live_order(request)
 
+        order_type = request.order_type
+        price = request.price
+        signal_price = request.price  # Keep original signal price to record it
+
+        if self._settings.live_order_routing_mode == "limit" and order_type == "market":
+            order_type = "limit"
+            offset_ratio = Decimal(self._settings.live_limit_order_offset_bps) / Decimal("10000")
+            if request.side == "buy":
+                # Buy below signal price to reduce fill cost
+                price = signal_price * (Decimal("1") - offset_ratio)
+            else:
+                # Sell above signal price to reduce fill cost
+                price = signal_price * (Decimal("1") + offset_ratio)
+
+        # Fee-aware pre-submit check
+        round_trip_fee_pct = Decimal(str(self._settings.live_fee_pct)) * Decimal("2")
+        expected_profit_pct = Decimal(self._settings.live_expected_profit_bps) / Decimal("10000")
+
+        if expected_profit_pct < round_trip_fee_pct:
+            logger.warning(
+                "live_order_blocked reason=insufficient_expected_profit "
+                "expected_profit_pct=%.4f round_trip_fee_pct=%.4f symbol=%s",
+                expected_profit_pct,
+                round_trip_fee_pct,
+                request.symbol,
+            )
+            # Use specific error so orchestration can handle it
+            raise InsufficientExpectedProfitError(
+                f"expected profit ({expected_profit_pct:.4f}%) does not cover "
+                f"estimated round-trip fees ({round_trip_fee_pct:.4f}%)"
+            )
+
         order = self._orders.create(
             exchange=request.exchange,
             symbol=request.symbol,
             side=request.side,
-            order_type=request.order_type,
+            order_type=order_type,
             status="submitting",
             mode=request.mode,
             quantity=request.quantity,
-            price=request.price,
+            price=price,
+            signal_price=signal_price,
             client_order_id=request.client_order_id,
             submitted_reason=request.submitted_reason,
         )
@@ -77,7 +121,8 @@ class LiveExecutionService:
                 symbol=request.symbol,
                 side=request.side,
                 quantity=request.quantity,
-                order_type=request.order_type,
+                price=price if order_type == "limit" else None,
+                order_type=order_type,
                 validate_only=False,
                 client_order_id=request.client_order_id,
             )

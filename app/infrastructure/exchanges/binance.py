@@ -162,16 +162,23 @@ class BinanceSpotOrderClient(LiveOrderExchangeClient):
 
     def submit_order(self, request: ExchangeOrderRequest) -> ExchangeOrderSubmission:
         endpoint = "/api/v3/order/test" if request.validate_only else "/api/v3/order"
+        parameters: dict[str, str | int | None] = {
+            "symbol": request.symbol.replace("/", ""),
+            "side": request.side.upper(),
+            "type": request.order_type.upper(),
+            "quantity": format(request.quantity, "f"),
+            "newClientOrderId": request.client_order_id,
+        }
+        if request.order_type.upper() == "LIMIT":
+            if request.price is None:
+                raise ValueError("price is required for limit orders")
+            parameters["price"] = format(request.price, "f")
+            parameters["timeInForce"] = "GTC"
+
         parsed = self._signed_request(
             method="POST",
             endpoint=endpoint,
-            parameters={
-                "symbol": request.symbol.replace("/", ""),
-                "side": request.side.upper(),
-                "type": request.order_type.upper(),
-                "quantity": format(request.quantity, "f"),
-                "newClientOrderId": request.client_order_id,
-            },
+            parameters=parameters,
             error_action="submit Binance order",
         )
 
@@ -336,4 +343,9 @@ class BinanceSpotOrderClient(LiveOrderExchangeClient):
         }
         if request.client_order_id:
             parameters["newClientOrderId"] = request.client_order_id
+        if request.order_type.upper() == "LIMIT":
+            if request.price is None:
+                raise ValueError("price is required for limit orders")
+            parameters["price"] = format(request.price, "f")
+            parameters["timeInForce"] = "GTC"
         return urlencode(parameters)

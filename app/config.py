@@ -66,6 +66,15 @@ class Settings(BaseSettings):
         default=None,
         alias="LIVE_REPEATED_REJECT_AUTO_HALT_THRESHOLD",
     )
+    live_fee_pct: float = Field(default=0.001, alias="LIVE_FEE_PCT")
+    live_expected_profit_bps: int = Field(default=30, alias="LIVE_EXPECTED_PROFIT_BPS")
+    live_order_routing_mode: Literal["market", "limit"] = Field(
+        default="market", alias="LIVE_ORDER_ROUTING_MODE"
+    )
+    live_limit_order_offset_bps: int = Field(default=1, alias="LIVE_LIMIT_ORDER_OFFSET_BPS")
+    live_limit_order_timeout_seconds: int = Field(
+        default=10, alias="LIVE_LIMIT_ORDER_TIMEOUT_SECONDS"
+    )
     worker_poll_interval_seconds: int = Field(default=60, alias="WORKER_POLL_INTERVAL_SECONDS")
     worker_run_once: bool = Field(default=True, alias="WORKER_RUN_ONCE")
     market_data_sync_enabled: bool = Field(default=False, alias="MARKET_DATA_SYNC_ENABLED")
@@ -189,6 +198,14 @@ class Settings(BaseSettings):
             raise ValueError(
                 "LIVE_REPEATED_REJECT_AUTO_HALT_THRESHOLD must be positive when provided"
             )
+        if self.live_limit_order_offset_bps < 0:
+            raise ValueError("LIVE_LIMIT_ORDER_OFFSET_BPS must be non-negative")
+        if self.live_limit_order_timeout_seconds <= 0:
+            raise ValueError("LIVE_LIMIT_ORDER_TIMEOUT_SECONDS must be positive")
+        if self.live_fee_pct < 0:
+            raise ValueError("LIVE_FEE_PCT must be non-negative")
+        if self.live_expected_profit_bps < 0:
+            raise ValueError("LIVE_EXPECTED_PROFIT_BPS must be non-negative")
 
         return self
 

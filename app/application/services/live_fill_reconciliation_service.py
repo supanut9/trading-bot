@@ -92,12 +92,35 @@ class LiveFillReconciliationService:
                 position_quantity=position.quantity if position is not None else None,
             )
 
+        avg_fill_price = remote.average_fill_price
+        if order.signal_price and avg_fill_price:
+            from app.core.logger import get_logger
+
+            logger = get_logger(__name__)
+            slippage_bps = (
+                (avg_fill_price - order.signal_price) / order.signal_price * Decimal("10000")
+            )
+            if order.side == "sell":
+                slippage_bps = -slippage_bps
+
+            logger.info(
+                "live_order_filled_slippage exchange=%s symbol=%s order_id=%s "
+                "side=%s signal_price=%.4f fill_price=%.4f slippage_bps=%.1f",
+                order.exchange,
+                order.symbol,
+                order.id,
+                order.side,
+                order.signal_price,
+                avg_fill_price,
+                slippage_bps,
+            )
+
         self._trades.create(
             exchange=order.exchange,
             symbol=order.symbol,
             side=order.side,
             quantity=remote.executed_quantity,
-            price=remote.average_fill_price,
+            price=avg_fill_price,
             order_id=order.id,
         )
         position = self._apply_position_update(

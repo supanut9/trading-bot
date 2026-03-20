@@ -25,5 +25,6 @@ class OrderRecord(TimestampMixin, Base):
     exchange_order_id: Mapped[str | None] = mapped_column(String(100))
     quantity: Mapped[Decimal] = mapped_column(Numeric(20, 8), nullable=False)
     price: Mapped[Decimal | None] = mapped_column(Numeric(20, 8))
+    signal_price: Mapped[Decimal | None] = mapped_column(Numeric(20, 8))
     average_fill_price: Mapped[Decimal | None] = mapped_column(Numeric(20, 8))
     submitted_reason: Mapped[str | None] = mapped_column(Text)
