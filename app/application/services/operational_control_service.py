@@ -63,6 +63,12 @@ class BacktestRunOptions:
     rules: RuleBuilderStrategyConfig | None = None
 
 
+def required_candles_for_backtest_options(options: BacktestRunOptions) -> int:
+    if options.strategy_name == BACKTEST_STRATEGY_RULE_BUILDER and options.rules is not None:
+        return options.rules.minimum_candles()
+    return max((options.slow_period or 0) + 1, 0)
+
+
 @dataclass(frozen=True, slots=True)
 class BacktestExecutionResult:
     action: str
@@ -993,9 +999,7 @@ class OperationalControlService:
 
     @staticmethod
     def _required_candles_for_options(options: BacktestRunOptions) -> int:
-        if options.strategy_name == BACKTEST_STRATEGY_RULE_BUILDER and options.rules is not None:
-            return options.rules.minimum_candles()
-        return max((options.slow_period or 0) + 1, 0)
+        return required_candles_for_backtest_options(options)
 
     @staticmethod
     def _default_rule_builder_config(

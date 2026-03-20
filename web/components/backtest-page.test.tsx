@@ -46,6 +46,28 @@ test("hydrates defaults and runs ema backtest", async () => {
       return Promise.resolve(new Response(JSON.stringify({ run_count: 0, runs: [] })));
     }
 
+    if (url.includes("/market-data/coverage")) {
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            exchange: "binance",
+            symbol: "BTC/USDT",
+            timeframe: "1h",
+            candle_count: 80,
+            first_open_time: "2026-03-10T00:00:00Z",
+            latest_open_time: "2026-03-19T15:00:00Z",
+            latest_close_time: "2026-03-19T16:00:00Z",
+            required_candles: 27,
+            additional_candles_needed: 0,
+            satisfies_required_candles: true,
+            freshness_status: "fresh",
+            readiness_status: "ready",
+            detail: "stored history satisfies the selected replay shape",
+          }),
+        ),
+      );
+    }
+
     if (url.endsWith("/controls/operator-config")) {
       return Promise.resolve(
         new Response(
@@ -129,6 +151,7 @@ test("hydrates defaults and runs ema backtest", async () => {
   renderWithQueryClient();
 
   await waitFor(() => expect(screen.getByDisplayValue("BTC/USDT")).toBeInTheDocument());
+  await waitFor(() => expect(screen.getByText(/Replay minimum 27/)).toBeInTheDocument());
   fireEvent.change(screen.getByDisplayValue("BTC/USDT"), {
     target: { value: "ETH/USDT" },
   });
@@ -158,6 +181,28 @@ test("submits rule-builder preset payload", async () => {
 
     if (url.includes("/reports/backtest-runs")) {
       return Promise.resolve(new Response(JSON.stringify({ run_count: 0, runs: [] })));
+    }
+
+    if (url.includes("/market-data/coverage")) {
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            exchange: "binance",
+            symbol: "BTC/USDT",
+            timeframe: "1h",
+            candle_count: 20,
+            first_open_time: "2026-03-10T00:00:00Z",
+            latest_open_time: "2026-03-10T19:00:00Z",
+            latest_close_time: "2026-03-10T20:00:00Z",
+            required_candles: 51,
+            additional_candles_needed: 31,
+            satisfies_required_candles: false,
+            freshness_status: "stale",
+            readiness_status: "not_ready",
+            detail: "need 31 more candles to satisfy replay minimum",
+          }),
+        ),
+      );
     }
 
     if (url.endsWith("/controls/operator-config")) {
@@ -312,6 +357,28 @@ test("submits edited rule-builder conditions", async () => {
 
     if (url.includes("/reports/backtest-runs")) {
       return Promise.resolve(new Response(JSON.stringify({ run_count: 0, runs: [] })));
+    }
+
+    if (url.includes("/market-data/coverage")) {
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            exchange: "binance",
+            symbol: "BTC/USDT",
+            timeframe: "1h",
+            candle_count: 120,
+            first_open_time: "2026-03-01T00:00:00Z",
+            latest_open_time: "2026-03-19T15:00:00Z",
+            latest_close_time: "2026-03-19T16:00:00Z",
+            required_candles: 51,
+            additional_candles_needed: 0,
+            satisfies_required_candles: true,
+            freshness_status: "fresh",
+            readiness_status: "ready",
+            detail: "stored history satisfies the selected replay shape",
+          }),
+        ),
+      );
     }
 
     if (url.endsWith("/controls/operator-config")) {
@@ -557,6 +624,28 @@ test("loads a recent run back into the form", async () => {
                 },
               },
             ],
+          }),
+        ),
+      );
+    }
+
+    if (url.includes("/market-data/coverage")) {
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            exchange: "binance",
+            symbol: "ETH/USDT",
+            timeframe: "4h",
+            candle_count: 180,
+            first_open_time: "2026-02-01T00:00:00Z",
+            latest_open_time: "2026-03-19T20:00:00Z",
+            latest_close_time: "2026-03-20T00:00:00Z",
+            required_candles: 27,
+            additional_candles_needed: 0,
+            satisfies_required_candles: true,
+            freshness_status: "fresh",
+            readiness_status: "ready",
+            detail: "stored history satisfies the selected replay shape",
           }),
         ),
       );

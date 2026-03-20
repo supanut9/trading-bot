@@ -226,3 +226,77 @@ def test_loading_same_demo_scenario_is_idempotent_for_candle_count(tmp_path: Pat
         assert rows == 9
     finally:
         teardown_client(session)
+
+
+def test_market_data_coverage_reports_insufficient_history(tmp_path: Path) -> None:
+    client, session = build_client(tmp_path)
+    try:
+        start = datetime(2026, 1, 1, tzinfo=UTC)
+        session.add_all(
+            [
+                CandleRecord(
+                    exchange="binance",
+                    symbol="BTC/USDT",
+                    timeframe="1h",
+                    open_time=start + timedelta(hours=index),
+                    close_time=start + timedelta(hours=index + 1),
+                    open_price=Decimal("100000"),
+                    high_price=Decimal("100100"),
+                    low_price=Decimal("99900"),
+                    close_price=Decimal("100050"),
+                    volume=Decimal("12.5"),
+                )
+                for index in range(3)
+            ]
+        )
+        session.commit()
+
+        response = client.get(
+            "/market-data/coverage",
+            params={
+                "strategy_name": "ema_crossover",
+                "symbol": "BTC/USDT",
+                "timeframe": "1h",
+                "fast_period": 3,
+                "slow_period": 5,
+            },
+        )
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["candle_count"] == 3
+        assert payload["required_candles"] == 6
+        assert payload["additional_candles_needed"] == 3
+        assert payload["satisfies_required_candles"] is False
+        assert payload["readiness_status"] == "not_ready"
+        assert payload["first_open_time"] == "2026-01-01T00:00:00Z"
+        assert payload["latest_close_time"] == "2026-01-01T03:00:00Z"
+    finally:
+        teardown_client(session)
+
+
+def test_market_data_coverage_accepts_rule_builder_rules_json(tmp_path: Path) -> None:
+    client, session = build_client(tmp_path)
+    try:
+        rules_json = (
+            '{"shared_filters":{"logic":"all","conditions":[]},'
+            '"buy_rules":{"logic":"all","conditions":[{"indicator":"ema_cross",'
+            '"operator":"bullish","fast_period":12,"slow_period":26}]},'
+            '"sell_rules":{"logic":"all","conditions":[{"indicator":"ema_cross",'
+            '"operator":"bearish","fast_period":12,"slow_period":26}]}}'
+        )
+        response = client.get(
+            "/market-data/coverage",
+            params={
+                "strategy_name": "rule_builder",
+                "rules_json": rules_json,
+            },
+        )
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["required_candles"] == 27
+        assert payload["readiness_status"] == "not_ready"
+        assert payload["freshness_status"] == "empty"
+    finally:
+        teardown_client(session)

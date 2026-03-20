@@ -93,6 +93,28 @@ test("hydrates defaults and runs market, worker, and live control actions", asyn
       );
     }
 
+    if (url.includes("/market-data/coverage")) {
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            exchange: "binance",
+            symbol: "BTC/USDT",
+            timeframe: "1h",
+            candle_count: 300,
+            first_open_time: "2026-03-07T00:00:00Z",
+            latest_open_time: "2026-03-19T15:00:00Z",
+            latest_close_time: "2026-03-19T16:00:00Z",
+            required_candles: 51,
+            additional_candles_needed: 0,
+            satisfies_required_candles: true,
+            freshness_status: "fresh",
+            readiness_status: "ready",
+            detail: "stored history satisfies the selected replay shape",
+          }),
+        ),
+      );
+    }
+
     if (url.endsWith("/controls/market-sync")) {
       expect(init?.method).toBe("POST");
       expect(init?.body).toBe(
@@ -195,6 +217,7 @@ test("hydrates defaults and runs market, worker, and live control actions", asyn
   renderWithQueryClient();
 
   await waitFor(() => expect(screen.getByDisplayValue("BTC/USDT")).toBeInTheDocument());
+  await waitFor(() => expect(screen.getByText(/Replay minimum 51/)).toBeInTheDocument());
   fireEvent.change(screen.getByDisplayValue("BTC/USDT"), {
     target: { value: "SOL/USDT" },
   });

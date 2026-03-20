@@ -71,8 +71,7 @@ Current repo baseline:
 
 Recommended next feature queue:
 
-1. `feature/backtest-run-history`
-2. `feature/market-data-coverage-readiness`
+- Phase 11 research-first queue completed on `main`
 
 ## Phase 1
 

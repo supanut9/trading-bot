@@ -29,6 +29,7 @@ Current baseline on `main`:
 - audit-report columns in the dashboard and audit CSV so operators can inspect key metadata without parsing payload JSON
 - preset-first rule-builder backtests in the dedicated Next.js backtest route over the existing control API
 - summary-level backtest run history with recent-run hydration in the dedicated backtest route
+- read-only market-data coverage and replay-readiness panels in the Next.js backtest and controls routes
 
 Current production boundary:
 
@@ -38,8 +39,7 @@ Current production boundary:
 
 Next implementation queue:
 
-1. `feature/backtest-run-history`
-2. `feature/market-data-coverage-readiness`
+- Phase 11 research-first queue completed on `main`
 
 ## Initial Market And Strategy
 
@@ -53,6 +53,7 @@ Next implementation queue:
 - fetch candle data
 - ingest closed candle batches through a local API path
 - sync recent closed candles from a configured exchange adapter before worker execution when enabled
+- expose a read-only market-data coverage view with stored range, replay minimum, and freshness status for the selected replay shape
 - backfill older candles into an existing market-data store through an operator-initiated sync mode when more history is needed for backtests
 - allow operators to run market sync against an explicit symbol and timeframe without silently mutating persisted runtime defaults
 - run deterministic backtests over stored historical candles

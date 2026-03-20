@@ -102,6 +102,22 @@ export type OperatorConfigResponse = {
   notified: boolean;
 };
 
+export type MarketDataCoverageResponse = {
+  exchange: string;
+  symbol: string;
+  timeframe: string;
+  candle_count: number;
+  first_open_time: string | null;
+  latest_open_time: string | null;
+  latest_close_time: string | null;
+  required_candles: number;
+  additional_candles_needed: number;
+  satisfies_required_candles: boolean;
+  freshness_status: string;
+  readiness_status: string;
+  detail: string;
+};
+
 export type BacktestExecutionResponse = {
   action: string;
   price: string;
@@ -490,6 +506,43 @@ export function getOperatorConfig(): Promise<OperatorConfigResponse> {
 
 export function getBacktestRuns(limit = 12): Promise<BacktestRunHistoryResponse> {
   return request<BacktestRunHistoryResponse>(`/reports/backtest-runs?limit=${limit}`);
+}
+
+export function getMarketDataCoverage(params?: {
+  strategy_name?: string;
+  exchange?: string;
+  symbol?: string;
+  timeframe?: string;
+  fast_period?: number;
+  slow_period?: number;
+  rules?: StrategyRuleBuilderRequest;
+}): Promise<MarketDataCoverageResponse> {
+  const searchParams = new URLSearchParams();
+  if (params?.strategy_name) {
+    searchParams.set("strategy_name", params.strategy_name);
+  }
+  if (params?.exchange) {
+    searchParams.set("exchange", params.exchange);
+  }
+  if (params?.symbol) {
+    searchParams.set("symbol", params.symbol);
+  }
+  if (params?.timeframe) {
+    searchParams.set("timeframe", params.timeframe);
+  }
+  if (params?.fast_period !== undefined) {
+    searchParams.set("fast_period", String(params.fast_period));
+  }
+  if (params?.slow_period !== undefined) {
+    searchParams.set("slow_period", String(params.slow_period));
+  }
+  if (params?.rules) {
+    searchParams.set("rules_json", JSON.stringify(params.rules));
+  }
+  const suffix = searchParams.toString();
+  return request<MarketDataCoverageResponse>(
+    `/market-data/coverage${suffix ? `?${suffix}` : ""}`,
+  );
 }
 
 export function updateOperatorConfig(
