@@ -17,6 +17,7 @@ from app.infrastructure.exchanges.base import (
     ExchangeOrderRequest,
     ExchangeOrderStatus,
     ExchangeOrderSubmission,
+    ExchangeSymbolRules,
     ExchangeTickerPrice,
     LiveOrderExchangeClient,
     MarketDataExchangeClient,
@@ -104,6 +105,40 @@ class BinanceMarketDataClient(MarketDataExchangeClient):
         return ExchangeTickerPrice(
             symbol=normalized_symbol,
             price=Decimal(str(raw_price)),
+        )
+
+    def fetch_symbol_rules(self, *, symbol: str) -> ExchangeSymbolRules:
+        raw_symbol = symbol.replace("/", "")
+        query = urlencode({"symbol": raw_symbol})
+        url = f"{self._base_url}/api/v3/exchangeInfo?{query}"
+        try:
+            with urlopen(url, timeout=self._timeout_seconds) as response:
+                payload = json.load(response)
+        except (HTTPError, URLError, TimeoutError, json.JSONDecodeError) as exc:
+            raise RuntimeError(f"failed to fetch Binance exchange info: {exc}") from exc
+
+        if not isinstance(payload, dict):
+            raise ValueError("unexpected Binance exchange info payload")
+
+        symbols_list = payload.get("symbols", [])
+        if not isinstance(symbols_list, list) or not symbols_list:
+            raise ValueError(f"symbol {raw_symbol} not found in Binance exchange info")
+
+        symbol_info = symbols_list[0]
+        filters = {f["filterType"]: f for f in symbol_info.get("filters", [])}
+
+        lot_size = filters.get("LOT_SIZE", {})
+        min_notional_filter = filters.get("MIN_NOTIONAL", filters.get("NOTIONAL", {}))
+        price_filter = filters.get("PRICE_FILTER", {})
+
+        return ExchangeSymbolRules(
+            exchange="binance",
+            symbol=symbol,
+            min_qty=Decimal(str(lot_size.get("minQty", "0.00000001"))),
+            max_qty=Decimal(str(lot_size.get("maxQty", "0"))),
+            step_size=Decimal(str(lot_size.get("stepSize", "0.00000001"))),
+            min_notional=Decimal(str(min_notional_filter.get("minNotional", "0"))),
+            tick_size=Decimal(str(price_filter.get("tickSize", "0.00000001"))),
         )
 
 

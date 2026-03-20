@@ -65,6 +65,17 @@ class ExchangeAssetBalance:
     locked: Decimal
 
 
+@dataclass(frozen=True, slots=True)
+class ExchangeSymbolRules:
+    exchange: str
+    symbol: str
+    min_qty: Decimal
+    max_qty: Decimal
+    step_size: Decimal
+    min_notional: Decimal
+    tick_size: Decimal
+
+
 class MarketDataExchangeClient(Protocol):
     name: str
 
@@ -77,6 +88,8 @@ class MarketDataExchangeClient(Protocol):
     ) -> Sequence[ExchangeCandle]: ...
 
     def fetch_latest_price(self, *, symbol: str) -> ExchangeTickerPrice: ...
+
+    def fetch_symbol_rules(self, *, symbol: str) -> ExchangeSymbolRules: ...
 
 
 class LiveOrderExchangeClient(Protocol):

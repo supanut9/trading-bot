@@ -1,5 +1,6 @@
 from decimal import ROUND_DOWN, Decimal
 
+from app.domain.order_rules import OrderRuleViolation, validate_and_snap_quantity
 from app.domain.risk.models import PortfolioState, RiskDecision, RiskLimits, TradeContext
 
 
@@ -45,6 +46,14 @@ class RiskService:
                 approved=False,
                 reason="calculated quantity must be positive",
             )
+
+        if self._limits.symbol_rules is not None:
+            try:
+                quantity = validate_and_snap_quantity(
+                    quantity, trade.entry_price, self._limits.symbol_rules
+                )
+            except OrderRuleViolation as exc:
+                return RiskDecision(approved=False, reason=exc.reason)
 
         if (
             is_entry

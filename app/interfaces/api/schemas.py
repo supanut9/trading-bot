@@ -529,3 +529,19 @@ class AuditDashboardResponse(BaseModel):
     event_count: int
     filters: AuditReportFiltersResponse
     events: list[AuditEventResponse]
+
+
+class SymbolRulesControlResponse(BaseModel):
+    status: str
+    detail: str
+    exchange: str
+    symbol: str
+    min_qty: Decimal | None = None
+    max_qty: Decimal | None = None
+    step_size: Decimal | None = None
+    min_notional: Decimal | None = None
+    tick_size: Decimal | None = None
+    fetched_at: str | None = None
+    source: str | None = None
+
+    model_config = ConfigDict(from_attributes=True)

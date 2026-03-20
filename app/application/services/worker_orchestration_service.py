@@ -11,6 +11,7 @@ from app.application.services.market_data_service import MarketDataService
 from app.application.services.market_data_sync_service import MarketDataSyncService
 from app.application.services.operator_runtime_config_service import OperatorRuntimeConfig
 from app.application.services.paper_execution_service import PaperExecutionRequest
+from app.application.services.symbol_rules_service import SymbolRulesService
 from app.config import Settings
 from app.core.logger import get_logger
 from app.domain.risk import PortfolioState, RiskLimits, RiskService, TradeContext
@@ -76,6 +77,13 @@ class WorkerOrchestrationService:
         live_halt_state = LiveOperatorControlService(
             session, settings
         ).get_live_trading_halt_state()
+        active_symbol = (
+            operator_config.symbol if operator_config is not None else settings.default_symbol
+        )
+        stored_symbol_rules = SymbolRulesService(session).get_rules(
+            exchange=settings.exchange_name,
+            symbol=active_symbol,
+        )
         self._risk = risk_service or RiskService(
             RiskLimits(
                 risk_per_trade_pct=Decimal(str(settings.risk_per_trade_pct)),
@@ -85,6 +93,7 @@ class WorkerOrchestrationService:
                 live_trading_halted=live_halt_state.halted,
                 live_max_order_notional=settings.live_max_order_notional,
                 live_max_position_quantity=settings.live_max_position_quantity,
+                symbol_rules=stored_symbol_rules,
             )
         )
 

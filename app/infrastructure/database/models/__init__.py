@@ -5,6 +5,7 @@ from app.infrastructure.database.models.operator_config import OperatorConfigRec
 from app.infrastructure.database.models.order import OrderRecord
 from app.infrastructure.database.models.position import PositionRecord
 from app.infrastructure.database.models.runtime_control import RuntimeControlRecord
+from app.infrastructure.database.models.symbol_rules import SymbolRulesRecord
 from app.infrastructure.database.models.trade import TradeRecord
 
 __all__ = [
@@ -15,5 +16,6 @@ __all__ = [
     "OrderRecord",
     "PositionRecord",
     "RuntimeControlRecord",
+    "SymbolRulesRecord",
     "TradeRecord",
 ]
