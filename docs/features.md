@@ -1057,12 +1057,68 @@ Main outputs:
 - generic audit summary, filter form, and recent-audit table in the reporting route
 - read-only audit filters with matching filtered CSV export links
 
+### 56. `feature/rule-builder-editor-ui`
+
+Status:
+
+- in progress on `feature/rule-builder-editor-ui`
+
+Scope:
+
+- turn the current preset-first rule-builder backtest path into a real bounded editor
+- keep the rule-builder strategy backtest-only and reuse the existing backtest control API
+- surface validation feedback clearly without introducing a new strategy-management backend
+
+Main outputs:
+
+- editable `shared_filters`, `buy_rules`, and `sell_rules` groups in the Next.js backtest route
+- condition add, remove, and logic controls for the existing rule-builder indicators
+- clearer validation feedback when a submitted rule payload is invalid
+
+### 57. `feature/backtest-run-history`
+
+Status:
+
+- planned
+
+Scope:
+
+- persist summary-level backtest runs for later review
+- make recent replay outcomes reviewable without rerunning immediately
+- keep the feature bounded to summary history rather than full execution-ledger persistence
+
+Main outputs:
+
+- stored recent backtest runs with inputs, summary metrics, and serialized rules
+- read-only recent-run JSON and CSV reporting
+- backtest UI hydration from a selected prior run
+
+### 58. `feature/market-data-coverage-readiness`
+
+Status:
+
+- planned
+
+Scope:
+
+- expose historical candle coverage and replay readiness before a backtest runs
+- keep the feature read-only and focused on operator visibility rather than repair automation
+- reuse current market and strategy inputs to explain whether the dataset is sufficient
+
+Main outputs:
+
+- read-only coverage and readiness API for exchange, symbol, timeframe, and selected replay shape
+- backtest and market-sync visibility into stored range, candle count, and readiness status
+- operator guidance when more history is needed before replay
+
 ## Current Recommended Queue
 
 These are the next bounded features after the current `main` baseline:
 
-- no operator-ux follow-up feature is currently queued in this document
+1. `feature/rule-builder-editor-ui`
+2. `feature/backtest-run-history`
+3. `feature/market-data-coverage-readiness`
 
 Current next feature:
 
-- not yet defined
+- `feature/rule-builder-editor-ui`

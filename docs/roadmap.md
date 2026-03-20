@@ -71,7 +71,9 @@ Current repo baseline:
 
 Recommended next feature queue:
 
-1. no feature currently queued; define the next bounded unit before starting Phase 11 work
+1. `feature/rule-builder-editor-ui`
+2. `feature/backtest-run-history`
+3. `feature/market-data-coverage-readiness`
 
 ## Phase 1
 
