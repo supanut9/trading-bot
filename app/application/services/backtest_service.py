@@ -11,7 +11,9 @@ from app.domain.strategies.ema_crossover import EmaCrossoverStrategy
 class BacktestExecution:
     action: str
     price: Decimal
+    fill_price: Decimal
     quantity: Decimal
+    fee: Decimal
     realized_pnl: Decimal
     reason: str
 
@@ -22,10 +24,13 @@ class BacktestResult:
     ending_equity: Decimal
     total_return_pct: Decimal
     realized_pnl: Decimal
+    total_fees_paid: Decimal
     max_drawdown_pct: Decimal
     total_trades: int
     winning_trades: int
     losing_trades: int
+    slippage_pct: Decimal
+    fee_pct: Decimal
     executions: tuple[BacktestExecution, ...]
 
 
@@ -36,6 +41,8 @@ class BacktestService:
         strategy: Strategy | None = None,
         risk_service: RiskService | None = None,
         starting_equity: Decimal = Decimal("10000"),
+        slippage_pct: Decimal = Decimal("0"),
+        fee_pct: Decimal = Decimal("0"),
     ) -> None:
         self._strategy = strategy or EmaCrossoverStrategy()
         self._risk = risk_service or RiskService(
@@ -47,25 +54,29 @@ class BacktestService:
             )
         )
         self._starting_equity = starting_equity
+        self._slippage_pct = slippage_pct
+        self._fee_pct = fee_pct
 
     def run(self, candles: Sequence[Candle]) -> BacktestResult:
         ordered_candles = sorted(candles, key=lambda candle: candle.open_time)
         peak_equity = self._starting_equity
         max_drawdown_pct = Decimal("0")
         realized_pnl = Decimal("0")
+        total_fees_paid = Decimal("0")
         winning_trades = 0
         losing_trades = 0
         executions: list[BacktestExecution] = []
 
         position_quantity = Decimal("0")
-        average_entry_price: Decimal | None = None
+        average_entry_fill_price: Decimal | None = None
+        pending_entry_fee = Decimal("0")
 
         for index in range(len(ordered_candles)):
             candle = ordered_candles[index]
             marked_equity = self._mark_to_market_equity(
                 realized_pnl=realized_pnl,
                 position_quantity=position_quantity,
-                average_entry_price=average_entry_price,
+                average_entry_fill_price=average_entry_fill_price,
                 mark_price=candle.close_price,
             )
             peak_equity = max(peak_equity, marked_equity)
@@ -95,20 +106,33 @@ class BacktestService:
                 if position_quantity > Decimal("0"):
                     continue
 
+                fill_price = candle.close_price * (Decimal("1") + self._slippage_pct)
+                entry_fee = fill_price * decision.quantity * self._fee_pct
                 position_quantity = decision.quantity
-                average_entry_price = candle.close_price
+                average_entry_fill_price = fill_price
+                pending_entry_fee = entry_fee
+                total_fees_paid += entry_fee
                 executions.append(
                     BacktestExecution(
                         action="buy",
                         price=candle.close_price,
+                        fill_price=fill_price,
                         quantity=position_quantity,
+                        fee=entry_fee,
                         realized_pnl=Decimal("0"),
                         reason=signal.reason,
                     )
                 )
-            elif position_quantity > Decimal("0") and average_entry_price is not None:
-                trade_pnl = (candle.close_price - average_entry_price) * position_quantity
+            elif position_quantity > Decimal("0") and average_entry_fill_price is not None:
+                fill_price = candle.close_price * (Decimal("1") - self._slippage_pct)
+                exit_fee = fill_price * position_quantity * self._fee_pct
+                trade_pnl = (
+                    (fill_price - average_entry_fill_price) * position_quantity
+                    - pending_entry_fee
+                    - exit_fee
+                )
                 realized_pnl += trade_pnl
+                total_fees_paid += exit_fee
                 if trade_pnl > Decimal("0"):
                     winning_trades += 1
                 elif trade_pnl < Decimal("0"):
@@ -117,18 +141,28 @@ class BacktestService:
                     BacktestExecution(
                         action="sell",
                         price=candle.close_price,
+                        fill_price=fill_price,
                         quantity=position_quantity,
+                        fee=exit_fee,
                         realized_pnl=trade_pnl,
                         reason=signal.reason,
                     )
                 )
                 position_quantity = Decimal("0")
-                average_entry_price = None
+                average_entry_fill_price = None
+                pending_entry_fee = Decimal("0")
 
-        if position_quantity > Decimal("0") and average_entry_price is not None:
+        if position_quantity > Decimal("0") and average_entry_fill_price is not None:
             final_price = ordered_candles[-1].close_price
-            trade_pnl = (final_price - average_entry_price) * position_quantity
+            fill_price = final_price * (Decimal("1") - self._slippage_pct)
+            exit_fee = fill_price * position_quantity * self._fee_pct
+            trade_pnl = (
+                (fill_price - average_entry_fill_price) * position_quantity
+                - pending_entry_fee
+                - exit_fee
+            )
             realized_pnl += trade_pnl
+            total_fees_paid += exit_fee
             if trade_pnl > Decimal("0"):
                 winning_trades += 1
             elif trade_pnl < Decimal("0"):
@@ -137,7 +171,9 @@ class BacktestService:
                 BacktestExecution(
                     action="sell",
                     price=final_price,
+                    fill_price=fill_price,
                     quantity=position_quantity,
+                    fee=exit_fee,
                     realized_pnl=trade_pnl,
                     reason="forced close on final candle",
                 )
@@ -155,10 +191,13 @@ class BacktestService:
             ending_equity=ending_equity,
             total_return_pct=total_return_pct,
             realized_pnl=realized_pnl,
+            total_fees_paid=total_fees_paid,
             max_drawdown_pct=max_drawdown_pct,
             total_trades=len(executions),
             winning_trades=winning_trades,
             losing_trades=losing_trades,
+            slippage_pct=self._slippage_pct,
+            fee_pct=self._fee_pct,
             executions=tuple(executions),
         )
 
@@ -186,13 +225,13 @@ class BacktestService:
         *,
         realized_pnl: Decimal,
         position_quantity: Decimal,
-        average_entry_price: Decimal | None,
+        average_entry_fill_price: Decimal | None,
         mark_price: Decimal,
     ) -> Decimal:
-        if position_quantity <= Decimal("0") or average_entry_price is None:
+        if position_quantity <= Decimal("0") or average_entry_fill_price is None:
             return self._starting_equity + realized_pnl
 
-        unrealized_pnl = (mark_price - average_entry_price) * position_quantity
+        unrealized_pnl = (mark_price - average_entry_fill_price) * position_quantity
         return self._starting_equity + realized_pnl + unrealized_pnl
 
     @staticmethod

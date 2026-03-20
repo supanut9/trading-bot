@@ -60,6 +60,8 @@ class BacktestRunOptions:
     fast_period: int | None = None
     slow_period: int | None = None
     starting_equity: Decimal | None = None
+    slippage_pct: Decimal | None = None
+    fee_pct: Decimal | None = None
     rules: RuleBuilderStrategyConfig | None = None
 
 
@@ -73,7 +75,9 @@ def required_candles_for_backtest_options(options: BacktestRunOptions) -> int:
 class BacktestExecutionResult:
     action: str
     price: Decimal
+    fill_price: Decimal
     quantity: Decimal
+    fee: Decimal
     realized_pnl: Decimal
     reason: str
 
@@ -112,6 +116,9 @@ class BacktestControlResult:
     total_trades: int | None = None
     winning_trades: int | None = None
     losing_trades: int | None = None
+    total_fees_paid: Decimal | None = None
+    slippage_pct: Decimal | None = None
+    fee_pct: Decimal | None = None
     rules: RuleBuilderStrategyConfig | None = None
     executions: tuple[BacktestExecutionResult, ...] = ()
 
@@ -525,12 +532,17 @@ class OperationalControlService:
             total_trades=backtest_result.total_trades,
             winning_trades=backtest_result.winning_trades,
             losing_trades=backtest_result.losing_trades,
+            total_fees_paid=self._quantize_decimal(backtest_result.total_fees_paid),
+            slippage_pct=self._quantize_decimal(backtest_result.slippage_pct),
+            fee_pct=self._quantize_decimal(backtest_result.fee_pct),
             rules=resolved.rules,
             executions=tuple(
                 BacktestExecutionResult(
                     action=execution.action,
                     price=self._quantize_decimal(execution.price) or Decimal("0"),
+                    fill_price=self._quantize_decimal(execution.fill_price) or Decimal("0"),
                     quantity=self._quantize_decimal(execution.quantity) or Decimal("0"),
+                    fee=self._quantize_decimal(execution.fee) or Decimal("0"),
                     realized_pnl=self._quantize_decimal(execution.realized_pnl) or Decimal("0"),
                     reason=execution.reason,
                 )
@@ -887,10 +899,22 @@ class OperationalControlService:
         *,
         options: BacktestRunOptions,
     ) -> BacktestResult:
+        slippage_pct = (
+            options.slippage_pct
+            if options.slippage_pct is not None
+            else Decimal(str(self._settings.backtest_slippage_pct))
+        )
+        fee_pct = (
+            options.fee_pct
+            if options.fee_pct is not None
+            else Decimal(str(self._settings.backtest_fee_pct))
+        )
         return BacktestService(
             strategy=self._build_backtest_strategy(options),
             risk_service=self._build_risk_service(),
             starting_equity=options.starting_equity,
+            slippage_pct=slippage_pct,
+            fee_pct=fee_pct,
         ).run(
             [
                 Candle(

@@ -42,6 +42,9 @@ class BacktestRunRepository:
         total_trades: int | None,
         winning_trades: int | None,
         losing_trades: int | None,
+        total_fees_paid,
+        slippage_pct,
+        fee_pct,
         rules_json: str | None,
     ) -> BacktestRunRecord:
         record = BacktestRunRecord(
@@ -65,6 +68,9 @@ class BacktestRunRepository:
             total_trades=total_trades,
             winning_trades=winning_trades,
             losing_trades=losing_trades,
+            total_fees_paid=total_fees_paid,
+            slippage_pct=slippage_pct,
+            fee_pct=fee_pct,
             rules_json=rules_json,
         )
         self._session.add(record)

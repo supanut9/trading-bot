@@ -63,15 +63,49 @@ Before merge:
 
 Completed on `main`:
 
-- Phase 1 through Phase 10
+- Phase 1 through Phase 11
 
 Current repo baseline:
 
-- paper-trading-first runtime with deterministic backtesting, bounded operator controls, reporting UI, operator console, performance analytics, deployment packaging, live-readiness groundwork, correlated runtime logging, correlation-aware notifications, notification-delivery reporting, notification-delivery filters, audit-report filters, and audit-report columns
+- paper-trading-first runtime with deterministic backtesting, bounded operator controls, in-repo Next.js operator UI, performance analytics, deployment packaging, live-readiness groundwork, correlated runtime logging, correlation-aware notifications, notification-delivery reporting, notification-delivery filters, audit-report filters, audit-report columns, preset-first rule-builder backtests, backtest run history, and market-data coverage readiness
 
 Recommended next feature queue:
 
-- Phase 11 research-first queue completed on `main`
+Strategy quality first — these three features must come before any live deployment work:
+
+- 1. `feature/realistic-backtest-cost-modeling`
+- 2. `feature/walk-forward-validation`
+- 3. `feature/signal-quality-improvements`
+
+Live readiness — exchange correctness, shadow validation, and qualification gates:
+
+- 4. `feature/exchange-rule-enforcement`
+- 5. `feature/shadow-strategy-runtime`
+- 6. `feature/strategy-qualification-gates`
+
+Live execution infrastructure — risk gates, smart order routing, submission proof, and ledger:
+
+- 7. `feature/live-risk-hard-gates`
+- 8. `feature/smart-order-execution`
+- 9. `feature/validate-only-live-orders`
+- 10. `feature/live-ledger-reconciliation-hardening`
+
+Live deployment — ops hardening, canary rollout, and fail-closed halting:
+
+- 11. `feature/production-secrets-and-ops-hardening`
+- 12. `feature/canary-live-rollout`
+- 13. `feature/live-incident-auto-halt`
+
+Iteration — performance review and strategy improvement loop:
+
+- 14. `feature/live-performance-review-loop`
+- 15. `feature/strategy-iteration-workflow`
+
+Project completion boundary:
+
+- one approved strategy can trade real money and has demonstrated positive expectancy after costs in walk-forward and shadow validation
+- live execution is bounded by hard risk gates, exchange-rule enforcement, trustworthy reconciliation, and fail-closed incident handling
+- completion means operationally safe and evidence-backed live execution, not guaranteed profitability in all market conditions
 
 ## Phase 1
 
@@ -182,3 +216,63 @@ Status:
 - surface live price and current market context without requiring raw API calls
 - make paper-trading and demo validation easier through bounded operator controls
 - keep the UX operational and lightweight instead of introducing a separate frontend stack
+
+## Phase 11
+
+Status:
+
+- completed on `main`
+
+- finish the research-first operator workflow
+- add editable rule-builder backtests, recent replay history, and replay-readiness visibility
+- keep all strategy flexibility bounded to backtesting rather than runtime execution
+
+## Phase 12
+
+Status:
+
+- planned
+
+- add realistic slippage and fee modeling to backtests so PnL expectations are trustworthy
+- add walk-forward validation to detect overfitting before any live decisions are made
+- add RSI and volume signal filters to reduce false entries and improve edge quality
+
+## Phase 13
+
+Status:
+
+- planned
+
+- enforce exchange symbol rules and precision for pre-submit correctness
+- run the strategy in shadow mode against live data and measure signal drift versus walk-forward baseline
+- define qualification gates that require positive cost-adjusted out-of-sample evidence before any capital is risked
+
+## Phase 14
+
+Status:
+
+- planned
+
+- harden live risk controls into hard blocking gates
+- add limit-order execution with slippage tracking and fee-aware pre-submit validation
+- prove signed submission via validate-only controls and harden the live ledger for partial fills
+
+## Phase 15
+
+Status:
+
+- planned
+
+- close operational gaps in secrets, backups, alerts, and incident drills
+- enable one tightly bounded canary live rollout gated by the full promotion checklist
+- add automatic incident halts when live state becomes unreliable
+
+## Phase 16
+
+Status:
+
+- planned
+
+- compare live results against walk-forward and shadow expectations on a fixed review loop
+- identify whether underperformance is strategy decay, execution cost overshoot, or regime change
+- define and execute the strategy re-validation and re-promotion workflow when results fall short

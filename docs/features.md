@@ -1111,10 +1111,291 @@ Main outputs:
 - backtest and market-sync visibility into stored range, candle count, and readiness status
 - operator guidance when more history is needed before replay
 
+### 59. `feature/realistic-backtest-cost-modeling`
+
+Status:
+
+- planned
+
+Scope:
+
+- add slippage and fee deductions to the backtest engine so reported PnL reflects real trading costs
+- without this, backtest metrics overstate performance and all downstream qualification thresholds are based on inflated evidence
+- keep the feature bounded to cost modeling in the existing backtest path rather than adding new strategies
+
+Main outputs:
+
+- configurable slippage percentage and taker fee rate applied per fill in backtest simulation
+- cost-adjusted PnL, net return, and total fees paid surfaced in backtest summary and CSV exports
+- updated rule-builder presets with sensible default cost assumptions for BTC/USDT on Binance
+
+### 60. `feature/walk-forward-validation`
+
+Status:
+
+- planned
+
+Scope:
+
+- split historical candle data into an in-sample optimization window and a separate out-of-sample test window
+- a strategy that only passes in-sample is curve-fit and will likely lose money on live data
+- keep the feature bounded to validation reporting rather than automated parameter search
+
+Main outputs:
+
+- walk-forward backtest mode with configurable in-sample and out-of-sample date splits
+- side-by-side in-sample versus out-of-sample comparison in backtest results (win rate, expectancy, drawdown, Sharpe)
+- overfitting warning when out-of-sample performance degrades more than a configurable threshold versus in-sample
+- walk-forward results stored in backtest run history alongside standard replay results
+
+### 61. `feature/signal-quality-improvements`
+
+Status:
+
+- planned
+
+Scope:
+
+- add RSI overbought/oversold filters and volume confirmation to the EMA crossover strategy
+- the base EMA crossover generates too many false signals in ranging or low-volume markets, which erodes edge through repeated small losses and fees
+- keep the feature bounded to the rule-builder indicator set and the existing strategy layer
+
+Main outputs:
+
+- RSI filter bounds configurable in the rule-builder (e.g. only buy when RSI < 65, only sell when RSI > 35)
+- volume confirmation threshold configurable in the rule-builder (require volume above N-period average at signal)
+- updated default presets incorporating cost-effective filter combinations based on walk-forward evidence
+- signal quality metrics in backtest reports: raw signal count, filter rejection rate, and net signal count
+
+### 62. `feature/exchange-rule-enforcement`
+
+Status:
+
+- planned
+
+Scope:
+
+- enforce exchange symbol filters before any real-money submission path is allowed
+- normalize quantity, price, notional, and precision handling against exchange metadata
+- keep the feature bounded to pre-submit correctness rather than enabling live trading by itself
+
+Main outputs:
+
+- exchange trading-rule fetch and persistence for the configured symbol
+- order-sizing validation for min quantity, min notional, step size, and tick size
+- explicit reject reasons when a proposed live order violates exchange rules
+
+### 63. `feature/shadow-strategy-runtime`
+
+Status:
+
+- planned
+
+Scope:
+
+- run the production strategy in shadow mode against live market data without submitting exchange orders
+- track whether live signal behavior and simulated fill outcomes match walk-forward out-of-sample expectations
+- keep the feature bounded to validation and observability rather than capital deployment
+
+Main outputs:
+
+- shadow-trading execution mode with cost-model-aware simulated fills
+- persisted shadow signal history with entry price, simulated exit, gross and net PnL per trade
+- signal quality drift report: shadow win rate, expectancy, and drawdown versus walk-forward OOS baseline
+- blocked-signal log showing which filter rules are preventing entries in live conditions
+
+### 64. `feature/strategy-qualification-gates`
+
+Status:
+
+- planned
+
+Scope:
+
+- define the minimum evidence required before a strategy is allowed to touch real money
+- gates must be based on cost-adjusted, out-of-sample, and shadow results rather than raw in-sample backtest metrics
+- make go or no-go decisions operator-visible and auditable
+
+Main outputs:
+
+- qualification checklist with explicit pass/fail thresholds:
+  - positive expectancy after slippage and fees (in-sample and OOS)
+  - OOS Sharpe ratio above 0.5 annualized
+  - OOS max drawdown below 25%
+  - OOS net return within 35% of in-sample net return (overfitting guard)
+  - shadow win rate and expectancy within 20% of OOS backtest baseline
+  - at least 30 completed shadow trades before promotion is allowed
+- operator-facing qualification report with per-gate pass/fail and evidence summary
+- hard block on live mode enablement until all gates pass
+
+### 65. `feature/live-risk-hard-gates`
+
+Status:
+
+- planned
+
+Scope:
+
+- harden risk controls from paper-safe defaults into real-money blocking gates
+- add fail-closed behavior for live loss, exposure, and repeated-error conditions
+- keep the feature bounded to capital protection rather than rollout workflow
+
+Main outputs:
+
+- live-only max daily loss, max weekly loss, and max concurrent exposure limits
+- consecutive-loss and repeated-reject auto-halt triggers
+- persisted live kill switch and machine-readable halt reasons
+
+### 66. `feature/smart-order-execution`
+
+Status:
+
+- planned
+
+Scope:
+
+- submit live orders as limit orders at a configurable offset from signal price to reduce fill costs
+- fall back to market order after a configurable timeout only if the limit has not filled
+- track actual fill price versus signal price per order so slippage is measured against modeled assumptions
+- keep the feature bounded to order routing behavior without changing strategy or risk logic
+
+Main outputs:
+
+- limit-order mode with configurable price offset and timeout in environment config
+- fill-price versus signal-price delta recorded per live order for slippage tracking
+- fee-aware pre-submit check that blocks orders where expected gross profit does not exceed estimated round-trip fee cost
+- slippage and fee summary in live reporting alongside realized PnL
+
+### 67. `feature/validate-only-live-orders`
+
+Status:
+
+- planned
+
+Scope:
+
+- prove signed exchange submission works end to end before any money is risked
+- use exchange test or validate-only paths where available
+- keep the feature bounded to submission correctness rather than actual fills
+
+Main outputs:
+
+- validate-only live order control path
+- audit and reporting for exchange acceptance or rejection of signed payloads
+- runbook steps for credentials, permissions, and pre-live connectivity verification
+
+### 68. `feature/live-ledger-reconciliation-hardening`
+
+Status:
+
+- planned
+
+Scope:
+
+- make the local order, trade, fee, and position ledger trustworthy under partial fills and exchange lag
+- strengthen restart and replay safety for unresolved live state
+- keep the feature bounded to correctness of live state rather than new strategy behavior
+
+Main outputs:
+
+- partial-fill-aware order and position reconciliation
+- fee and average-price normalization from exchange fills
+- stronger idempotency and drift detection between exchange state and local ledger
+
+### 69. `feature/production-secrets-and-ops-hardening`
+
+Status:
+
+- planned
+
+Scope:
+
+- close the operational gaps that make real-money mode unsafe even when the code path exists
+- harden secrets, backups, alert routing, and recovery drills before capital is deployed
+- keep the feature bounded to runtime safety posture rather than strategy logic
+
+Main outputs:
+
+- documented secret-rotation and restricted-key workflow
+- enforced backup and restore checks for live-capable deployments
+- operator drills for restart, rollback, reconciliation failure, and alert escalation
+
+### 70. `feature/canary-live-rollout`
+
+Status:
+
+- planned
+
+Scope:
+
+- enable real-money execution for one approved strategy, one symbol, and tightly bounded capital
+- keep rollout deliberately narrow so failures are contained and observable
+- require explicit operator promotion through paper → shadow → qualification → canary live
+
+Main outputs:
+
+- canary live mode with very small configured capital limits
+- promotion checklist from paper to shadow to qualification gates to canary live
+- live execution reporting for fills, actual slippage, realized PnL, and halt reasons
+
+### 71. `feature/live-incident-auto-halt`
+
+Status:
+
+- planned
+
+Scope:
+
+- automatically stop new live entries when runtime state becomes unreliable
+- favor fail-closed behavior over attempted self-recovery with uncertain exchange state
+- keep the feature bounded to incident containment rather than incident resolution automation
+
+Main outputs:
+
+- auto-halt on reconciliation drift, stale balances, repeated exchange errors, or missing market data
+- structured incident reasons surfaced in status, audit, and notifications
+- operator workflow for investigation, acknowledgment, and controlled resume
+
+### 72. `feature/live-performance-review-loop`
+
+Status:
+
+- planned
+
+Scope:
+
+- compare live results against walk-forward OOS expectations and shadow baseline to detect real edge decay
+- identify whether underperformance is due to strategy degradation, execution cost overshoot, or market regime change
+- define explicit criteria for keep-running, reduce-risk, pause-and-rework, or halt decisions
+
+Main outputs:
+
+- live-versus-shadow-versus-walk-forward-OOS comparison reporting with cost-adjusted metrics
+- monthly operator review template covering win rate, expectancy, slippage, drawdown, and regime context
+- strategy health indicators: slippage vs model, OOS drift, signal frequency changes, and consecutive-loss trend
+
+### 73. `feature/strategy-iteration-workflow`
+
+Status:
+
+- planned
+
+Scope:
+
+- close the feedback loop when live results fall below walk-forward expectations
+- define how the strategy is re-validated on fresh data, adjusted, and promoted back through shadow before re-enabling live
+- keep the feature bounded to the existing one-strategy, one-symbol scope rather than opening multi-strategy management
+
+Main outputs:
+
+- parameter re-optimization workflow on the most recent candle window with walk-forward revalidation
+- operator-driven promotion path from halt-for-rework back through walk-forward, shadow, and qualification gates
+- changelog of strategy versions with their qualification evidence and live outcome summaries
+
 ## Current Recommended Queue
 
-The Phase 11 research-first queue is complete on `main`.
+Live trading should stay disabled until the strategy quality features (59-61) are delivered and pass walk-forward and qualification gates. Safety infrastructure features (62-71) enable deployment; strategy quality features (59-61, 63-64) determine whether deploying is worth doing.
 
 Next bounded feature:
 
-- to be defined before the next implementation branch
+- `feature/realistic-backtest-cost-modeling`

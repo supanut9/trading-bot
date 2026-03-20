@@ -870,3 +870,25 @@ Backtest control runs now persist one summary row per replay attempt with the su
 Operators now have multiple replay inputs and a growing market-sync workflow, but readiness still depends on the same stored candle set rather than a second planning artifact. The missing capability was visibility into stored range, replay minimum, and freshness before running a backtest, not automatic repair or another mutation path.
 
 Replay readiness now lives behind a read-only `GET /market-data/coverage` endpoint that reuses the backend backtest-shape rules to calculate `required_candles`. The Next.js `/backtest` and `/controls` routes consume that endpoint to show candle count, stored range, freshness, and gap-to-ready guidance while keeping all write behavior in the existing sync and backtest controls.
+
+## 2026-03-20: Define Project Completion As Controlled Live Trading, Not Guaranteed Alpha
+
+The repository has now reached the end of the research-first queue, so the next planning step is to define what "done" means before more implementation branches start. For a trading bot, pretending the project is complete only when it can "make money" would be dishonest because profitability depends on market regime, fees, slippage, and ongoing operator judgment rather than code alone.
+
+Project completion is now defined as controlled real-money trading for one approved strategy and one symbol with explicit promotion gates, hard risk controls, exchange-rule enforcement, trustworthy reconciliation, and fail-closed incident handling.
+
+## 2026-03-20: Front-Load Strategy Quality Before Live Deployment Work
+
+The original planned feature queue sequenced safety gates and live deployment infrastructure first, then backtest validation and shadow testing. This ordering is backwards: safely deploying a strategy with inflated backtest metrics, no out-of-sample testing, and market-order fills will still lose money regardless of how robust the deployment is.
+
+The feature plan is revised to front-load three strategy quality features before any live-readiness work begins:
+
+- realistic backtest cost modeling (slippage and fees) so PnL expectations are not inflated
+- walk-forward validation so any strategy promoted to live has demonstrated positive expectancy on data it was not optimized against
+- signal quality improvements (RSI and volume filters) to reduce false entries that erode edge through repeated fees and small losses
+
+A smart order execution feature is added to the live infrastructure phase to minimize fill costs through limit orders and track actual slippage versus modeled assumptions.
+
+Qualification gates are revised to require cost-adjusted out-of-sample evidence and shadow-versus-backtest drift within bounds rather than in-sample backtest metrics alone.
+
+A strategy iteration workflow closes the feedback loop when live performance falls below walk-forward expectations, defining how the strategy is re-validated and re-promoted rather than left running on a degrading edge.

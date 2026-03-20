@@ -220,6 +220,9 @@ class BacktestControlResponse(BaseModel):
     total_trades: int | None = None
     winning_trades: int | None = None
     losing_trades: int | None = None
+    total_fees_paid: Decimal | None = None
+    slippage_pct: Decimal | None = None
+    fee_pct: Decimal | None = None
     rules: "StrategyRuleBuilderRequest | None" = None
     executions: list["BacktestExecutionResponse"] = Field(default_factory=list)
 
@@ -229,7 +232,9 @@ class BacktestControlResponse(BaseModel):
 class BacktestExecutionResponse(BaseModel):
     action: str
     price: Decimal
+    fill_price: Decimal
     quantity: Decimal
+    fee: Decimal
     realized_pnl: Decimal
     reason: str
 
@@ -275,6 +280,8 @@ class BacktestControlRequest(BaseModel):
     fast_period: int | None = None
     slow_period: int | None = None
     starting_equity: Decimal | None = None
+    slippage_pct: Decimal | None = None
+    fee_pct: Decimal | None = None
     rules: "StrategyRuleBuilderRequest | None" = None
 
 

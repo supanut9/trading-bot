@@ -79,6 +79,9 @@ class BacktestRunHistoryService:
                 total_trades=result.total_trades,
                 winning_trades=result.winning_trades,
                 losing_trades=result.losing_trades,
+                total_fees_paid=getattr(result, "total_fees_paid", None),
+                slippage_pct=getattr(result, "slippage_pct", None),
+                fee_pct=getattr(result, "fee_pct", None),
                 rules_json=rules_json,
             )
         )
