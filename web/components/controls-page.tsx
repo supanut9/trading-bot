@@ -24,6 +24,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
   getOperatorConfig,
   getMarketDataCoverage,
+  getQualification,
   getStatus,
   runLiveCancel,
   runLiveHalt,
@@ -36,6 +37,7 @@ import {
   type MarketDataCoverageResponse,
   type MarketSyncControlResponse,
   type OperatorConfigResponse,
+  type QualificationReportResponse,
   type StatusResponse,
   type WorkerControlResponse,
 } from "@/lib/api";
@@ -332,6 +334,69 @@ function LiveCancelResultPanel({ result }: { result: LiveCancelControlResponse |
   );
 }
 
+function QualificationReportPanel({
+  report,
+  isLoading,
+}: {
+  report: QualificationReportResponse | undefined;
+  isLoading: boolean;
+}) {
+  if (isLoading) {
+    return <Skeleton className="h-64" />;
+  }
+
+  if (!report) {
+    return (
+      <div className="flex min-h-40 items-center justify-center rounded-[1.8rem] border border-dashed border-white/10 bg-white/[0.02] px-6 text-center text-sm text-slate-400">
+        Qualification report unavailable.
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          {report.all_passed ? (
+            <ShieldCheck className="h-5 w-5 text-emerald-400" />
+          ) : (
+            <ShieldAlert className="h-5 w-5 text-rose-400" />
+          )}
+          <span className={`text-sm font-semibold ${report.all_passed ? "text-emerald-400" : "text-rose-400"}`}>
+            {report.all_passed ? "STRATEGY QUALIFIED" : "QUALIFICATION FAILED"}
+          </span>
+        </div>
+        <Badge variant={report.all_passed ? "success" : "danger"}>
+          {report.gates.filter((g) => g.passed).length} / {report.gates.length} Gates
+        </Badge>
+      </div>
+
+      <div className="grid gap-3">
+        {report.gates.map((gate) => (
+          <div
+            key={gate.name}
+            className="flex items-start justify-between gap-4 rounded-2xl border border-white/10 bg-white/[0.02] p-4"
+          >
+            <div>
+              <p className="text-sm font-medium text-white">
+                {gate.name.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase())}
+              </p>
+              <p className={`mt-1 text-xs ${gate.passed ? "text-slate-400" : "text-rose-300"}`}>
+                {gate.reason}
+              </p>
+            </div>
+            {gate.passed ? (
+              <ShieldCheck className="h-4 w-4 shrink-0 text-emerald-500/60" />
+            ) : (
+              <XCircle className="h-4 w-4 shrink-0 text-rose-500/60" />
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function ControlsPage() {
   const queryClient = useQueryClient();
   const [form, setForm] = useState<MarketSyncFormState>({
@@ -355,6 +420,12 @@ export function ControlsPage() {
     queryKey: ["status"],
     queryFn: getStatus,
   });
+
+  const qualificationQuery = useQuery({
+    queryKey: ["qualification"],
+    queryFn: getQualification,
+  });
+
   const coverageQuery = useQuery<MarketDataCoverageResponse>({
     queryKey: [
       "market-data-coverage",
@@ -538,6 +609,27 @@ export function ControlsPage() {
 
         <div className="grid gap-5 xl:grid-cols-[minmax(0,1.1fr)_minmax(380px,0.9fr)]">
           <div className="space-y-5">
+            <Card>
+              <CardHeader>
+                <div>
+                  <CardTitle>Strategy Qualification</CardTitle>
+                  <CardDescription>
+                    Review the evidence-based gates required before this strategy is permitted to
+                    trade live.
+                  </CardDescription>
+                </div>
+                <div className="rounded-2xl bg-cyan-300/10 p-3 text-cyan-200">
+                  <ShieldCheck className="h-5 w-5" />
+                </div>
+              </CardHeader>
+              <CardContent>
+                <QualificationReportPanel
+                  isLoading={qualificationQuery.isLoading}
+                  report={qualificationQuery.data}
+                />
+              </CardContent>
+            </Card>
+
             <Card>
               <CardHeader>
                 <div>

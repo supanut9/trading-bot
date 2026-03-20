@@ -1,6 +1,7 @@
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 from sqlalchemy import func, select
 
@@ -287,7 +288,12 @@ def test_rejects_live_mode_when_no_live_execution_service_exists(tmp_path: Path)
     )()
     store_closes(session, settings, [10, 10, 10, 10, 10, 9, 9, 9, 20])
 
-    result = service.run_cycle()
+    with patch(
+        "app.application.services.worker_orchestration_service.QualificationService"
+    ) as mock_svc:
+        mock_svc.return_value.evaluate.return_value = MagicMock(all_passed=True)
+        result = service.run_cycle()
+
     order_count = session.scalar(select(func.count()).select_from(OrderRecord))
 
     assert result.status == "submitted"
@@ -308,7 +314,11 @@ def test_rejects_live_buy_when_live_trading_is_halted(tmp_path: Path) -> None:
     )
     store_closes(session, settings, [10, 10, 10, 10, 10, 9, 9, 9, 20])
 
-    result = service.run_cycle()
+    with patch(
+        "app.application.services.worker_orchestration_service.QualificationService"
+    ) as mock_svc:
+        mock_svc.return_value.evaluate.return_value = MagicMock(all_passed=True)
+        result = service.run_cycle()
 
     assert result.status == "risk_rejected"
     assert result.detail == "live trading is halted by configuration"
@@ -339,7 +349,11 @@ def test_rejects_live_buy_when_active_live_order_exists(tmp_path: Path) -> None:
     session.commit()
     store_closes(session, settings, [10, 10, 10, 10, 10, 9, 9, 9, 20])
 
-    result = service.run_cycle()
+    with patch(
+        "app.application.services.worker_orchestration_service.QualificationService"
+    ) as mock_svc:
+        mock_svc.return_value.evaluate.return_value = MagicMock(all_passed=True)
+        result = service.run_cycle()
 
     assert result.status == "duplicate_live_order"
     assert result.detail == "active live order already exists for the same market side"
@@ -376,7 +390,11 @@ def test_rejects_live_buy_when_runtime_halt_override_is_enabled(tmp_path: Path) 
     service = WorkerOrchestrationService(session, settings)
     store_closes(session, settings, [10, 10, 10, 10, 10, 9, 9, 9, 20])
 
-    result = service.run_cycle()
+    with patch(
+        "app.application.services.worker_orchestration_service.QualificationService"
+    ) as mock_svc:
+        mock_svc.return_value.evaluate.return_value = MagicMock(all_passed=True)
+        result = service.run_cycle()
 
     assert result.status == "risk_rejected"
     assert result.detail == "live trading is halted by configuration"
@@ -393,7 +411,11 @@ def test_rejects_live_buy_when_order_notional_exceeds_limit(tmp_path: Path) -> N
     )
     store_closes(session, settings, [10, 10, 10, 10, 10, 9, 9, 9, 20])
 
-    result = service.run_cycle()
+    with patch(
+        "app.application.services.worker_orchestration_service.QualificationService"
+    ) as mock_svc:
+        mock_svc.return_value.evaluate.return_value = MagicMock(all_passed=True)
+        result = service.run_cycle()
 
     assert result.status == "risk_rejected"
     assert result.detail == "live order notional exceeds configured limit"
@@ -410,7 +432,32 @@ def test_rejects_live_buy_when_position_quantity_exceeds_limit(tmp_path: Path) -
     )
     store_closes(session, settings, [10, 10, 10, 10, 10, 9, 9, 9, 20])
 
-    result = service.run_cycle()
+    with patch(
+        "app.application.services.worker_orchestration_service.QualificationService"
+    ) as mock_svc:
+        mock_svc.return_value.evaluate.return_value = MagicMock(all_passed=True)
+        result = service.run_cycle()
 
     assert result.status == "risk_rejected"
     assert result.detail == "live position quantity exceeds configured limit"
+
+
+def test_rejects_live_mode_when_strategy_not_qualified(tmp_path: Path) -> None:
+    service, session, settings = build_service(
+        tmp_path,
+        PAPER_TRADING=False,
+        LIVE_TRADING_ENABLED=True,
+        EXCHANGE_API_KEY="key",
+        EXCHANGE_API_SECRET="secret",
+    )
+    store_closes(session, settings, [10, 10, 10, 10, 10, 9, 9, 9, 20])
+
+    with patch(
+        "app.application.services.worker_orchestration_service.QualificationService"
+    ) as mock_svc:
+        mock_svc.return_value.evaluate.return_value = MagicMock(all_passed=False)
+
+        result = service.run_cycle()
+
+        assert result.status == "not_qualified"
+        assert "not passed all qualification gates" in result.detail

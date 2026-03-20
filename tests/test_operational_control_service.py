@@ -449,3 +449,50 @@ def test_live_cancel_control_skips_non_cancelable_status(tmp_path) -> None:
         notified=False,
     )
     assert audit.entries[0]["status"] == "skipped"
+
+
+def test_live_halt_rejects_resume_when_strategy_not_qualified(monkeypatch) -> None:
+    settings = Settings(
+        DATABASE_URL="sqlite:///./operational_controls.db",
+        PAPER_TRADING=False,
+        LIVE_TRADING_ENABLED=True,
+        EXCHANGE_API_KEY="key",
+        EXCHANGE_API_SECRET="secret",
+    )
+    audit = RecordingAudit()
+
+    class FakeConfigService:
+        def __init__(self, _session, _settings) -> None:
+            pass
+
+        def get_effective_config(self):
+            return type("Config", (), {"symbol": "BTC/USDT"})()
+
+    class FakeQualificationService:
+        def __init__(self, _session) -> None:
+            pass
+
+        def evaluate(self, exchange, symbol):
+            return type("Report", (), {"all_passed": False})()
+
+    monkeypatch.setattr(
+        "app.application.services.operational_control_service.OperatorRuntimeConfigService",
+        FakeConfigService,
+    )
+    monkeypatch.setattr(
+        "app.application.services.operational_control_service.QualificationService",
+        FakeQualificationService,
+    )
+
+    service = OperationalControlService(
+        settings,
+        session_factory=lambda: FakeSession(SessionState()),
+        audit=audit,
+    )
+
+    result = service.run_live_halt(halted=False, source="api.control")
+
+    assert result.status == "failed"
+    assert result.detail == "cannot resume live trading: strategy not qualified"
+    assert len(audit.entries) == 1
+    assert audit.entries[0]["payload"]["reason"] == "strategy_not_qualified"

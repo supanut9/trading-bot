@@ -32,6 +32,7 @@ from app.application.services.operator_runtime_config_service import (
     OperatorRuntimeConfig,
     OperatorRuntimeConfigService,
 )
+from app.application.services.qualification_service import QualificationService
 from app.application.services.symbol_rules_service import SymbolRulesService
 from app.application.services.worker_orchestration_service import WorkerOrchestrationService
 from app.config import Settings
@@ -741,6 +742,38 @@ class OperationalControlService:
         source: str = "internal",
         audit: bool = True,
     ) -> LiveHaltControlResult:
+        if not halted and self._settings.live_trading_enabled:
+            with self._session_factory() as session:
+                config = OperatorRuntimeConfigService(
+                    session,
+                    self._settings,
+                ).get_effective_config()
+                report = QualificationService(session).evaluate(
+                    exchange=self._settings.exchange_name,
+                    symbol=config.symbol,
+                )
+                if not report.all_passed:
+                    control_result = LiveHaltControlResult(
+                        status="failed",
+                        detail="cannot resume live trading: strategy not qualified",
+                        live_trading_halted=True,
+                        changed=False,
+                    )
+                    if audit:
+                        self._audit.record_control_result(
+                            control_type="live_halt",
+                            source=source,
+                            status=control_result.status,
+                            detail=control_result.detail,
+                            settings=self._settings,
+                            payload={
+                                "live_trading_halted": control_result.live_trading_halted,
+                                "changed": control_result.changed,
+                                "reason": "strategy_not_qualified",
+                            },
+                        )
+                    return control_result
+
         with self._session_factory() as session:
             control_update = LiveOperatorControlService(
                 session,
