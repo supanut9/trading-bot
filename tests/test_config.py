@@ -75,3 +75,23 @@ def test_parses_frontend_origins_list() -> None:
         "http://127.0.0.1:3000",
         "http://localhost:3000",
     ]
+
+
+def test_shadow_trading_enabled_returns_shadow_execution_mode() -> None:
+    settings = Settings(SHADOW_TRADING_ENABLED=True)
+
+    assert settings.execution_mode == "shadow"
+
+
+def test_rejects_shadow_and_live_both_true() -> None:
+    with pytest.raises(
+        ValueError,
+        match="SHADOW_TRADING_ENABLED and LIVE_TRADING_ENABLED cannot both be true",
+    ):
+        Settings(
+            SHADOW_TRADING_ENABLED=True,
+            PAPER_TRADING=False,
+            LIVE_TRADING_ENABLED=True,
+            EXCHANGE_API_KEY="key",
+            EXCHANGE_API_SECRET="secret",
+        )

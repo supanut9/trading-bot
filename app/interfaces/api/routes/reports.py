@@ -7,8 +7,10 @@ from sqlalchemy.orm import Session, sessionmaker
 from app.application.services.audit_service import AuditEventFilters
 from app.application.services.backtest_run_history_service import BacktestRunHistoryService
 from app.application.services.live_order_recovery_report_service import RecoveryReportFilters
+from app.application.services.operator_runtime_config_service import OperatorRuntimeConfigService
 from app.application.services.reporting_dashboard_service import ReportingDashboardService
 from app.application.services.reporting_export_service import ReportingExportService
+from app.application.services.shadow_report_service import ShadowReportService
 from app.application.services.status_service import StatusService
 from app.config import Settings, get_settings
 from app.infrastructure.database.session import get_session, get_session_factory_dependency
@@ -24,6 +26,7 @@ from app.interfaces.api.schemas import (
     RecoveryEventResponse,
     RecoveryOrderResponse,
     RecoveryReportFiltersResponse,
+    ShadowQualityReportResponse,
     StaleLiveOrderResponse,
     StrategyRuleBuilderRequest,
 )
@@ -337,6 +340,20 @@ def export_backtest_runs(
 ) -> Response:
     content = ReportingExportService(session, settings).export_backtest_runs_csv(limit=limit)
     return _csv_response("backtest-runs.csv", content)
+
+
+@router.get("/shadow", response_model=ShadowQualityReportResponse, status_code=200)
+def get_shadow_report(
+    settings: Settings = settings_dependency,
+    session_factory: sessionmaker[Session] = session_factory_dependency,
+) -> ShadowQualityReportResponse:
+    with session_factory() as session:
+        config = OperatorRuntimeConfigService(session, settings).get_effective_config()
+        report = ShadowReportService(session).get_quality_report(
+            exchange=settings.exchange_name,
+            symbol=config.symbol,
+        )
+    return ShadowQualityReportResponse.model_validate(report, from_attributes=True)
 
 
 @router.get("/notification-delivery.csv")

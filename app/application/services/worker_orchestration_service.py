@@ -23,6 +23,9 @@ from app.infrastructure.database.repositories.order_repository import (
     OrderRepository,
 )
 from app.infrastructure.database.repositories.position_repository import PositionRepository
+from app.infrastructure.database.repositories.shadow_blocked_signal_repository import (
+    ShadowBlockedSignalRepository,
+)
 from app.infrastructure.exchanges.factory import build_market_data_exchange_client
 from app.infrastructure.executions.base import ExecutionService, ExecutionUnavailableError
 
@@ -228,6 +231,19 @@ class WorkerOrchestrationService:
                 signal.action,
                 risk_decision.reason,
             )
+            if self._trading_mode == "shadow":
+                ShadowBlockedSignalRepository(self._session).create(
+                    exchange=self._settings.exchange_name,
+                    symbol=self._symbol,
+                    timeframe=self._timeframe,
+                    signal_action=signal.action,
+                    signal_reason=signal.reason,
+                    block_reason=risk_decision.reason,
+                    block_source="risk",
+                    price=latest_price,
+                    client_order_id=client_order_id,
+                )
+                self._session.commit()
             return WorkerCycleResult(
                 status="risk_rejected",
                 detail=risk_decision.reason,
@@ -300,6 +316,27 @@ class WorkerOrchestrationService:
                 signal_action=signal.action,
                 client_order_id=client_order_id,
             )
+        if self._trading_mode == "shadow":
+            logger.info(
+                "worker_cycle_shadow exchange=%s symbol=%s signal=%s "
+                "client_order_id=%s shadow_trade_id=%s quantity=%s net_pnl=%s",
+                self._settings.exchange_name,
+                self._symbol,
+                signal.action,
+                client_order_id,
+                execution.shadow_trade_id,
+                quantity,
+                execution.net_pnl,
+            )
+            return WorkerCycleResult(
+                status="executed",
+                detail="signal executed in shadow mode",
+                signal_action=signal.action,
+                client_order_id=client_order_id,
+                position_quantity=(
+                    execution.position.quantity if execution.position is not None else None
+                ),
+            )
         logger.info(
             "worker_cycle_executed exchange=%s symbol=%s signal=%s "
             "client_order_id=%s order_id=%s trade_id=%s quantity=%s mode=%s",
@@ -351,7 +388,7 @@ class WorkerOrchestrationService:
                 current_position.quantity if current_position is not None else Decimal("0")
             ),
             daily_realized_loss_pct=daily_realized_loss_pct,
-            trading_mode=self._trading_mode,
+            trading_mode="paper" if self._trading_mode == "shadow" else self._trading_mode,
         )
 
     @staticmethod

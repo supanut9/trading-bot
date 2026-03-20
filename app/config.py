@@ -71,6 +71,9 @@ class Settings(BaseSettings):
     backtest_overfitting_threshold_pct: float = Field(
         default=35.0, alias="BACKTEST_OVERFITTING_THRESHOLD_PCT"
     )
+    shadow_trading_enabled: bool = Field(default=False, alias="SHADOW_TRADING_ENABLED")
+    shadow_slippage_pct: float = Field(default=0.0005, alias="SHADOW_SLIPPAGE_PCT")
+    shadow_fee_pct: float = Field(default=0.001, alias="SHADOW_FEE_PCT")
     backtest_schedule_enabled: bool = Field(
         default=False,
         alias="BACKTEST_SCHEDULE_ENABLED",
@@ -118,9 +121,15 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def validate_execution_mode(self) -> "Settings":
+        if self.shadow_trading_enabled and self.live_trading_enabled:
+            raise ValueError("SHADOW_TRADING_ENABLED and LIVE_TRADING_ENABLED cannot both be true")
         if self.paper_trading and self.live_trading_enabled:
             raise ValueError("PAPER_TRADING and LIVE_TRADING_ENABLED cannot both be true")
-        if not self.paper_trading and not self.live_trading_enabled:
+        if (
+            not self.paper_trading
+            and not self.live_trading_enabled
+            and not self.shadow_trading_enabled
+        ):
             raise ValueError("LIVE_TRADING_ENABLED must be true when PAPER_TRADING is false")
         if self.live_trading_enabled and (
             not self.exchange_api_key or not self.exchange_api_secret
@@ -140,7 +149,9 @@ class Settings(BaseSettings):
         return self
 
     @property
-    def execution_mode(self) -> Literal["paper", "live"]:
+    def execution_mode(self) -> Literal["paper", "live", "shadow"]:
+        if self.shadow_trading_enabled:
+            return "shadow"
         return "paper" if self.paper_trading else "live"
 
     @property

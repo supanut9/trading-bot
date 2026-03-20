@@ -545,3 +545,57 @@ class SymbolRulesControlResponse(BaseModel):
     source: str | None = None
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class ShadowTradeResponse(BaseModel):
+    id: int
+    side: str
+    entry_price: Decimal
+    simulated_fill_price: Decimal
+    simulated_exit_fill_price: Decimal | None
+    quantity: Decimal
+    entry_fee: Decimal
+    exit_fee: Decimal | None
+    gross_pnl: Decimal | None
+    net_pnl: Decimal | None
+    status: str
+    client_order_id: str | None
+    created_at: str
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ShadowBlockedSignalResponse(BaseModel):
+    id: int
+    signal_action: str
+    signal_reason: str | None
+    block_reason: str
+    block_source: str
+    price: Decimal | None
+    client_order_id: str | None
+    created_at: str
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ShadowQualityReportResponse(BaseModel):
+    exchange: str
+    symbol: str
+    total_shadow_trades: int
+    open_trades: int
+    closed_trades: int
+    winning_trades: int
+    losing_trades: int
+    win_rate_pct: Decimal | None
+    expectancy: Decimal | None
+    max_drawdown_pct: Decimal | None
+    total_net_pnl: Decimal
+    total_fees_paid: Decimal
+    blocked_signal_count: int
+    oos_win_rate_pct: Decimal | None
+    oos_max_drawdown_pct: Decimal | None
+    oos_total_return_pct: Decimal | None
+    recent_blocked_signals: list[ShadowBlockedSignalResponse]
+    recent_trades: list[ShadowTradeResponse]
+
+    model_config = ConfigDict(from_attributes=True)
