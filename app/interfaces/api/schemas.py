@@ -199,6 +199,27 @@ class WorkerControlResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class WalkForwardResponse(BaseModel):
+    split_ratio: Decimal
+    in_sample_candles: int
+    out_of_sample_candles: int
+    in_sample_total_return_pct: Decimal
+    in_sample_max_drawdown_pct: Decimal
+    in_sample_total_trades: int
+    in_sample_winning_trades: int
+    in_sample_losing_trades: int
+    out_of_sample_total_return_pct: Decimal
+    out_of_sample_max_drawdown_pct: Decimal
+    out_of_sample_total_trades: int
+    out_of_sample_winning_trades: int
+    out_of_sample_losing_trades: int
+    return_degradation_pct: Decimal
+    overfitting_warning: bool
+    overfitting_threshold_pct: Decimal
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class BacktestControlResponse(BaseModel):
     status: str
     detail: str
@@ -223,6 +244,7 @@ class BacktestControlResponse(BaseModel):
     total_fees_paid: Decimal | None = None
     slippage_pct: Decimal | None = None
     fee_pct: Decimal | None = None
+    walk_forward: WalkForwardResponse | None = None
     rules: "StrategyRuleBuilderRequest | None" = None
     executions: list["BacktestExecutionResponse"] = Field(default_factory=list)
 
@@ -282,6 +304,7 @@ class BacktestControlRequest(BaseModel):
     starting_equity: Decimal | None = None
     slippage_pct: Decimal | None = None
     fee_pct: Decimal | None = None
+    walk_forward_split_ratio: Decimal | None = None
     rules: "StrategyRuleBuilderRequest | None" = None
 
 

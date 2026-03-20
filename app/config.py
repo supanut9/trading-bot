@@ -60,6 +60,9 @@ class Settings(BaseSettings):
     )
     backtest_slippage_pct: float = Field(default=0.0005, alias="BACKTEST_SLIPPAGE_PCT")
     backtest_fee_pct: float = Field(default=0.001, alias="BACKTEST_FEE_PCT")
+    backtest_overfitting_threshold_pct: float = Field(
+        default=35.0, alias="BACKTEST_OVERFITTING_THRESHOLD_PCT"
+    )
     backtest_schedule_enabled: bool = Field(
         default=False,
         alias="BACKTEST_SCHEDULE_ENABLED",

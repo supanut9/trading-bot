@@ -1,7 +1,7 @@
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
-from app.application.services.backtest_service import BacktestService
+from app.application.services.backtest_service import BacktestService, WalkForwardResult
 from app.domain.strategies.base import Candle, Signal
 from app.domain.strategies.ema_crossover import EmaCrossoverStrategy
 
@@ -158,3 +158,64 @@ def test_backtest_high_fees_can_turn_winning_trade_into_loss() -> None:
 
     assert result.realized_pnl < Decimal("0")
     assert result.total_fees_paid > Decimal("0")
+
+
+def test_walk_forward_returns_in_sample_and_oos_results() -> None:
+    service = BacktestService(strategy=StubStrategy(), starting_equity=Decimal("10000"))
+    # 4 candles: split 0.5 → 2 in-sample, 2 OOS
+    result = service.run_walk_forward(
+        build_candles([10, 12, 20, 30]),
+        split_ratio=Decimal("0.5"),
+        overfitting_threshold_pct=Decimal("35"),
+    )
+
+    assert isinstance(result, WalkForwardResult)
+    assert result.in_sample_candles == 2
+    assert result.out_of_sample_candles == 2
+    assert result.split_ratio == Decimal("0.5")
+    assert result.overfitting_threshold_pct == Decimal("35")
+
+
+def test_walk_forward_split_respects_ratio() -> None:
+    service = BacktestService(strategy=StubStrategy(), starting_equity=Decimal("10000"))
+    candles = build_candles(list(range(10, 20)))  # 10 candles
+
+    result = service.run_walk_forward(candles, split_ratio=Decimal("0.7"))
+
+    assert result.in_sample_candles == 7
+    assert result.out_of_sample_candles == 3
+
+
+def test_walk_forward_detects_overfitting_when_oos_degrades() -> None:
+    # StubStrategy buys at 20, sells at 30.
+    # In-sample: candles with the profitable trade (20→30).
+    # OOS: flat candles, no trade → 0% return.
+    # IS return is positive, OOS is 0, degradation > threshold → warning.
+    service = BacktestService(strategy=StubStrategy(), starting_equity=Decimal("10000"))
+    candles = build_candles([10, 12, 20, 30, 15, 15, 15, 15, 15, 15])
+
+    result = service.run_walk_forward(
+        candles,
+        split_ratio=Decimal("0.4"),  # first 4 candles in-sample (has the trade)
+        overfitting_threshold_pct=Decimal("35"),
+    )
+
+    assert result.in_sample.total_return_pct > Decimal("0")
+    assert result.return_degradation_pct >= Decimal("0")
+    assert isinstance(result.overfitting_warning, bool)
+
+
+def test_walk_forward_no_warning_when_oos_matches_in_sample() -> None:
+    # Both windows have profitable trades → degradation should be low.
+    service = BacktestService(strategy=StubStrategy(), starting_equity=Decimal("10000"))
+    candles = build_candles([10, 12, 20, 30, 10, 12, 20, 30])
+
+    result = service.run_walk_forward(
+        candles,
+        split_ratio=Decimal("0.5"),
+        overfitting_threshold_pct=Decimal("35"),
+    )
+
+    # Both windows have the same profitable pattern; degradation should be near 0.
+    assert result.return_degradation_pct < Decimal("35")
+    assert result.overfitting_warning is False

@@ -37,4 +37,13 @@ class BacktestRunRecord(TimestampMixin, Base):
     total_fees_paid: Mapped[Decimal | None] = mapped_column(Numeric(20, 8))
     slippage_pct: Mapped[Decimal | None] = mapped_column(Numeric(10, 8))
     fee_pct: Mapped[Decimal | None] = mapped_column(Numeric(10, 8))
+    walk_forward_split_ratio: Mapped[Decimal | None] = mapped_column(Numeric(5, 4))
+    walk_forward_in_sample_candles: Mapped[int | None]
+    walk_forward_oos_candles: Mapped[int | None]
+    walk_forward_in_sample_return_pct: Mapped[Decimal | None] = mapped_column(Numeric(20, 8))
+    walk_forward_oos_return_pct: Mapped[Decimal | None] = mapped_column(Numeric(20, 8))
+    walk_forward_oos_drawdown_pct: Mapped[Decimal | None] = mapped_column(Numeric(20, 8))
+    walk_forward_oos_total_trades: Mapped[int | None]
+    walk_forward_return_degradation_pct: Mapped[Decimal | None] = mapped_column(Numeric(20, 8))
+    walk_forward_overfitting_warning: Mapped[bool | None]
     rules_json: Mapped[str | None] = mapped_column(Text)

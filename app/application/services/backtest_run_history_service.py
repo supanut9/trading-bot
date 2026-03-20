@@ -82,6 +82,17 @@ class BacktestRunHistoryService:
                 total_fees_paid=getattr(result, "total_fees_paid", None),
                 slippage_pct=getattr(result, "slippage_pct", None),
                 fee_pct=getattr(result, "fee_pct", None),
+                walk_forward_split_ratio=wf.split_ratio
+                if (wf := getattr(result, "walk_forward", None))
+                else None,
+                walk_forward_in_sample_candles=wf.in_sample_candles if wf else None,
+                walk_forward_oos_candles=wf.out_of_sample_candles if wf else None,
+                walk_forward_in_sample_return_pct=wf.in_sample_total_return_pct if wf else None,
+                walk_forward_oos_return_pct=wf.out_of_sample_total_return_pct if wf else None,
+                walk_forward_oos_drawdown_pct=wf.out_of_sample_max_drawdown_pct if wf else None,
+                walk_forward_oos_total_trades=wf.out_of_sample_total_trades if wf else None,
+                walk_forward_return_degradation_pct=wf.return_degradation_pct if wf else None,
+                walk_forward_overfitting_warning=wf.overfitting_warning if wf else None,
                 rules_json=rules_json,
             )
         )
