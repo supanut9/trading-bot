@@ -1,5 +1,5 @@
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime
 from decimal import Decimal
 
@@ -82,6 +82,33 @@ def required_candles_for_backtest_options(options: BacktestRunOptions) -> int:
     rsi_min = (options.rsi_period + 1) if options.rsi_period is not None else 0
     vol_min = options.volume_ma_period if options.volume_ma_period is not None else 0
     return max(base, rsi_min, vol_min)
+
+
+def _fill_ema_periods(
+    config: "RuleBuilderStrategyConfig",
+    fast_period: int | None,
+    slow_period: int | None,
+) -> "RuleBuilderStrategyConfig":
+    """Fill fast_period/slow_period on all ema_cross conditions that have them unset."""
+
+    def fill_group(group: "StrategyRuleGroup") -> "StrategyRuleGroup":
+        filled = []
+        for cond in group.conditions:
+            if cond.indicator == "ema_cross":
+                cond = replace(
+                    cond,
+                    fast_period=cond.fast_period if cond.fast_period is not None else fast_period,
+                    slow_period=cond.slow_period if cond.slow_period is not None else slow_period,
+                )
+            filled.append(cond)
+        return replace(group, conditions=tuple(filled))
+
+    return replace(
+        config,
+        shared_filters=fill_group(config.shared_filters),
+        buy_rules=fill_group(config.buy_rules),
+        sell_rules=fill_group(config.sell_rules),
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -1206,7 +1233,8 @@ class OperationalControlService:
         if options.strategy_name == BACKTEST_STRATEGY_RULE_BUILDER:
             if options.rules is None:
                 raise ValueError("rule builder strategy requires rules")
-            return RuleBuilderStrategy(options.rules)
+            rules = _fill_ema_periods(options.rules, options.fast_period, options.slow_period)
+            return RuleBuilderStrategy(rules)
         if options.strategy_name != BACKTEST_STRATEGY_EMA_CROSSOVER:
             raise ValueError(f"unsupported backtest strategy: {options.strategy_name}")
         return EmaCrossoverStrategy(

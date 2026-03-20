@@ -39,7 +39,7 @@ run-api:
 	python3 -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 
 run-web:
-	cd web && yarn dev
+	cd web && yarn dev --port 3005
 
 run-worker:
 	python3 -m app.worker
