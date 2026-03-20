@@ -123,7 +123,7 @@ class LiveExecutionService:
                 quantity=request.quantity,
                 price=price if order_type == "limit" else None,
                 order_type=order_type,
-                validate_only=False,
+                validate_only=self._settings.live_order_validate_only,
                 client_order_id=request.client_order_id,
             )
         )

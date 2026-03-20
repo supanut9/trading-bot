@@ -269,3 +269,39 @@ def test_converts_market_to_limit_with_offset(tmp_path: Path) -> None:
     request = client.calls[0]
     assert request.order_type == "limit"
     assert request.price == Decimal("49900")
+
+
+def test_honors_live_order_validate_only_setting(tmp_path: Path) -> None:
+    settings = Settings(
+        DATABASE_URL=f"sqlite:///{tmp_path / 'live_validate_only.db'}",
+        PAPER_TRADING=False,
+        LIVE_TRADING_ENABLED=True,
+        EXCHANGE_API_KEY="key",
+        EXCHANGE_API_SECRET="secret",
+        LIVE_ORDER_VALIDATE_ONLY=True,
+    )
+    engine = create_engine_from_settings(settings)
+    Base.metadata.create_all(bind=engine)
+    session = create_session_factory(settings)()
+
+    # Mock client returns "validated" status
+    client = RecordingLiveClient(status="validated", exchange_order_id=None)
+    service = LiveExecutionService(session, settings, client=client)
+
+    result = service.execute(
+        PaperExecutionRequest(
+            exchange="binance",
+            symbol="BTC/USDT",
+            side="buy",
+            quantity=Decimal("1.0"),
+            price=Decimal("50000"),
+            mode="live",
+            client_order_id="validate-only-test",
+        )
+    )
+
+    assert len(client.calls) == 1
+    assert client.calls[0].validate_only is True
+    # Validated orders map to 'canceled' (terminal state) to avoid reconciliation
+    assert result.order.status == "canceled"
+    assert result.order.exchange_order_id is None

@@ -63,6 +63,7 @@ _STATUS_ALIASES = {
     "filled": "filled",
     "canceled": "canceled",
     "cancelled": "canceled",
+    "validated": "canceled",
     "rejected": "rejected",
     "expired": "rejected",
 }
@@ -95,6 +96,12 @@ def resolve_submission_state(raw_status: str | None) -> LiveOrderStateResolution
         return LiveOrderStateResolution(
             status=normalized,
             detail=f"live submission completed with terminal status {normalized}",
+        )
+    if normalized is None:
+        return LiveOrderStateResolution(
+            status="review_required",
+            detail="live submission returned an unmapped exchange status",
+            requires_operator_review=True,
         )
     return LiveOrderStateResolution(status=normalized, detail="live order submitted")
 
@@ -136,6 +143,12 @@ def resolve_reconcile_state(
         return LiveOrderStateResolution(
             status="partially_filled",
             detail="live order partially filled on exchange",
+        )
+    if normalized is None:
+        return LiveOrderStateResolution(
+            status="review_required",
+            detail="exchange returned an unmapped live order status during reconciliation",
+            requires_operator_review=True,
         )
     return LiveOrderStateResolution(status=normalized, detail="live order still open on exchange")
 
