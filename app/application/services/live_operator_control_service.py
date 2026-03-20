@@ -17,6 +17,7 @@ LIVE_TRADING_HALTED_CONTROL = "live_trading_halted"
 class LiveTradingHaltState:
     halted: bool
     source: str
+    reason: str | None = None
     updated_at: datetime | None = None
     updated_by: str | None = None
 
@@ -27,6 +28,7 @@ class LiveTradingHaltUpdate:
     current_halted: bool
     changed: bool
     source: str
+    reason: str | None = None
     updated_at: datetime | None = None
     updated_by: str | None = None
 
@@ -46,6 +48,7 @@ class LiveOperatorControlService:
         return LiveTradingHaltState(
             halted=record.bool_value,
             source="runtime_control",
+            reason=record.string_value,
             updated_at=record.updated_at,
             updated_by=record.updated_by,
         )
@@ -55,11 +58,13 @@ class LiveOperatorControlService:
         *,
         halted: bool,
         updated_by: str,
+        reason: str | None = None,
     ) -> LiveTradingHaltUpdate:
         previous = self.get_live_trading_halt_state()
         record = self._controls.upsert_bool(
             control_name=LIVE_TRADING_HALTED_CONTROL,
             bool_value=halted,
+            string_value=reason,
             updated_by=updated_by,
         )
         return LiveTradingHaltUpdate(
@@ -67,6 +72,7 @@ class LiveOperatorControlService:
             current_halted=record.bool_value,
             changed=previous.halted != record.bool_value,
             source="runtime_control",
+            reason=record.string_value,
             updated_at=record.updated_at,
             updated_by=record.updated_by,
         )

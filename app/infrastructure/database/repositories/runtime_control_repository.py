@@ -20,12 +20,14 @@ class RuntimeControlRepository:
         control_name: str,
         bool_value: bool,
         updated_by: str,
+        string_value: str | None = None,
     ) -> RuntimeControlRecord:
         record = self.get_by_name(control_name)
         if record is None:
             record = RuntimeControlRecord(
                 control_name=control_name,
                 bool_value=bool_value,
+                string_value=string_value,
                 updated_by=updated_by,
             )
             self._session.add(record)
@@ -33,6 +35,7 @@ class RuntimeControlRepository:
             return record
 
         record.bool_value = bool_value
+        record.string_value = string_value
         record.updated_by = updated_by
         self._session.flush()
         return record
