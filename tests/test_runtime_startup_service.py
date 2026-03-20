@@ -1,4 +1,5 @@
 import pytest
+from pydantic import ValidationError
 
 from app.application.services.runtime_startup_service import (
     build_runtime_startup_context,
@@ -21,11 +22,11 @@ def test_build_runtime_startup_context_includes_runtime_summary() -> None:
 
 
 def test_validate_runtime_settings_rejects_sqlite_outside_local() -> None:
-    settings = Settings(APP_ENV="production", DATABASE_URL="sqlite:///./runtime_startup_test.db")
+    # Strict validation in Settings now prevents this instantiation
 
-    errors = validate_runtime_settings(settings, "worker")
-
-    assert errors == ["non-local runtime requires a PostgreSQL-compatible DATABASE_URL"]
+    match_err = "non-local environment requires PostgreSQL-compatible"
+    with pytest.raises(ValidationError, match=match_err):
+        Settings(APP_ENV="production", DATABASE_URL="sqlite:///./runtime_startup_test.db")
 
 
 def test_validate_runtime_settings_rejects_loopback_api_binding_outside_local() -> None:
@@ -70,6 +71,16 @@ def test_validate_runtime_startup_checks_database_connectivity(monkeypatch) -> N
         "app.application.services.runtime_startup_service.ensure_database_connectivity",
         lambda _settings: None,
     )
+    monkeypatch.setattr(
+        "app.application.services.runtime_startup_service._log_redacted_settings",
+        lambda _settings: None,
+    )
+
+    # Mock AuditService to avoid DB calls in test
+    from unittest.mock import MagicMock
+
+    monkeypatch.setattr("app.application.services.audit_service.AuditService", MagicMock())
+    monkeypatch.setattr("app.infrastructure.database.session.create_session_factory", MagicMock())
 
     context = validate_runtime_startup(settings, "backtest")
 
@@ -77,18 +88,8 @@ def test_validate_runtime_startup_checks_database_connectivity(monkeypatch) -> N
 
 
 def test_validate_runtime_startup_raises_on_invalid_settings(monkeypatch) -> None:
-    settings = Settings(APP_ENV="production", DATABASE_URL="sqlite:///./runtime_startup_test.db")
-    called = {"db": False}
+    # Strict validation in Settings now prevents this instantiation
 
-    def fail_if_called(_settings: Settings) -> None:
-        called["db"] = True
-
-    monkeypatch.setattr(
-        "app.application.services.runtime_startup_service.ensure_database_connectivity",
-        fail_if_called,
-    )
-
-    with pytest.raises(ValueError, match="non-local runtime requires a PostgreSQL-compatible"):
-        validate_runtime_startup(settings, "worker")
-
-    assert called["db"] is False
+    match_err = "non-local environment requires PostgreSQL-compatible"
+    with pytest.raises(ValidationError, match=match_err):
+        Settings(APP_ENV="production", DATABASE_URL="sqlite:///./runtime_startup_test.db")
