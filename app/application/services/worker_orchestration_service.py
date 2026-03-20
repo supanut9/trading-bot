@@ -337,10 +337,13 @@ class WorkerOrchestrationService:
                 client_order_id=client_order_id,
             )
 
+        canary_multiplier = (
+            hard_gate_report.canary_multiplier if self._trading_mode == "live" else Decimal("1.0")
+        )
         quantity = (
             current_position.quantity
             if signal.action == "sell" and current_position is not None
-            else risk_decision.quantity
+            else (risk_decision.quantity * canary_multiplier).quantize(Decimal("0.00000001"))
         )
         try:
             execution = self._execution.execute(

@@ -5,6 +5,7 @@ from decimal import Decimal
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.application.services.canary_rollout_service import CanaryRolloutService
 from app.config import Settings
 from app.infrastructure.database.models.order import OrderRecord
 from app.infrastructure.database.repositories.position_repository import PositionRepository
@@ -15,6 +16,7 @@ from app.infrastructure.database.repositories.trade_repository import TradeRepos
 class LiveRiskHardGateReport:
     should_halt: bool
     reason: str | None = None
+    canary_multiplier: Decimal = Decimal("1.0")
 
 
 class LiveRiskHardGateService:
@@ -23,15 +25,19 @@ class LiveRiskHardGateService:
         self._settings = settings
         self._positions = PositionRepository(session)
         self._trades = TradeRepository(session)
+        self._canary = CanaryRolloutService(session, settings)
 
     def evaluate(self, exchange: str, symbol: str) -> LiveRiskHardGateReport:
         if not self._settings.live_trading_enabled:
             return LiveRiskHardGateReport(should_halt=False)
 
         current_time = datetime.now(tz=UTC)
+        multiplier = self._canary.get_exposure_multiplier()
 
         limit_daily_notional = self._settings.live_max_daily_loss_notional
         if limit_daily_notional is not None:
+            # We don't necessarily scale max loss, but we could.
+            # For now, we only scale concurrent exposure.
             daily_loss = self._calculate_realized_loss(
                 exchange, symbol, current_time - timedelta(days=1)
             )
@@ -39,6 +45,7 @@ class LiveRiskHardGateService:
                 return LiveRiskHardGateReport(
                     should_halt=True,
                     reason="max_daily_loss_notional_exceeded",
+                    canary_multiplier=multiplier,
                 )
 
         limit_weekly_notional = self._settings.live_max_weekly_loss_notional
@@ -50,10 +57,14 @@ class LiveRiskHardGateService:
                 return LiveRiskHardGateReport(
                     should_halt=True,
                     reason="max_weekly_loss_notional_exceeded",
+                    canary_multiplier=multiplier,
                 )
 
         limit_exposure = self._settings.live_max_concurrent_exposure_notional
         if limit_exposure is not None:
+            # APPLY CANARY MULTIPLIER to exposure limit
+            effective_exposure_limit = limit_exposure * multiplier
+
             position = self._positions.get(exchange=exchange, symbol=symbol, mode="live")
             if (
                 position is not None
@@ -61,10 +72,12 @@ class LiveRiskHardGateService:
                 and position.average_entry_price is not None
             ):
                 exposure = position.quantity * position.average_entry_price
-                if exposure >= limit_exposure:
+                if exposure >= effective_exposure_limit:
+                    reason = f"max_exposure_exceeded_canary (limit={effective_exposure_limit})"
                     return LiveRiskHardGateReport(
                         should_halt=True,
-                        reason="max_concurrent_exposure_notional_exceeded",
+                        reason=reason,
+                        canary_multiplier=multiplier,
                     )
 
         limit_consec_loss = self._settings.live_consecutive_loss_auto_halt_threshold
@@ -74,6 +87,7 @@ class LiveRiskHardGateService:
                 return LiveRiskHardGateReport(
                     should_halt=True,
                     reason="consecutive_loss_auto_halt_threshold_exceeded",
+                    canary_multiplier=multiplier,
                 )
 
         limit_rejects = self._settings.live_repeated_reject_auto_halt_threshold
@@ -83,9 +97,10 @@ class LiveRiskHardGateService:
                 return LiveRiskHardGateReport(
                     should_halt=True,
                     reason="repeated_reject_auto_halt_threshold_exceeded",
+                    canary_multiplier=multiplier,
                 )
 
-        return LiveRiskHardGateReport(should_halt=False)
+        return LiveRiskHardGateReport(should_halt=False, canary_multiplier=multiplier)
 
     def _calculate_realized_loss(self, exchange: str, symbol: str, since: datetime) -> Decimal:
         trade_rows = self._trades.list_analytics_rows()
@@ -123,10 +138,6 @@ class LiveRiskHardGateService:
 
             if trade.side == "sell":
                 net_trade_pnl = realized_pnl - fee
-                # Using >= instead of == allows datetime comparision if date matches exactly.
-                # Since since is tz-aware, we MUST assume trade.created_at is UTC.
-                # `created_at` in our SQLite setup is usually naive UTC.
-                # Let's fix timezone:
                 trade_dt = (
                     trade.created_at.replace(tzinfo=UTC)
                     if trade.created_at.tzinfo is None

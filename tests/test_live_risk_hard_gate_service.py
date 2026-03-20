@@ -53,7 +53,7 @@ def test_max_concurrent_exposure(tmp_path: Path) -> None:
 
     report = service.evaluate("binance", "BTC/USDT")
     assert report.should_halt
-    assert report.reason == "max_concurrent_exposure_notional_exceeded"
+    assert report.reason is not None and report.reason.startswith("max_exposure_exceeded_canary")
 
 
 def test_repeated_reject_auto_halt(tmp_path: Path) -> None:
