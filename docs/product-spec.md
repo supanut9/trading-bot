@@ -30,6 +30,10 @@ Current baseline on `main`:
 - preset-first rule-builder backtests in the dedicated Next.js backtest route over the existing control API
 - summary-level backtest run history with recent-run hydration in the dedicated backtest route
 - read-only market-data coverage and replay-readiness panels in the Next.js backtest and controls routes
+- smart order execution for live mode supporting limit orders with configurable offsets and timeouts
+- fee-aware live execution gates that block entry signals when expected profit does not cover estimated fees
+- automatic slippage tracking for live fills using signal-time price and final average fill price
+- automated fallback mechanism for timed-out live limit orders that cancels and resubmits as market orders
 
 Current production boundary:
 
@@ -140,6 +144,10 @@ Live deployment and iteration:
 - validate deployment-critical runtime settings and database connectivity during API, worker, and backtest startup
 - expose the latest read-only exchange price through status and reporting surfaces for operator visibility
 - render explicit market, delivery, and correlation columns in the generic audit reporting slice so operators can inspect audit metadata without opening raw payload JSON
+- support smart live execution with limit orders, configurable offsets, and automatic timeout fallbacks
+- enforce expected-profit thresholds against estimated trading fees before approving new live entry signals
+- calculate and persist execution slippage for reconciled live fills using the signal-price baseline
+- track signal-time price on all live orders to enable accurate post-trade slippage analysis
 - enforce PR merge readiness with CI and resolved review feedback
 
 ## Current Risk Policy Baseline

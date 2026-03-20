@@ -21,5 +21,6 @@ def build_execution_service(session: Session, settings: Settings) -> ExecutionSe
         return PaperExecutionService(session)
     return LiveExecutionService(
         session,
+        settings,
         client=build_live_order_exchange_client(settings),
     )

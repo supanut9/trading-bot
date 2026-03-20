@@ -6,6 +6,7 @@ from sqlalchemy import func, select
 
 from app.application.services.live_execution_service import (
     DuplicateLiveOrderError,
+    InsufficientExpectedProfitError,
     LiveExecutionService,
 )
 from app.application.services.paper_execution_service import (
@@ -54,7 +55,7 @@ def build_service(tmp_path: Path) -> tuple[LiveExecutionService, object]:
     engine = create_engine_from_settings(settings)
     Base.metadata.create_all(bind=engine)
     session = create_session_factory(settings)()
-    return LiveExecutionService(session, client=RecordingLiveClient()), session
+    return LiveExecutionService(session, settings, client=RecordingLiveClient()), session
 
 
 def test_submits_live_buy_and_persists_order_without_trade(tmp_path: Path) -> None:
@@ -144,6 +145,7 @@ def test_maps_exchange_new_submission_to_open_status(tmp_path: Path) -> None:
     try:
         service = LiveExecutionService(
             session,
+            settings,
             client=RecordingLiveClient(status="new"),
         )
 
@@ -200,3 +202,70 @@ def test_rejects_duplicate_live_buy_when_active_order_exists(tmp_path: Path) -> 
     orders = session.scalars(select(OrderRecord).order_by(OrderRecord.id.asc())).all()
     assert len(orders) == 1
     assert orders[0].client_order_id == "live-binance-btc-usdt-buy-existing"
+
+
+def test_blocks_order_with_insufficient_expected_profit(tmp_path: Path) -> None:
+    settings = Settings(
+        DATABASE_URL=f"sqlite:///{tmp_path / 'live_fee_block.db'}",
+        PAPER_TRADING=False,
+        LIVE_TRADING_ENABLED=True,
+        EXCHANGE_API_KEY="key",
+        EXCHANGE_API_SECRET="secret",
+        LIVE_FEE_PCT=0.01,  # 1% fee (2% round trip)
+        LIVE_EXPECTED_PROFIT_BPS=100,  # 1% expected profit
+    )
+    engine = create_engine_from_settings(settings)
+    Base.metadata.create_all(bind=engine)
+    session = create_session_factory(settings)()
+    service = LiveExecutionService(session, settings, client=RecordingLiveClient())
+
+    with pytest.raises(
+        InsufficientExpectedProfitError, match="does not cover estimated round-trip fees"
+    ):
+        service.execute(
+            PaperExecutionRequest(
+                exchange="binance",
+                symbol="BTC/USDT",
+                side="buy",
+                quantity=Decimal("1.0"),
+                price=Decimal("50000"),
+                mode="live",
+                client_order_id="insufficient-profit",
+            )
+        )
+
+
+def test_converts_market_to_limit_with_offset(tmp_path: Path) -> None:
+    settings = Settings(
+        DATABASE_URL=f"sqlite:///{tmp_path / 'live_limit_routing.db'}",
+        PAPER_TRADING=False,
+        LIVE_TRADING_ENABLED=True,
+        EXCHANGE_API_KEY="key",
+        EXCHANGE_API_SECRET="secret",
+        LIVE_ORDER_ROUTING_MODE="limit",
+        LIVE_LIMIT_ORDER_OFFSET_BPS=20,  # 0.2%
+    )
+    engine = create_engine_from_settings(settings)
+    Base.metadata.create_all(bind=engine)
+    session = create_session_factory(settings)()
+    client = RecordingLiveClient()
+    service = LiveExecutionService(session, settings, client=client)
+
+    service.execute(
+        PaperExecutionRequest(
+            exchange="binance",
+            symbol="BTC/USDT",
+            side="buy",
+            quantity=Decimal("1.0"),
+            price=Decimal("50000"),  # This will be signal_price
+            mode="live",
+            client_order_id="limit-conversion",
+        )
+    )
+
+    # Signal price was 50000, 0.2% offset = 100
+    # For buy, limit price = 50000 - 100 = 49900
+    assert len(client.calls) == 1
+    request = client.calls[0]
+    assert request.order_type == "limit"
+    assert request.price == Decimal("49900")

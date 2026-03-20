@@ -27,6 +27,7 @@ class ExchangeOrderRequest:
     symbol: str
     side: str
     quantity: Decimal
+    price: Decimal | None = None
     order_type: str = "MARKET"
     validate_only: bool = True
     client_order_id: str | None = None
