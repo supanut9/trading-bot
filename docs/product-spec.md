@@ -28,6 +28,7 @@ Current baseline on `main`:
 - audit-report filters in the dashboard with a matching filtered audit CSV export link
 - audit-report columns in the dashboard and audit CSV so operators can inspect key metadata without parsing payload JSON
 - preset-first rule-builder backtests in the dedicated Next.js backtest route over the existing control API
+- summary-level backtest run history with recent-run hydration in the dedicated backtest route
 
 Current production boundary:
 
@@ -37,9 +38,8 @@ Current production boundary:
 
 Next implementation queue:
 
-1. `feature/rule-builder-editor-ui`
-2. `feature/backtest-run-history`
-3. `feature/market-data-coverage-readiness`
+1. `feature/backtest-run-history`
+2. `feature/market-data-coverage-readiness`
 
 ## Initial Market And Strategy
 
@@ -94,6 +94,7 @@ Next implementation queue:
 - provide a dedicated backtest page with parameterized inputs and chart visualization for replay analysis
 - provide preset-first backtest strategy selection backed by curated rule-builder presets
 - allow operators to edit backtest-only rule-builder groups and conditions inside the backtest page while reusing the existing control API
+- persist recent backtest runs with summary metrics and allow the backtest page to hydrate its form from a stored run
 - provide read-only Next.js recovery reporting with stale-order visibility, unresolved live-order queue, recent recovery events, and filtered export links
 - persist paper-runtime operator defaults for symbol, timeframe, and EMA periods so operator actions do not depend only on startup env
 - render a compact reporting summary over the latest worker outcome, PnL, trade count, positions, and stale live state

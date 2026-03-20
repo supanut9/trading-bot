@@ -6,6 +6,7 @@ from decimal import Decimal
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.application.services.audit_service import AuditService
+from app.application.services.backtest_run_history_service import BacktestRunHistoryService
 from app.application.services.backtest_service import BacktestResult, BacktestService
 from app.application.services.live_fill_reconciliation_service import (
     LiveFillReconciliationService,
@@ -194,6 +195,7 @@ class OperationalControlService:
             session_factory=self._session_factory,
         )
         self._audit = audit or AuditService(session_factory=self._session_factory)
+        self._backtest_runs = BacktestRunHistoryService(session_factory=self._session_factory)
 
     def run_worker_cycle(
         self,
@@ -371,6 +373,7 @@ class OperationalControlService:
         notify: bool = True,
         source: str = "internal",
         audit: bool = True,
+        record_history: bool = True,
     ) -> BacktestControlResult:
         defaults = self._get_effective_operator_config()
         try:
@@ -414,6 +417,8 @@ class OperationalControlService:
                         "notified": control_result.notified,
                     },
                 )
+            if record_history:
+                self._backtest_runs.record_run(source=source, result=control_result)
             return control_result
         with self._session_factory() as session:
             records = MarketDataService(session).list_historical_candles(
@@ -483,6 +488,8 @@ class OperationalControlService:
                         "notified": control_result.notified,
                     },
                 )
+            if record_history:
+                self._backtest_runs.record_run(source=source, result=control_result)
             return control_result
 
         notified = False
@@ -554,6 +561,8 @@ class OperationalControlService:
                     "notified": control_result.notified,
                 },
             )
+        if record_history:
+            self._backtest_runs.record_run(source=source, result=control_result)
         return control_result
 
     def run_live_reconcile(

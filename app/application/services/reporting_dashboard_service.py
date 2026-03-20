@@ -135,7 +135,12 @@ class ReportingDashboardService:
         backtest = OperationalControlService(
             self._settings,
             session_factory=self._session_factory,
-        ).run_backtest(notify=False, audit=False, source="reporting.snapshot")
+        ).run_backtest(
+            notify=False,
+            audit=False,
+            record_history=False,
+            source="reporting.snapshot",
+        )
         audit_events = self._audit.list_recent(limit=10, filters=self._audit_filters)
         notification_delivery_events = self._audit.list_recent(
             limit=10,

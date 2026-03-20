@@ -1061,7 +1061,7 @@ Main outputs:
 
 Status:
 
-- in progress on `feature/rule-builder-editor-ui`
+- merged to `main`
 
 Scope:
 
@@ -1079,7 +1079,7 @@ Main outputs:
 
 Status:
 
-- planned
+- in progress on `feature/backtest-run-history`
 
 Scope:
 
@@ -1115,10 +1115,9 @@ Main outputs:
 
 These are the next bounded features after the current `main` baseline:
 
-1. `feature/rule-builder-editor-ui`
-2. `feature/backtest-run-history`
-3. `feature/market-data-coverage-readiness`
+1. `feature/backtest-run-history`
+2. `feature/market-data-coverage-readiness`
 
 Current next feature:
 
-- `feature/rule-builder-editor-ui`
+- `feature/backtest-run-history`

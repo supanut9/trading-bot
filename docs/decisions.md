@@ -858,3 +858,9 @@ The API now exposes `GET /reports/notifications` as a JSON dashboard slice over 
 The reporting route already exposed narrower recovery and notification slices, but the broader audit feed still depended on a CSV export for real filtering. Operators needed the same read-only narrowing in-browser so one workflow or one failure mode could be isolated without leaving the reporting surface.
 
 The API now exposes `GET /reports/audit` as a JSON dashboard slice over the existing recent-audit data. The Next.js `/reports` route uses that endpoint to render audit summary cards, a generic audit filter form, richer audit metadata columns, and a filtered `audit.csv` export link while keeping the slice read-only.
+
+## 2026-03-20: Persist Summary-Level Backtest Run History
+
+The dedicated backtest page now supports richer rule-builder editing, but replay results are still one-off unless the operator captures them manually. A lightweight run-history table gives the UI and exports a stable review surface without widening into full execution-ledger persistence.
+
+Backtest control runs now persist one summary row per replay attempt with the submitted market inputs, summary metrics, and serialized rule-builder payload when present. The API exposes recent-run JSON and CSV reporting, and the Next.js backtest page can hydrate its form from a stored run while keeping replay history separate from audit and execution tables.

@@ -25,10 +25,12 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
+  getBacktestRuns,
   getOperatorConfig,
   runBacktest,
   type BacktestControlRequest,
   type BacktestControlResponse,
+  type BacktestRunResponse,
   type OperatorConfigResponse,
   type StrategyRuleBuilderRequest,
 } from "@/lib/api";
@@ -312,6 +314,48 @@ function minimumCandlesForRules(rules: StrategyRuleBuilderRequest): number | nul
   }
 
   return Math.max(...values.filter((value): value is number => value !== null));
+}
+
+function inferRuleBuilderPeriods(
+  rules: StrategyRuleBuilderRequest,
+  fallbackFast: string,
+  fallbackSlow: string,
+): { fastPeriod: string; slowPeriod: string } {
+  for (const group of [rules.shared_filters, rules.buy_rules, rules.sell_rules]) {
+    for (const condition of group.conditions) {
+      if (
+        condition.indicator === "ema_cross" &&
+        condition.fast_period !== undefined &&
+        condition.slow_period !== undefined
+      ) {
+        return {
+          fastPeriod: String(condition.fast_period),
+          slowPeriod: String(condition.slow_period),
+        };
+      }
+    }
+  }
+  return { fastPeriod: fallbackFast, slowPeriod: fallbackSlow };
+}
+
+function detectPresetKey(
+  rules: StrategyRuleBuilderRequest,
+  fastPeriod: string,
+  slowPeriod: string,
+): RuleBuilderPresetKey {
+  const candidate = JSON.stringify(rules);
+  const preset = ruleBuilderPresets.find(
+    (entry) =>
+      JSON.stringify(buildPresetRules(entry.key, fastPeriod, slowPeriod)) === candidate,
+  );
+  return preset?.key ?? "ema_crossover_equivalent";
+}
+
+function formatRunCreatedAt(value: string): string {
+  return new Date(value).toLocaleString(undefined, {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
 }
 
 function RuleConditionEditor({
@@ -823,6 +867,72 @@ function ResultPanel({
   );
 }
 
+function RecentRunsPanel({
+  runs,
+  onLoadRun,
+}: {
+  runs: BacktestRunResponse[];
+  onLoadRun: (run: BacktestRunResponse) => void;
+}) {
+  return (
+    <Card>
+      <CardHeader>
+        <div>
+          <CardTitle>Recent Runs</CardTitle>
+          <CardDescription>
+            Hydrate the form from a recent replay without re-entering the same inputs.
+          </CardDescription>
+        </div>
+        <div className="rounded-2xl bg-white/5 p-3 text-slate-200">
+          <AreaChart className="h-5 w-5" />
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {runs.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-white/10 px-4 py-5 text-sm text-slate-400">
+            No recent runs yet.
+          </div>
+        ) : (
+          runs.map((run) => (
+            <div
+              className="rounded-2xl border border-white/10 bg-white/[0.03] p-4"
+              key={run.id}
+            >
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <p className="text-sm font-medium text-white">
+                    {run.symbol} {run.timeframe}
+                  </p>
+                  <p className="mt-1 text-sm text-slate-300">{run.detail}</p>
+                  <p className="mt-2 text-xs text-slate-400">
+                    {formatRunCreatedAt(run.created_at)} via {run.source}
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Badge variant={metricVariant(run.status)}>{run.status}</Badge>
+                  <Badge variant="neutral">{run.strategy_name}</Badge>
+                </div>
+              </div>
+              <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-slate-400">
+                <span>Start {formatDecimal(run.starting_equity_input)}</span>
+                <span>Required {run.required_candles}</span>
+                <span>Return {formatSignedDecimal(run.total_return_pct)}</span>
+              </div>
+              <button
+                className="mt-4 rounded-2xl border border-cyan-300/20 px-4 py-2 text-sm font-medium text-cyan-100 transition hover:bg-cyan-300/10"
+                onClick={() => onLoadRun(run)}
+                type="button"
+              >
+                Load run
+              </button>
+            </div>
+          ))
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 export function BacktestPage() {
   const queryClient = useQueryClient();
   const [form, setForm] = useState<BacktestFormState>({
@@ -841,11 +951,16 @@ export function BacktestPage() {
     queryKey: ["operator-config"],
     queryFn: getOperatorConfig,
   });
+  const recentRunsQuery = useQuery({
+    queryKey: ["backtest-runs"],
+    queryFn: () => getBacktestRuns(8),
+  });
 
   const backtestMutation = useMutation({
     mutationFn: runBacktest,
     onSuccess: async () => {
       await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["backtest-runs"] }),
         queryClient.invalidateQueries({ queryKey: ["performance"] }),
         queryClient.invalidateQueries({ queryKey: ["positions"] }),
         queryClient.invalidateQueries({ queryKey: ["trades"] }),
@@ -902,6 +1017,33 @@ export function BacktestPage() {
       ...current,
       preset_key: presetKey,
       rules: buildPresetRules(presetKey, current.fast_period, current.slow_period),
+    }));
+  }
+
+  function loadRun(run: BacktestRunResponse) {
+    if (run.strategy_name === "rule_builder" && run.rules) {
+      const inferred = inferRuleBuilderPeriods(run.rules, form.fast_period, form.slow_period);
+      setForm({
+        strategy_name: "rule_builder",
+        preset_key: detectPresetKey(run.rules, inferred.fastPeriod, inferred.slowPeriod),
+        symbol: run.symbol,
+        timeframe: run.timeframe,
+        fast_period: inferred.fastPeriod,
+        slow_period: inferred.slowPeriod,
+        starting_equity: String(Number(run.starting_equity_input)),
+        rules: cloneRules(run.rules),
+      });
+      return;
+    }
+
+    setForm((current) => ({
+      ...current,
+      strategy_name: "ema_crossover",
+      symbol: run.symbol,
+      timeframe: run.timeframe,
+      fast_period: run.fast_period !== null ? String(run.fast_period) : current.fast_period,
+      slow_period: run.slow_period !== null ? String(run.slow_period) : current.slow_period,
+      starting_equity: String(Number(run.starting_equity_input)),
     }));
   }
 
@@ -1241,6 +1383,11 @@ export function BacktestPage() {
                 ) : null}
               </CardContent>
             </Card>
+
+            <RecentRunsPanel
+              onLoadRun={loadRun}
+              runs={recentRunsQuery.data?.runs ?? []}
+            />
           </div>
         </div>
 

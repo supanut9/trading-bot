@@ -5,6 +5,7 @@ from fastapi.responses import Response
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.application.services.audit_service import AuditEventFilters
+from app.application.services.backtest_run_history_service import BacktestRunHistoryService
 from app.application.services.live_order_recovery_report_service import RecoveryReportFilters
 from app.application.services.reporting_dashboard_service import ReportingDashboardService
 from app.application.services.reporting_export_service import ReportingExportService
@@ -15,6 +16,8 @@ from app.interfaces.api.schemas import (
     AuditDashboardResponse,
     AuditEventResponse,
     AuditReportFiltersResponse,
+    BacktestRunHistoryResponse,
+    BacktestRunResponse,
     NotificationDashboardResponse,
     NotificationReportFiltersResponse,
     RecoveryDashboardResponse,
@@ -22,6 +25,7 @@ from app.interfaces.api.schemas import (
     RecoveryOrderResponse,
     RecoveryReportFiltersResponse,
     StaleLiveOrderResponse,
+    StrategyRuleBuilderRequest,
 )
 
 router = APIRouter(prefix="/reports", tags=["reports"])
@@ -117,6 +121,49 @@ def export_backtest_summary(
         session_factory=session_factory,
     ).export_backtest_summary_csv()
     return _csv_response("backtest-summary.csv", content)
+
+
+@router.get("/backtest-runs", response_model=BacktestRunHistoryResponse)
+def get_backtest_runs(
+    session: Session = session_dependency,
+    limit: Annotated[int, Query(ge=1, le=100)] = 20,
+) -> BacktestRunHistoryResponse:
+    runs = BacktestRunHistoryService(session=session).list_recent(limit=limit)
+    return BacktestRunHistoryResponse(
+        run_count=len(runs),
+        runs=[
+            BacktestRunResponse(
+                id=run.id,
+                created_at=run.created_at,
+                source=run.source,
+                status=run.status,
+                detail=run.detail,
+                strategy_name=run.strategy_name,
+                exchange=run.exchange,
+                symbol=run.symbol,
+                timeframe=run.timeframe,
+                fast_period=run.fast_period,
+                slow_period=run.slow_period,
+                starting_equity_input=run.starting_equity_input,
+                candle_count=run.candle_count,
+                required_candles=run.required_candles,
+                starting_equity=run.starting_equity,
+                ending_equity=run.ending_equity,
+                realized_pnl=run.realized_pnl,
+                total_return_pct=run.total_return_pct,
+                max_drawdown_pct=run.max_drawdown_pct,
+                total_trades=run.total_trades,
+                winning_trades=run.winning_trades,
+                losing_trades=run.losing_trades,
+                rules=(
+                    StrategyRuleBuilderRequest.model_validate(run.rules_payload)
+                    if run.rules_payload is not None
+                    else None
+                ),
+            )
+            for run in runs
+        ],
+    )
 
 
 @router.get("/recovery", response_model=RecoveryDashboardResponse)
@@ -280,6 +327,16 @@ def export_audit_events(
         session_factory=session_factory,
     ).export_audit_events_csv(limit=limit, filters=filters)
     return _csv_response("audit.csv", content)
+
+
+@router.get("/backtest-runs.csv")
+def export_backtest_runs(
+    session: Session = session_dependency,
+    settings: Settings = settings_dependency,
+    limit: Annotated[int, Query(ge=1, le=100)] = 20,
+) -> Response:
+    content = ReportingExportService(session, settings).export_backtest_runs_csv(limit=limit)
+    return _csv_response("backtest-runs.csv", content)
 
 
 @router.get("/notification-delivery.csv")

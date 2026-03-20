@@ -209,6 +209,37 @@ class BacktestExecutionResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class BacktestRunResponse(BaseModel):
+    id: int
+    created_at: datetime
+    source: str
+    status: str
+    detail: str
+    strategy_name: str
+    exchange: str
+    symbol: str
+    timeframe: str
+    fast_period: int | None = None
+    slow_period: int | None = None
+    starting_equity_input: Decimal
+    candle_count: int
+    required_candles: int
+    starting_equity: Decimal | None = None
+    ending_equity: Decimal | None = None
+    realized_pnl: Decimal | None = None
+    total_return_pct: Decimal | None = None
+    max_drawdown_pct: Decimal | None = None
+    total_trades: int | None = None
+    winning_trades: int | None = None
+    losing_trades: int | None = None
+    rules: "StrategyRuleBuilderRequest | None" = None
+
+
+class BacktestRunHistoryResponse(BaseModel):
+    run_count: int
+    runs: list[BacktestRunResponse]
+
+
 class BacktestControlRequest(BaseModel):
     strategy_name: str = "ema_crossover"
     exchange: str | None = None
