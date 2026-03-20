@@ -42,9 +42,12 @@ type BacktestFormState = {
   fast_period: string;
   slow_period: string;
   starting_equity: string;
+  rules: StrategyRuleBuilderRequest;
 };
 
 type RuleBuilderPresetKey = BacktestFormState["preset_key"];
+type RuleGroupKey = keyof StrategyRuleBuilderRequest;
+type RuleCondition = StrategyRuleBuilderRequest["buy_rules"]["conditions"][number];
 
 type RuleBuilderPreset = {
   key: RuleBuilderPresetKey;
@@ -54,6 +57,11 @@ type RuleBuilderPreset = {
 };
 
 const timeframeOptions = ["5m", "15m", "1h", "4h", "1d"];
+const ruleGroupLabels: Record<RuleGroupKey, string> = {
+  shared_filters: "Shared filters",
+  buy_rules: "Buy rules",
+  sell_rules: "Sell rules",
+};
 
 const ruleBuilderPresets: RuleBuilderPreset[] = [
   {
@@ -206,6 +214,368 @@ function describeGroup(group: StrategyRuleBuilderRequest["buy_rules"]): string {
 function getPreset(key: RuleBuilderPresetKey): RuleBuilderPreset {
   return (
     ruleBuilderPresets.find((preset) => preset.key === key) ?? ruleBuilderPresets[0]
+  );
+}
+
+function cloneRuleGroup(group: StrategyRuleBuilderRequest["buy_rules"]): StrategyRuleBuilderRequest["buy_rules"] {
+  return {
+    logic: group.logic,
+    conditions: group.conditions.map((condition) => ({ ...condition })),
+  };
+}
+
+function cloneRules(rules: StrategyRuleBuilderRequest): StrategyRuleBuilderRequest {
+  return {
+    shared_filters: cloneRuleGroup(rules.shared_filters),
+    buy_rules: cloneRuleGroup(rules.buy_rules),
+    sell_rules: cloneRuleGroup(rules.sell_rules),
+  };
+}
+
+function buildPresetRules(
+  presetKey: RuleBuilderPresetKey,
+  fastPeriod: string,
+  slowPeriod: string,
+): StrategyRuleBuilderRequest {
+  return getPreset(presetKey).buildRules(Number(fastPeriod) || 20, Number(slowPeriod) || 50);
+}
+
+function createCondition(
+  indicator: RuleCondition["indicator"],
+  fastPeriod: string,
+  slowPeriod: string,
+): RuleCondition {
+  if (indicator === "ema_cross") {
+    return {
+      indicator,
+      operator: "bullish",
+      fast_period: Number(fastPeriod) || 20,
+      slow_period: Number(slowPeriod) || 50,
+    };
+  }
+  if (indicator === "price_vs_ema") {
+    return {
+      indicator,
+      operator: "above",
+      period: 20,
+    };
+  }
+  return {
+    indicator,
+    operator: "above",
+    period: 14,
+    threshold: "55",
+  };
+}
+
+function allowedOperators(indicator: RuleCondition["indicator"]): RuleCondition["operator"][] {
+  if (indicator === "ema_cross") {
+    return ["bullish", "bearish"];
+  }
+  return ["above", "below"];
+}
+
+function minimumCandlesForCondition(condition: RuleCondition): number | null {
+  if (condition.indicator === "ema_cross") {
+    if (!condition.fast_period || !condition.slow_period || condition.fast_period >= condition.slow_period) {
+      return null;
+    }
+    return condition.slow_period + 1;
+  }
+  if (condition.indicator === "price_vs_ema") {
+    return condition.period && condition.period > 0 ? condition.period : null;
+  }
+  if (!condition.period || condition.period <= 0 || !condition.threshold) {
+    return null;
+  }
+  return condition.period + 1;
+}
+
+function minimumCandlesForRules(rules: StrategyRuleBuilderRequest): number | null {
+  const values = [
+    rules.shared_filters,
+    rules.buy_rules,
+    rules.sell_rules,
+  ].map((group) => {
+    if (group.conditions.length === 0) {
+      return group === rules.shared_filters ? 0 : null;
+    }
+    const minimums = group.conditions.map(minimumCandlesForCondition);
+    if (minimums.some((value) => value === null)) {
+      return null;
+    }
+    return Math.max(...minimums.filter((value): value is number => value !== null));
+  });
+
+  if (values.some((value) => value === null)) {
+    return null;
+  }
+
+  return Math.max(...values.filter((value): value is number => value !== null));
+}
+
+function RuleConditionEditor({
+  condition,
+  groupKey,
+  index,
+  fastPeriod,
+  slowPeriod,
+  onChange,
+  onRemove,
+}: {
+  condition: RuleCondition;
+  groupKey: RuleGroupKey;
+  index: number;
+  fastPeriod: string;
+  slowPeriod: string;
+  onChange: (next: RuleCondition) => void;
+  onRemove: () => void;
+}) {
+  const prefix = `${ruleGroupLabels[groupKey]} condition ${index + 1}`;
+
+  return (
+    <div className="space-y-3 rounded-2xl border border-white/10 bg-[#09121a] p-4">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-sm font-medium text-white">{prefix}</p>
+        <button
+          className="rounded-xl border border-rose-400/25 px-3 py-1 text-xs font-medium text-rose-100 transition hover:bg-rose-400/10"
+          onClick={onRemove}
+          type="button"
+        >
+          Remove
+        </button>
+      </div>
+
+      <div className="grid gap-3 md:grid-cols-2">
+        <label className="space-y-2">
+          <span className="text-[11px] uppercase tracking-[0.18em] text-slate-400">Indicator</span>
+          <select
+            aria-label={`${prefix} indicator`}
+            className="w-full rounded-2xl border border-white/10 bg-[#050b11] px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-300/40 focus:ring-2 focus:ring-cyan-300/10"
+            onChange={(event) =>
+              onChange(createCondition(event.target.value as RuleCondition["indicator"], fastPeriod, slowPeriod))
+            }
+            value={condition.indicator}
+          >
+            <option value="ema_cross">ema_cross</option>
+            <option value="price_vs_ema">price_vs_ema</option>
+            <option value="rsi_threshold">rsi_threshold</option>
+          </select>
+        </label>
+
+        <label className="space-y-2">
+          <span className="text-[11px] uppercase tracking-[0.18em] text-slate-400">Operator</span>
+          <select
+            aria-label={`${prefix} operator`}
+            className="w-full rounded-2xl border border-white/10 bg-[#050b11] px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-300/40 focus:ring-2 focus:ring-cyan-300/10"
+            onChange={(event) =>
+              onChange({
+                ...condition,
+                operator: event.target.value as RuleCondition["operator"],
+              })
+            }
+            value={condition.operator}
+          >
+            {allowedOperators(condition.indicator).map((operator) => (
+              <option key={operator} value={operator}>
+                {operator}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+
+      {condition.indicator === "ema_cross" ? (
+        <div className="grid gap-3 md:grid-cols-2">
+          <label className="space-y-2">
+            <span className="text-[11px] uppercase tracking-[0.18em] text-slate-400">Fast Period</span>
+            <input
+              aria-label={`${prefix} fast period`}
+              className="w-full rounded-2xl border border-white/10 bg-[#050b11] px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-300/40 focus:ring-2 focus:ring-cyan-300/10"
+              min={1}
+              onChange={(event) =>
+                onChange({
+                  ...condition,
+                  fast_period: Number(event.target.value),
+                })
+              }
+              type="number"
+              value={condition.fast_period ?? ""}
+            />
+          </label>
+          <label className="space-y-2">
+            <span className="text-[11px] uppercase tracking-[0.18em] text-slate-400">Slow Period</span>
+            <input
+              aria-label={`${prefix} slow period`}
+              className="w-full rounded-2xl border border-white/10 bg-[#050b11] px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-300/40 focus:ring-2 focus:ring-cyan-300/10"
+              min={1}
+              onChange={(event) =>
+                onChange({
+                  ...condition,
+                  slow_period: Number(event.target.value),
+                })
+              }
+              type="number"
+              value={condition.slow_period ?? ""}
+            />
+          </label>
+        </div>
+      ) : null}
+
+      {condition.indicator === "price_vs_ema" ? (
+        <label className="space-y-2">
+          <span className="text-[11px] uppercase tracking-[0.18em] text-slate-400">EMA Period</span>
+          <input
+            aria-label={`${prefix} period`}
+            className="w-full rounded-2xl border border-white/10 bg-[#050b11] px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-300/40 focus:ring-2 focus:ring-cyan-300/10"
+            min={1}
+            onChange={(event) =>
+              onChange({
+                ...condition,
+                period: Number(event.target.value),
+              })
+            }
+            type="number"
+            value={condition.period ?? ""}
+          />
+        </label>
+      ) : null}
+
+      {condition.indicator === "rsi_threshold" ? (
+        <div className="grid gap-3 md:grid-cols-2">
+          <label className="space-y-2">
+            <span className="text-[11px] uppercase tracking-[0.18em] text-slate-400">RSI Period</span>
+            <input
+              aria-label={`${prefix} period`}
+              className="w-full rounded-2xl border border-white/10 bg-[#050b11] px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-300/40 focus:ring-2 focus:ring-cyan-300/10"
+              min={1}
+              onChange={(event) =>
+                onChange({
+                  ...condition,
+                  period: Number(event.target.value),
+                })
+              }
+              type="number"
+              value={condition.period ?? ""}
+            />
+          </label>
+          <label className="space-y-2">
+            <span className="text-[11px] uppercase tracking-[0.18em] text-slate-400">Threshold</span>
+            <input
+              aria-label={`${prefix} threshold`}
+              className="w-full rounded-2xl border border-white/10 bg-[#050b11] px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-300/40 focus:ring-2 focus:ring-cyan-300/10"
+              max={99}
+              min={1}
+              onChange={(event) =>
+                onChange({
+                  ...condition,
+                  threshold: event.target.value,
+                })
+              }
+              step="0.1"
+              type="number"
+              value={condition.threshold ?? ""}
+            />
+          </label>
+        </div>
+      ) : null}
+
+      <p className="text-xs text-slate-400">
+        Minimum candles: {minimumCandlesForCondition(condition) ?? "fix fields"}
+      </p>
+    </div>
+  );
+}
+
+function RuleGroupEditor({
+  groupKey,
+  group,
+  fastPeriod,
+  slowPeriod,
+  onChange,
+}: {
+  groupKey: RuleGroupKey;
+  group: StrategyRuleBuilderRequest["buy_rules"];
+  fastPeriod: string;
+  slowPeriod: string;
+  onChange: (next: StrategyRuleBuilderRequest["buy_rules"]) => void;
+}) {
+  return (
+    <div className="space-y-4 rounded-[1.8rem] border border-cyan-300/10 bg-cyan-300/[0.04] p-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p className="text-sm font-medium text-white">{ruleGroupLabels[groupKey]}</p>
+          <p className="mt-1 text-sm text-slate-300">
+            {groupKey === "shared_filters"
+              ? "These conditions must pass before either side can trigger."
+              : "These conditions decide when the side-specific rule matches."}
+          </p>
+        </div>
+        <button
+          className="rounded-2xl border border-cyan-300/20 px-3 py-2 text-xs font-medium text-cyan-100 transition hover:bg-cyan-300/10"
+          onClick={() =>
+            onChange({
+              ...group,
+              conditions: [...group.conditions, createCondition("ema_cross", fastPeriod, slowPeriod)],
+            })
+          }
+          type="button"
+        >
+          Add condition
+        </button>
+      </div>
+
+      <label className="space-y-2">
+        <span className="text-[11px] uppercase tracking-[0.18em] text-slate-400">Group Logic</span>
+        <select
+          aria-label={`${ruleGroupLabels[groupKey]} logic`}
+          className="w-full rounded-2xl border border-white/10 bg-[#09121a] px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-300/40 focus:ring-2 focus:ring-cyan-300/10"
+          onChange={(event) =>
+            onChange({
+              ...group,
+              logic: event.target.value as StrategyRuleBuilderRequest["buy_rules"]["logic"],
+            })
+          }
+          value={group.logic}
+        >
+          <option value="all">all</option>
+          <option value="any">any</option>
+        </select>
+      </label>
+
+      {group.conditions.length === 0 ? (
+        <div className="rounded-2xl border border-dashed border-white/10 px-4 py-5 text-sm text-slate-400">
+          No conditions yet.
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {group.conditions.map((condition, index) => (
+            <RuleConditionEditor
+              condition={condition}
+              fastPeriod={fastPeriod}
+              groupKey={groupKey}
+              index={index}
+              key={`${groupKey}-${index}`}
+              onChange={(nextCondition) =>
+                onChange({
+                  ...group,
+                  conditions: group.conditions.map((entry, entryIndex) =>
+                    entryIndex === index ? nextCondition : entry,
+                  ),
+                })
+              }
+              onRemove={() =>
+                onChange({
+                  ...group,
+                  conditions: group.conditions.filter((_, entryIndex) => entryIndex !== index),
+                })
+              }
+              slowPeriod={slowPeriod}
+            />
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -463,6 +833,7 @@ export function BacktestPage() {
     fast_period: "",
     slow_period: "",
     starting_equity: "10000",
+    rules: buildPresetRules("ema_crossover_equivalent", "20", "50"),
   });
   const [hasHydratedDefaults, setHasHydratedDefaults] = useState(false);
 
@@ -494,6 +865,11 @@ export function BacktestPage() {
       timeframe: operatorConfigQuery.data.timeframe,
       fast_period: String(operatorConfigQuery.data.fast_period),
       slow_period: String(operatorConfigQuery.data.slow_period),
+      rules: buildPresetRules(
+        current.preset_key,
+        String(operatorConfigQuery.data.fast_period),
+        String(operatorConfigQuery.data.slow_period),
+      ),
     }));
     setHasHydratedDefaults(true);
   }, [hasHydratedDefaults, operatorConfigQuery.data]);
@@ -505,6 +881,27 @@ export function BacktestPage() {
     setForm((current) => ({
       ...current,
       [key]: value,
+    }));
+  }
+
+  function updateRuleGroup(
+    groupKey: RuleGroupKey,
+    nextGroup: StrategyRuleBuilderRequest["buy_rules"],
+  ) {
+    setForm((current) => ({
+      ...current,
+      rules: {
+        ...cloneRules(current.rules),
+        [groupKey]: nextGroup,
+      },
+    }));
+  }
+
+  function applyPreset(presetKey: RuleBuilderPresetKey) {
+    setForm((current) => ({
+      ...current,
+      preset_key: presetKey,
+      rules: buildPresetRules(presetKey, current.fast_period, current.slow_period),
     }));
   }
 
@@ -522,16 +919,14 @@ export function BacktestPage() {
       payload.fast_period = Number(form.fast_period);
       payload.slow_period = Number(form.slow_period);
     } else {
-      payload.rules = getPreset(form.preset_key).buildRules(
-        Number(form.fast_period),
-        Number(form.slow_period),
-      );
+      payload.rules = cloneRules(form.rules);
     }
 
     backtestMutation.mutate(payload);
   }
 
   const selectedPreset = getPreset(form.preset_key);
+  const minimumRuleCandles = minimumCandlesForRules(form.rules);
 
   return (
     <OperatorShell>
@@ -681,31 +1076,63 @@ export function BacktestPage() {
 
                 {form.strategy_name === "rule_builder" ? (
                   <div className="space-y-4 rounded-[1.8rem] border border-cyan-300/10 bg-cyan-300/[0.04] p-4">
-                    <label className="space-y-2">
-                      <span className="text-[11px] uppercase tracking-[0.18em] text-slate-400">
-                        Rule Builder Preset
-                      </span>
-                      <select
-                        className="w-full rounded-2xl border border-white/10 bg-[#09121a] px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-300/40 focus:ring-2 focus:ring-cyan-300/10"
-                        onChange={(event) =>
-                          updateField(
-                            "preset_key",
-                            event.target.value as BacktestFormState["preset_key"],
-                          )
-                        }
-                        value={form.preset_key}
+                    <div className="flex flex-wrap items-end justify-between gap-3">
+                      <label className="flex-1 space-y-2">
+                        <span className="text-[11px] uppercase tracking-[0.18em] text-slate-400">
+                          Rule Builder Preset
+                        </span>
+                        <select
+                          className="w-full rounded-2xl border border-white/10 bg-[#09121a] px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-300/40 focus:ring-2 focus:ring-cyan-300/10"
+                          onChange={(event) =>
+                            applyPreset(event.target.value as BacktestFormState["preset_key"])
+                          }
+                          value={form.preset_key}
+                        >
+                          {ruleBuilderPresets.map((preset) => (
+                            <option key={preset.key} value={preset.key}>
+                              {preset.label}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <button
+                        className="rounded-2xl border border-cyan-300/20 px-4 py-3 text-sm font-medium text-cyan-100 transition hover:bg-cyan-300/10"
+                        onClick={() => applyPreset(form.preset_key)}
+                        type="button"
                       >
-                        {ruleBuilderPresets.map((preset) => (
-                          <option key={preset.key} value={preset.key}>
-                            {preset.label}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
+                        Reset from preset
+                      </button>
+                    </div>
+
                     <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
                       <p className="font-medium text-white">{selectedPreset.label}</p>
                       <p className="mt-2 text-sm text-slate-300">{selectedPreset.description}</p>
+                      <p className="mt-3 text-xs uppercase tracking-[0.18em] text-slate-400">
+                        Estimated minimum candles: {minimumRuleCandles ?? "fix rule fields"}
+                      </p>
                     </div>
+
+                    <RuleGroupEditor
+                      fastPeriod={form.fast_period}
+                      group={form.rules.shared_filters}
+                      groupKey="shared_filters"
+                      onChange={(nextGroup) => updateRuleGroup("shared_filters", nextGroup)}
+                      slowPeriod={form.slow_period}
+                    />
+                    <RuleGroupEditor
+                      fastPeriod={form.fast_period}
+                      group={form.rules.buy_rules}
+                      groupKey="buy_rules"
+                      onChange={(nextGroup) => updateRuleGroup("buy_rules", nextGroup)}
+                      slowPeriod={form.slow_period}
+                    />
+                    <RuleGroupEditor
+                      fastPeriod={form.fast_period}
+                      group={form.rules.sell_rules}
+                      groupKey="sell_rules"
+                      onChange={(nextGroup) => updateRuleGroup("sell_rules", nextGroup)}
+                      slowPeriod={form.slow_period}
+                    />
                   </div>
                 ) : null}
 
@@ -742,7 +1169,7 @@ export function BacktestPage() {
                 <div>
                   <CardTitle>Preset Guidance</CardTitle>
                   <CardDescription>
-                    Keep the UI preset-first even when the rule-builder path is selected.
+                    Presets still seed the flow, but the payload is now editable before submission.
                   </CardDescription>
                 </div>
                 <div className="rounded-2xl bg-white/5 p-3 text-slate-200">
@@ -757,10 +1184,10 @@ export function BacktestPage() {
                   </p>
                 </div>
                 <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-                  <p className="font-medium text-white">Rule builder presets</p>
+                  <p className="font-medium text-white">Rule builder editor</p>
                   <p className="mt-2">
-                    Presets serialize a bounded rule payload to the existing backtest endpoint
-                    without introducing a new backend surface.
+                    Conditions stay bounded to the existing indicator set and still submit through
+                    the existing backtest control API.
                   </p>
                 </div>
               </CardContent>
@@ -801,8 +1228,15 @@ export function BacktestPage() {
                 </div>
                 {form.strategy_name === "rule_builder" ? (
                   <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-                    <p className="font-medium text-white">Preset</p>
-                    <p className="mt-2">{selectedPreset.label}</p>
+                    <p className="font-medium text-white">Rule builder</p>
+                    <p className="mt-2">
+                      {form.rules.shared_filters.conditions.length} shared,{" "}
+                      {form.rules.buy_rules.conditions.length} buy,{" "}
+                      {form.rules.sell_rules.conditions.length} sell conditions
+                    </p>
+                    <p className="mt-2 text-xs text-slate-400">
+                      Preset seed: {selectedPreset.label}
+                    </p>
                   </div>
                 ) : null}
               </CardContent>

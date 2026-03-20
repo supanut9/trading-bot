@@ -80,7 +80,9 @@ Minimum candles:
 
 ## UI Boundary
 
+- operators can start from a bounded preset and then edit the resulting rule payload
 - operators can add or remove conditions in each group
 - operators can choose whether a condition belongs to shared, buy, or sell logic
-- the UI serializes the rule set as a structured payload passed to the existing backtest path
+- operators can change group logic between `all` and `any`
+- the UI serializes the edited rule set as a structured payload passed to the existing backtest path
 - runtime defaults remain on the fixed EMA strategy until a later feature expands worker/runtime support

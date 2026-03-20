@@ -297,3 +297,190 @@ test("submits rule-builder preset payload", async () => {
   expect(screen.getAllByText("rule_builder").length).toBeGreaterThan(0);
   expect(screen.getByText("EMA 20/50 bullish cross")).toBeInTheDocument();
 });
+
+test("submits edited rule-builder conditions", async () => {
+  fetchMock.mockImplementation((input: URL | RequestInfo, init?: RequestInit) => {
+    const url = input.toString();
+
+    if (url.endsWith("/controls/operator-config")) {
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            status: "completed",
+            detail: "operator runtime config loaded",
+            strategy_name: "ema_crossover",
+            exchange: "binance",
+            symbol: "BTC/USDT",
+            timeframe: "1h",
+            fast_period: 20,
+            slow_period: 50,
+            source: "runtime_config",
+            changed: false,
+            notified: false,
+          }),
+        ),
+      );
+    }
+
+    if (url.endsWith("/controls/backtest")) {
+      expect(init?.method).toBe("POST");
+      expect(init?.body).toBe(
+        JSON.stringify({
+          strategy_name: "rule_builder",
+          symbol: "BTC/USDT",
+          timeframe: "1h",
+          starting_equity: 10000,
+          rules: {
+            shared_filters: {
+              logic: "all",
+              conditions: [
+                {
+                  indicator: "price_vs_ema",
+                  operator: "below",
+                  period: 30,
+                },
+              ],
+            },
+            buy_rules: {
+              logic: "all",
+              conditions: [
+                {
+                  indicator: "ema_cross",
+                  operator: "bullish",
+                  fast_period: 20,
+                  slow_period: 50,
+                },
+                {
+                  indicator: "rsi_threshold",
+                  operator: "above",
+                  period: 14,
+                  threshold: "60",
+                },
+              ],
+            },
+            sell_rules: {
+              logic: "all",
+              conditions: [
+                {
+                  indicator: "ema_cross",
+                  operator: "bearish",
+                  fast_period: 20,
+                  slow_period: 50,
+                },
+                {
+                  indicator: "rsi_threshold",
+                  operator: "below",
+                  period: 14,
+                  threshold: "45",
+                },
+              ],
+            },
+          },
+        }),
+      );
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            status: "completed",
+            detail: "backtest completed",
+            notified: false,
+            strategy_name: "rule_builder",
+            exchange: "binance",
+            symbol: "BTC/USDT",
+            timeframe: "1h",
+            fast_period: null,
+            slow_period: null,
+            starting_equity_input: "10000.00000000",
+            candle_count: 120,
+            required_candles: 51,
+            starting_equity: "10000.00000000",
+            ending_equity: "10125.00000000",
+            realized_pnl: "125.00000000",
+            total_return_pct: "1.25000000",
+            max_drawdown_pct: "0.80000000",
+            total_trades: 2,
+            winning_trades: 1,
+            losing_trades: 0,
+            rules: {
+              shared_filters: {
+                logic: "all",
+                conditions: [
+                  {
+                    indicator: "price_vs_ema",
+                    operator: "below",
+                    period: 30,
+                  },
+                ],
+              },
+              buy_rules: {
+                logic: "all",
+                conditions: [
+                  {
+                    indicator: "ema_cross",
+                    operator: "bullish",
+                    fast_period: 20,
+                    slow_period: 50,
+                  },
+                  {
+                    indicator: "rsi_threshold",
+                    operator: "above",
+                    period: 14,
+                    threshold: "60",
+                  },
+                ],
+              },
+              sell_rules: {
+                logic: "all",
+                conditions: [
+                  {
+                    indicator: "ema_cross",
+                    operator: "bearish",
+                    fast_period: 20,
+                    slow_period: 50,
+                  },
+                  {
+                    indicator: "rsi_threshold",
+                    operator: "below",
+                    period: 14,
+                    threshold: "45",
+                  },
+                ],
+              },
+            },
+            executions: [],
+          }),
+        ),
+      );
+    }
+
+    return Promise.reject(new Error(`Unexpected request: ${url}`));
+  });
+
+  renderWithQueryClient();
+
+  await waitFor(() => expect(screen.getByDisplayValue("ema_crossover")).toBeInTheDocument());
+  fireEvent.change(screen.getByDisplayValue("ema_crossover"), {
+    target: { value: "rule_builder" },
+  });
+  fireEvent.change(screen.getByDisplayValue("EMA Crossover Mirror"), {
+    target: { value: "ema_rsi_confirmation" },
+  });
+
+  fireEvent.click(screen.getAllByRole("button", { name: "Add condition" })[0]);
+  fireEvent.change(screen.getByLabelText("Shared filters condition 1 indicator"), {
+    target: { value: "price_vs_ema" },
+  });
+  fireEvent.change(screen.getByLabelText("Shared filters condition 1 operator"), {
+    target: { value: "below" },
+  });
+  fireEvent.change(screen.getByLabelText("Shared filters condition 1 period"), {
+    target: { value: "30" },
+  });
+  fireEvent.change(screen.getByLabelText("Buy rules condition 2 threshold"), {
+    target: { value: "60" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Run backtest" }));
+
+  await waitFor(() => expect(screen.getByText("backtest completed")).toBeInTheDocument());
+  expect(screen.getByText("Estimated minimum candles: 51")).toBeInTheDocument();
+});
