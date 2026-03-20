@@ -169,6 +169,18 @@ class Settings(BaseSettings):
                 "EXCHANGE_API_KEY and EXCHANGE_API_SECRET are required when live trading is enabled"
             )
 
+        if self.app_env.lower() not in {"local", "production", "staging", "test"}:
+            raise ValueError(f"invalid APP_ENV: {self.app_env}")
+
+        if not (0 < self.api_port < 65536):
+            raise ValueError(f"invalid API_PORT: {self.api_port}")
+
+        if self.log_level.upper() not in {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}:
+            raise ValueError(f"invalid LOG_LEVEL: {self.log_level}")
+
+        if self.app_env.lower() != "local" and self.database_url.startswith("sqlite"):
+            raise ValueError("non-local environment requires PostgreSQL-compatible DATABASE_URL")
+
         limit_order_notional = self.live_max_order_notional
         if limit_order_notional is not None and limit_order_notional <= Decimal("0"):
             raise ValueError("LIVE_MAX_ORDER_NOTIONAL must be positive when provided")

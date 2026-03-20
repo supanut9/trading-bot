@@ -95,3 +95,26 @@ def test_rejects_shadow_and_live_both_true() -> None:
             EXCHANGE_API_KEY="key",
             EXCHANGE_API_SECRET="secret",
         )
+
+
+def test_rejects_invalid_app_env() -> None:
+    with pytest.raises(ValueError, match="invalid APP_ENV: bogus"):
+        Settings(APP_ENV="bogus")
+
+
+def test_rejects_invalid_api_port() -> None:
+    with pytest.raises(ValueError, match="invalid API_PORT: 70000"):
+        Settings(API_PORT=70000)
+
+
+def test_rejects_invalid_log_level() -> None:
+    with pytest.raises(ValueError, match="invalid LOG_LEVEL: TRACE"):
+        Settings(LOG_LEVEL="TRACE")
+
+
+def test_rejects_sqlite_in_production() -> None:
+    with pytest.raises(
+        ValueError,
+        match="non-local environment requires PostgreSQL-compatible DATABASE_URL",
+    ):
+        Settings(APP_ENV="production", DATABASE_URL="sqlite:///test.db")

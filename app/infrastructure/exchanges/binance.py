@@ -13,6 +13,7 @@ from urllib.request import Request, urlopen
 from app.infrastructure.exchanges.base import (
     ExchangeAssetBalance,
     ExchangeCandle,
+    ExchangeConnectionError,
     ExchangeOrderCancellation,
     ExchangeOrderRequest,
     ExchangeOrderStatus,
@@ -56,7 +57,7 @@ class BinanceMarketDataClient(MarketDataExchangeClient):
             with urlopen(url, timeout=self._timeout_seconds) as response:
                 payload = json.load(response)
         except (HTTPError, URLError, TimeoutError, json.JSONDecodeError) as exc:
-            raise RuntimeError(f"failed to fetch Binance candles: {exc}") from exc
+            raise ExchangeConnectionError(f"failed to fetch Binance candles: {exc}") from exc
 
         if not isinstance(payload, list):
             raise ValueError("unexpected Binance candle payload")
@@ -88,7 +89,7 @@ class BinanceMarketDataClient(MarketDataExchangeClient):
             with urlopen(url, timeout=self._timeout_seconds) as response:
                 payload = json.load(response)
         except (HTTPError, URLError, TimeoutError, json.JSONDecodeError) as exc:
-            raise RuntimeError(f"failed to fetch Binance latest price: {exc}") from exc
+            raise ExchangeConnectionError(f"failed to fetch Binance latest price: {exc}") from exc
 
         if not isinstance(payload, dict):
             raise ValueError("unexpected Binance latest price payload")
@@ -115,7 +116,7 @@ class BinanceMarketDataClient(MarketDataExchangeClient):
             with urlopen(url, timeout=self._timeout_seconds) as response:
                 payload = json.load(response)
         except (HTTPError, URLError, TimeoutError, json.JSONDecodeError) as exc:
-            raise RuntimeError(f"failed to fetch Binance exchange info: {exc}") from exc
+            raise ExchangeConnectionError(f"failed to fetch Binance exchange info: {exc}") from exc
 
         if not isinstance(payload, dict):
             raise ValueError("unexpected Binance exchange info payload")
@@ -323,7 +324,7 @@ class BinanceSpotOrderClient(LiveOrderExchangeClient):
             with urlopen(http_request, timeout=self._timeout_seconds) as response:
                 raw = response.read().decode("utf-8") or "{}"
         except (HTTPError, URLError, TimeoutError) as exc:
-            raise RuntimeError(f"failed to {error_action}: {exc}") from exc
+            raise ExchangeConnectionError(f"failed to {error_action}: {exc}") from exc
         try:
             parsed = json.loads(raw)
         except json.JSONDecodeError as exc:

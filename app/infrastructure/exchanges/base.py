@@ -5,6 +5,22 @@ from decimal import Decimal
 from typing import Protocol
 
 
+class ExchangeError(RuntimeError):
+    """Base exception for exchange-related errors."""
+
+
+class ExchangeConnectionError(ExchangeError):
+    """Raised when connection to the exchange fails."""
+
+
+class ExchangeAuthenticationError(ExchangeError):
+    """Raised when exchange credentials are invalid."""
+
+
+class ExchangeAPIError(ExchangeError):
+    """Raised when the exchange API returns an error response."""
+
+
 @dataclass(frozen=True, slots=True)
 class ExchangeCandle:
     open_time: datetime

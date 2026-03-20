@@ -115,6 +115,29 @@ class AuditService:
             payload=payload,
         )
 
+    def record_event(
+        self,
+        *,
+        event_type: str,
+        status: str = "completed",
+        source: str = "system",
+        detail: str,
+        exchange: str | None = None,
+        symbol: str | None = None,
+        timeframe: str | None = None,
+        payload: dict[str, Any] | None = None,
+    ) -> None:
+        self._record(
+            event_type=event_type,
+            source=source,
+            status=status,
+            detail=detail,
+            exchange=exchange,
+            symbol=symbol,
+            timeframe=timeframe,
+            payload=payload,
+        )
+
     def _record(
         self,
         *,

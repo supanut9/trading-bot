@@ -72,14 +72,44 @@ def ensure_database_connectivity(settings: Settings) -> None:
         connection.execute(text("SELECT 1"))
 
 
+def _log_redacted_settings(settings: Settings) -> None:
+    from app.core.logger import get_logger
+
+    logger = get_logger(__name__)
+    dump = settings.model_dump()
+    for key in dump:
+        if any(secret_term in key.lower() for secret_term in ["key", "secret", "url", "password"]):
+            dump[key] = "********"
+    logger.info("startup_configuration_redacted config=%s", dump)
+
+
 def validate_runtime_startup(
     settings: Settings,
     component: RuntimeComponent,
 ) -> RuntimeStartupContext:
+    _log_redacted_settings(settings)
+
     errors = validate_runtime_settings(settings, component)
     if errors:
         detail = "; ".join(errors)
         raise ValueError(detail)
 
     ensure_database_connectivity(settings)
+
+    # Record startup in audit log
+    from app.application.services.audit_service import AuditService
+    from app.infrastructure.database.session import create_session_factory
+
+    session = create_session_factory(settings)()
+    try:
+        AuditService(session=session).record_event(
+            event_type="system_startup",
+            exchange=settings.exchange_name,
+            symbol=settings.default_symbol,
+            detail=f"component={component} mode={settings.execution_mode} env={settings.app_env}",
+        )
+        session.commit()
+    finally:
+        session.close()
+
     return build_runtime_startup_context(settings, component)

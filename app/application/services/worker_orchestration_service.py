@@ -31,6 +31,7 @@ from app.infrastructure.database.repositories.shadow_blocked_signal_repository i
     ShadowBlockedSignalRepository,
 )
 from app.infrastructure.database.repositories.trade_repository import TradeRepository
+from app.infrastructure.exchanges.base import ExchangeConnectionError, ExchangeError
 from app.infrastructure.exchanges.factory import build_market_data_exchange_client
 from app.infrastructure.executions.base import ExecutionService, ExecutionUnavailableError
 
@@ -397,6 +398,22 @@ class WorkerOrchestrationService:
             )
             return WorkerCycleResult(
                 status="duplicate_live_order",
+                detail=str(exc),
+                signal_action=signal.action,
+                client_order_id=client_order_id,
+            )
+        except (ExchangeError, ExchangeConnectionError) as exc:
+            logger.error(
+                "worker_cycle_failed reason=exchange_error "
+                "exchange=%s symbol=%s signal=%s client_order_id=%s detail=%s",
+                self._settings.exchange_name,
+                self._symbol,
+                signal.action,
+                client_order_id,
+                exc,
+            )
+            return WorkerCycleResult(
+                status="execution_failed",
                 detail=str(exc),
                 signal_action=signal.action,
                 client_order_id=client_order_id,
