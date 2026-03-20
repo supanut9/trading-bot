@@ -8,6 +8,18 @@ from app.domain.strategies.ema_crossover import EmaCrossoverStrategy
 
 
 @dataclass(frozen=True, slots=True)
+class WalkForwardResult:
+    in_sample: "BacktestResult"
+    out_of_sample: "BacktestResult"
+    split_ratio: Decimal
+    in_sample_candles: int
+    out_of_sample_candles: int
+    return_degradation_pct: Decimal
+    overfitting_warning: bool
+    overfitting_threshold_pct: Decimal
+
+
+@dataclass(frozen=True, slots=True)
 class BacktestExecution:
     action: str
     price: Decimal
@@ -199,6 +211,40 @@ class BacktestService:
             slippage_pct=self._slippage_pct,
             fee_pct=self._fee_pct,
             executions=tuple(executions),
+        )
+
+    def run_walk_forward(
+        self,
+        candles: Sequence[Candle],
+        *,
+        split_ratio: Decimal = Decimal("0.7"),
+        overfitting_threshold_pct: Decimal = Decimal("35"),
+    ) -> WalkForwardResult:
+        ordered = sorted(candles, key=lambda c: c.open_time)
+        split_index = max(1, int(len(ordered) * split_ratio))
+        in_sample_candles = ordered[:split_index]
+        oos_candles = ordered[split_index:]
+
+        in_sample_result = self.run(in_sample_candles)
+        oos_result = self.run(oos_candles)
+
+        if in_sample_result.total_return_pct > Decimal("0"):
+            return_degradation_pct = (
+                (in_sample_result.total_return_pct - oos_result.total_return_pct)
+                / abs(in_sample_result.total_return_pct)
+            ) * Decimal("100")
+        else:
+            return_degradation_pct = Decimal("0")
+
+        return WalkForwardResult(
+            in_sample=in_sample_result,
+            out_of_sample=oos_result,
+            split_ratio=split_ratio,
+            in_sample_candles=len(in_sample_candles),
+            out_of_sample_candles=len(oos_candles),
+            return_degradation_pct=return_degradation_pct,
+            overfitting_warning=return_degradation_pct > overfitting_threshold_pct,
+            overfitting_threshold_pct=overfitting_threshold_pct,
         )
 
     def _build_portfolio_state(

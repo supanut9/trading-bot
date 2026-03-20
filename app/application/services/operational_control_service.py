@@ -7,7 +7,11 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from app.application.services.audit_service import AuditService
 from app.application.services.backtest_run_history_service import BacktestRunHistoryService
-from app.application.services.backtest_service import BacktestResult, BacktestService
+from app.application.services.backtest_service import (
+    BacktestResult,
+    BacktestService,
+    WalkForwardResult,
+)
 from app.application.services.live_fill_reconciliation_service import (
     LiveFillReconciliationService,
 )
@@ -62,6 +66,7 @@ class BacktestRunOptions:
     starting_equity: Decimal | None = None
     slippage_pct: Decimal | None = None
     fee_pct: Decimal | None = None
+    walk_forward_split_ratio: Decimal | None = None
     rules: RuleBuilderStrategyConfig | None = None
 
 
@@ -95,6 +100,26 @@ class WorkerControlResult:
 
 
 @dataclass(frozen=True, slots=True)
+class WalkForwardControlResult:
+    split_ratio: Decimal
+    in_sample_candles: int
+    out_of_sample_candles: int
+    in_sample_total_return_pct: Decimal
+    in_sample_max_drawdown_pct: Decimal
+    in_sample_total_trades: int
+    in_sample_winning_trades: int
+    in_sample_losing_trades: int
+    out_of_sample_total_return_pct: Decimal
+    out_of_sample_max_drawdown_pct: Decimal
+    out_of_sample_total_trades: int
+    out_of_sample_winning_trades: int
+    out_of_sample_losing_trades: int
+    return_degradation_pct: Decimal
+    overfitting_warning: bool
+    overfitting_threshold_pct: Decimal
+
+
+@dataclass(frozen=True, slots=True)
 class BacktestControlResult:
     status: str
     detail: str
@@ -119,6 +144,7 @@ class BacktestControlResult:
     total_fees_paid: Decimal | None = None
     slippage_pct: Decimal | None = None
     fee_pct: Decimal | None = None
+    walk_forward: WalkForwardControlResult | None = None
     rules: RuleBuilderStrategyConfig | None = None
     executions: tuple[BacktestExecutionResult, ...] = ()
 
@@ -444,14 +470,21 @@ class OperationalControlService:
 
             if not records:
                 backtest_result = None
+                walk_forward_result = None
                 status = "skipped"
                 detail = "no_candles"
             elif candle_count < required_candles:
                 backtest_result = None
+                walk_forward_result = None
                 status = "skipped"
                 detail = "not_enough_candles"
             else:
                 backtest_result = self._run_backtest_from_records(records, options=resolved)
+                walk_forward_result = (
+                    self._run_walk_forward_from_records(records, options=resolved)
+                    if resolved.walk_forward_split_ratio is not None
+                    else None
+                )
                 status = "completed"
                 detail = "backtest completed"
 
@@ -535,6 +568,7 @@ class OperationalControlService:
             total_fees_paid=self._quantize_decimal(backtest_result.total_fees_paid),
             slippage_pct=self._quantize_decimal(backtest_result.slippage_pct),
             fee_pct=self._quantize_decimal(backtest_result.fee_pct),
+            walk_forward=self._build_walk_forward_control_result(walk_forward_result),
             rules=resolved.rules,
             executions=tuple(
                 BacktestExecutionResult(
@@ -930,6 +964,74 @@ class OperationalControlService:
             ]
         )
 
+    def _run_walk_forward_from_records(
+        self,
+        records: Sequence[CandleRecord],
+        *,
+        options: BacktestRunOptions,
+    ) -> WalkForwardResult:
+        slippage_pct = (
+            options.slippage_pct
+            if options.slippage_pct is not None
+            else Decimal(str(self._settings.backtest_slippage_pct))
+        )
+        fee_pct = (
+            options.fee_pct
+            if options.fee_pct is not None
+            else Decimal(str(self._settings.backtest_fee_pct))
+        )
+        candles = [
+            Candle(
+                open_time=record.open_time,
+                close_time=record.close_time,
+                open_price=record.open_price,
+                high_price=record.high_price,
+                low_price=record.low_price,
+                close_price=record.close_price,
+                volume=record.volume,
+            )
+            for record in records
+        ]
+        return BacktestService(
+            strategy=self._build_backtest_strategy(options),
+            risk_service=self._build_risk_service(),
+            starting_equity=options.starting_equity,
+            slippage_pct=slippage_pct,
+            fee_pct=fee_pct,
+        ).run_walk_forward(
+            candles,
+            split_ratio=options.walk_forward_split_ratio or Decimal("0.7"),
+            overfitting_threshold_pct=Decimal(
+                str(self._settings.backtest_overfitting_threshold_pct)
+            ),
+        )
+
+    def _build_walk_forward_control_result(
+        self,
+        wf: WalkForwardResult | None,
+    ) -> WalkForwardControlResult | None:
+        if wf is None:
+            return None
+        q = self._quantize_decimal
+        return WalkForwardControlResult(
+            split_ratio=q(wf.split_ratio) or Decimal("0"),
+            in_sample_candles=wf.in_sample_candles,
+            out_of_sample_candles=wf.out_of_sample_candles,
+            in_sample_total_return_pct=q(wf.in_sample.total_return_pct) or Decimal("0"),
+            in_sample_max_drawdown_pct=q(wf.in_sample.max_drawdown_pct) or Decimal("0"),
+            in_sample_total_trades=wf.in_sample.total_trades,
+            in_sample_winning_trades=wf.in_sample.winning_trades,
+            in_sample_losing_trades=wf.in_sample.losing_trades,
+            out_of_sample_total_return_pct=q(wf.out_of_sample.total_return_pct) or Decimal("0"),
+            out_of_sample_max_drawdown_pct=q(wf.out_of_sample.max_drawdown_pct) or Decimal("0"),
+            out_of_sample_total_trades=wf.out_of_sample.total_trades,
+            out_of_sample_winning_trades=wf.out_of_sample.winning_trades,
+            out_of_sample_losing_trades=wf.out_of_sample.losing_trades,
+            return_degradation_pct=q(wf.return_degradation_pct) or Decimal("0"),
+            overfitting_warning=wf.overfitting_warning,
+            overfitting_threshold_pct=q(wf.overfitting_threshold_pct) or Decimal("0"),
+        )
+
     def _resolve_backtest_options(
         self,
         options: BacktestRunOptions | None,
@@ -963,6 +1065,9 @@ class OperationalControlService:
                 fast_period=fast_period,
                 slow_period=slow_period,
                 starting_equity=starting_equity,
+                slippage_pct=active.slippage_pct,
+                fee_pct=active.fee_pct,
+                walk_forward_split_ratio=active.walk_forward_split_ratio,
             )
         if strategy_name == BACKTEST_STRATEGY_RULE_BUILDER:
             rules = active.rules or self._default_rule_builder_config(defaults)
@@ -973,6 +1078,9 @@ class OperationalControlService:
                 symbol=symbol,
                 timeframe=timeframe,
                 starting_equity=starting_equity,
+                slippage_pct=active.slippage_pct,
+                fee_pct=active.fee_pct,
+                walk_forward_split_ratio=active.walk_forward_split_ratio,
                 rules=rules,
             )
         raise ValueError(f"unsupported backtest strategy: {active.strategy_name}")

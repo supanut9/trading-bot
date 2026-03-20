@@ -45,6 +45,15 @@ class BacktestRunRepository:
         total_fees_paid,
         slippage_pct,
         fee_pct,
+        walk_forward_split_ratio,
+        walk_forward_in_sample_candles: int | None,
+        walk_forward_oos_candles: int | None,
+        walk_forward_in_sample_return_pct,
+        walk_forward_oos_return_pct,
+        walk_forward_oos_drawdown_pct,
+        walk_forward_oos_total_trades: int | None,
+        walk_forward_return_degradation_pct,
+        walk_forward_overfitting_warning: bool | None,
         rules_json: str | None,
     ) -> BacktestRunRecord:
         record = BacktestRunRecord(
@@ -71,6 +80,15 @@ class BacktestRunRepository:
             total_fees_paid=total_fees_paid,
             slippage_pct=slippage_pct,
             fee_pct=fee_pct,
+            walk_forward_split_ratio=walk_forward_split_ratio,
+            walk_forward_in_sample_candles=walk_forward_in_sample_candles,
+            walk_forward_oos_candles=walk_forward_oos_candles,
+            walk_forward_in_sample_return_pct=walk_forward_in_sample_return_pct,
+            walk_forward_oos_return_pct=walk_forward_oos_return_pct,
+            walk_forward_oos_drawdown_pct=walk_forward_oos_drawdown_pct,
+            walk_forward_oos_total_trades=walk_forward_oos_total_trades,
+            walk_forward_return_degradation_pct=walk_forward_return_degradation_pct,
+            walk_forward_overfitting_warning=walk_forward_overfitting_warning,
             rules_json=rules_json,
         )
         self._session.add(record)

@@ -116,6 +116,7 @@ def run_backtest(
             starting_equity=payload.starting_equity,
             slippage_pct=payload.slippage_pct,
             fee_pct=payload.fee_pct,
+            walk_forward_split_ratio=payload.walk_forward_split_ratio,
             rules=to_rule_builder_config(payload.rules),
         ),
         source="api.control",
