@@ -15,6 +15,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { useBinanceTicker } from "@/hooks/use-binance-ticker";
 import {
   getPerformanceSummary,
   getPositions,
@@ -140,6 +141,45 @@ function EquityCurve({
   );
 }
 
+function LivePriceBlock({ status }: { status: StatusResponse }) {
+  const ticker = useBinanceTicker(status.symbol);
+
+  if (ticker.status === "connecting") {
+    return (
+      <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-4">
+        <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Latest Price</p>
+        <Skeleton className="mt-3 h-9 w-40" />
+        <p className="mt-2 text-sm text-slate-400">Connecting to stream…</p>
+      </div>
+    );
+  }
+
+  if (ticker.status === "error") {
+    return (
+      <MetricBlock
+        label="Latest Price"
+        value={formatDecimal(status.latest_price, { maximumFractionDigits: 2 })}
+        detail={`Fallback — ${ticker.message}`}
+      />
+    );
+  }
+
+  const change = parseFloat(ticker.change24hPct);
+  const changeLabel = `${change >= 0 ? "+" : ""}${ticker.change24hPct}% 24 h`;
+
+  return (
+    <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-4">
+      <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Latest Price</p>
+      <p className="mt-3 text-3xl font-semibold tracking-tight text-white">
+        {formatDecimal(ticker.price, { maximumFractionDigits: 2 })}
+      </p>
+      <p className={`mt-2 text-sm font-medium ${change >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+        {changeLabel}
+      </p>
+    </div>
+  );
+}
+
 function RuntimeOverview({ status }: { status: StatusResponse }) {
   return (
     <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -153,11 +193,7 @@ function RuntimeOverview({ status }: { status: StatusResponse }) {
         value={status.strategy_name}
         detail={`EMA ${status.fast_period}/${status.slow_period} from ${status.operator_config_source}`}
       />
-      <MetricBlock
-        label="Latest Price"
-        value={formatDecimal(status.latest_price, { maximumFractionDigits: 2 })}
-        detail={`Price feed ${status.latest_price_status}`}
-      />
+      <LivePriceBlock status={status} />
       <MetricBlock
         label="Live Safety"
         value={status.live_safety_status}
