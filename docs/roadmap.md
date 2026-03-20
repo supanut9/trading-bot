@@ -63,11 +63,11 @@ Before merge:
 
 Completed on `main`:
 
-- Phase 1 through Phase 11
+- Phase 1 through Phase 15
 
 Current repo baseline:
 
-- paper-trading-first runtime with deterministic backtesting, bounded operator controls, in-repo Next.js operator UI, performance analytics, deployment packaging, live-readiness groundwork, correlated runtime logging, correlation-aware notifications, notification-delivery reporting, notification-delivery filters, audit-report filters, audit-report columns, preset-first rule-builder backtests, backtest run history, and market-data coverage readiness
+- paper-trading-first runtime with deterministic backtesting, bounded operator controls, in-repo Next.js operator UI, performance analytics, deployment packaging, live-readiness groundwork, correlated runtime logging, correlation-aware notifications, notification-delivery reporting, notification-delivery filters, audit-report filters, audit-report columns, preset-first rule-builder backtests, backtest run history, market-data coverage readiness, realistic backtest cost modeling, walk-forward validation, signal quality improvements, exchange rule enforcement, shadow strategy runtime, strategy qualification gates, live risk hard gates, smart order execution, validate-only live orders, live ledger reconciliation hardening, production secrets and ops hardening, canary live rollout, and live incident auto-halt
 
 Recommended next feature queue:
 
@@ -81,24 +81,24 @@ Live readiness — exchange correctness, shadow validation, and qualification ga
 
 - 4. `feature/exchange-rule-enforcement` (implemented on `main`)
 - 5. `feature/shadow-strategy-runtime` (implemented on `main`)
-- 6. `feature/strategy-qualification-gates` (implemented on `feature/strategy-qualification-gates`)
+- 6. `feature/strategy-qualification-gates` (implemented on `main`)
 
 Live execution infrastructure — risk gates, smart order routing, submission proof, and ledger:
 
-- 7. `feature/live-risk-hard-gates`
-- 8. `feature/smart-order-execution`
-- 9. `feature/validate-only-live-orders`
-- 10. `feature/live-ledger-reconciliation-hardening`
+- 7. `feature/live-risk-hard-gates` (implemented on `main`)
+- 8. `feature/smart-order-execution` (implemented on `main`)
+- 9. `feature/validate-only-live-orders` (implemented on `main`)
+- 10. `feature/live-ledger-reconciliation-hardening` (implemented on `main`)
 
 Live deployment — ops hardening, canary rollout, and fail-closed halting:
 
-- 11. `feature/production-secrets-and-ops-hardening`
-- 12. `feature/canary-live-rollout`
-- 13. `feature/live-incident-auto-halt`
+- 11. `feature/production-secrets-and-ops-hardening` (implemented on `main`)
+- 12. `feature/canary-live-rollout` (implemented on `main`)
+- 13. `feature/live-incident-auto-halt` (implemented on `main`)
 
 Iteration — performance review and strategy improvement loop:
 
-- 14. `feature/live-performance-review-loop`
+- 14. `feature/live-performance-review-loop` (in progress on `feature/live-performance-review-loop`)
 - 15. `feature/strategy-iteration-workflow`
 
 Project completion boundary:
@@ -231,7 +231,7 @@ Status:
 
 Status:
 
-- planned
+- completed on `main`
 
 - add realistic slippage and fee modeling to backtests so PnL expectations are trustworthy
 - add walk-forward validation to detect overfitting before any live decisions are made
@@ -241,7 +241,7 @@ Status:
 
 Status:
 
-- planned
+- completed on `main`
 
 - enforce exchange symbol rules and precision for pre-submit correctness
 - run the strategy in shadow mode against live data and measure signal drift versus walk-forward baseline
@@ -251,7 +251,7 @@ Status:
 
 Status:
 
-- planned
+- completed on `main`
 
 - harden live risk controls into hard blocking gates
 - add limit-order execution with slippage tracking and fee-aware pre-submit validation
@@ -261,7 +261,7 @@ Status:
 
 Status:
 
-- planned
+- completed on `main`
 
 - close operational gaps in secrets, backups, alerts, and incident drills
 - enable one tightly bounded canary live rollout gated by the full promotion checklist

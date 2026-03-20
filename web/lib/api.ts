@@ -619,3 +619,59 @@ export function runBacktest(
 export function getQualification(): Promise<QualificationReportResponse> {
   return request<QualificationReportResponse>("/controls/qualification");
 }
+
+export type LiveModeMetricsResponse = {
+  trade_count: number;
+  win_rate_pct: string | null;
+  expectancy: string | null;
+  max_drawdown_pct: string | null;
+  total_net_pnl: string;
+  total_fees_paid: string;
+  avg_slippage_pct: string | null;
+  slippage_sample_count: number;
+};
+
+export type ShadowModeMetricsResponse = {
+  trade_count: number;
+  win_rate_pct: string | null;
+  expectancy: string | null;
+  max_drawdown_pct: string | null;
+  total_net_pnl: string;
+};
+
+export type OOSBaselineResponse = {
+  backtest_run_id: number;
+  run_date: string;
+  oos_return_pct: string;
+  oos_drawdown_pct: string;
+  oos_total_trades: number;
+  in_sample_return_pct: string;
+  overfitting_warning: boolean;
+};
+
+export type StrategyHealthIndicatorsResponse = {
+  slippage_vs_model_pct: string | null;
+  shadow_vs_oos_expectancy_drift: string | null;
+  live_vs_shadow_win_rate_drift: string | null;
+  consecutive_losses: number;
+  signal_frequency_per_week: string | null;
+};
+
+export type LivePerformanceReviewResponse = {
+  live_metrics: LiveModeMetricsResponse | null;
+  shadow_metrics: ShadowModeMetricsResponse;
+  oos_baseline: OOSBaselineResponse | null;
+  health_indicators: StrategyHealthIndicatorsResponse;
+  recommendation: string;
+  recommendation_reasons: string[];
+  review_period_days: number;
+  generated_at: string;
+};
+
+export function getPerformanceReview(
+  review_period_days = 30,
+): Promise<LivePerformanceReviewResponse> {
+  return request<LivePerformanceReviewResponse>(
+    `/reports/performance-review?review_period_days=${review_period_days}`,
+  );
+}
