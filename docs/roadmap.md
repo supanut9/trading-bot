@@ -67,7 +67,7 @@ Completed on `main`:
 
 Current repo baseline:
 
-- paper-trading-first runtime with deterministic backtesting, bounded operator controls, in-repo Next.js operator UI, performance analytics, deployment packaging, live-readiness groundwork, correlated runtime logging, correlation-aware notifications, notification-delivery reporting, notification-delivery filters, audit-report filters, audit-report columns, preset-first rule-builder backtests, backtest run history, market-data coverage readiness, realistic backtest cost modeling, walk-forward validation, signal quality improvements, exchange rule enforcement, shadow strategy runtime, strategy qualification gates, live risk hard gates, smart order execution, validate-only live orders, live ledger reconciliation hardening, production secrets and ops hardening, canary live rollout, and live incident auto-halt
+- paper-trading-first runtime with deterministic backtesting, bounded operator controls, in-repo Next.js operator UI, performance analytics, deployment packaging, live-readiness groundwork, correlated runtime logging, correlation-aware notifications, notification-delivery reporting, notification-delivery filters, audit-report filters, audit-report columns, preset-first rule-builder backtests, backtest run history, market-data coverage readiness, realistic backtest cost modeling, walk-forward validation, signal quality improvements, exchange rule enforcement, shadow strategy runtime, strategy qualification gates, live risk hard gates, smart order execution, validate-only live orders, live ledger reconciliation hardening, production secrets and ops hardening, canary live rollout, live incident auto-halt, backtest daily-loss reset, DEFAULT_TIMEFRAME 1h, and multi-timeframe HTF trend confirmation
 
 Recommended next feature queue:
 
@@ -108,11 +108,12 @@ Iteration — performance review and strategy improvement loop:
 
 Profitability improvements — what separates this bot from better real-world bots:
 
-- 18. `feature/trade-exit-stop-loss` — ATR hard stop + trailing stop (highest impact)
-- 19. `feature/regime-detection` — ADX filter to avoid trading in choppy markets
-- 20. `feature/volatility-adjusted-sizing` — size positions relative to ATR, not flat %
-- 21. `feature/multi-symbol-trading` — trade multiple pairs for more edge opportunities
-- 22. `feature/multi-timeframe-confirmation` — higher timeframe trend alignment filter
+- 18. `feature/trade-exit-stop-loss` — ATR hard stop + trailing stop (highest impact) (implemented on `main`)
+- 19. `feature/regime-detection` — ADX filter to avoid trading in choppy markets (implemented on `main`)
+- 20. `feature/volatility-adjusted-sizing` — size positions relative to ATR, not flat % (implemented on `main`)
+- 21. `feature/multi-symbol-trading` — trade multiple pairs for more edge opportunities (implemented on `main`)
+- 22. `feature/multi-timeframe-confirmation` — higher timeframe trend alignment filter (implemented on `main`)
+- 23. `feature/xgboost-signal-strategy` — ML-based signal generation using XGBoost on indicator features
 
 Project completion boundary:
 

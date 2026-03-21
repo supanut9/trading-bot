@@ -1434,7 +1434,7 @@ Main outputs:
 
 Status:
 
-- planned
+- implemented on `main`
 
 Scope:
 
@@ -1456,7 +1456,7 @@ Why: Without a hard stop, one adverse move can hold an underwater position for d
 
 Status:
 
-- planned
+- implemented on `main`
 
 Scope:
 
@@ -1478,7 +1478,7 @@ Why: EMA crossover generates too many false signals in ranging markets. ADX filt
 
 Status:
 
-- planned
+- implemented on `main`
 
 Scope:
 
@@ -1499,7 +1499,7 @@ Why: Fixed 1% risk means the same dollar loss whether the market moves 0.5% or 3
 
 Status:
 
-- planned
+- implemented on `main`
 
 Scope:
 
@@ -1521,7 +1521,7 @@ Why: Trading one pair means every no-signal candle is wasted compute. More symbo
 
 Status:
 
-- planned
+- implemented on `main`
 
 Scope:
 
@@ -1542,7 +1542,7 @@ Why: Requiring a separate manual sync before every backtest adds friction and is
 
 Status:
 
-- planned
+- implemented on `main`
 
 Scope:
 
@@ -1562,14 +1562,37 @@ Why: Entries that align with the higher timeframe trend have historically higher
 
 ## Current Recommended Queue
 
-Features 59–75 are complete or in progress. The system is now canary-live capable with full safety infrastructure, a live performance review loop, leverage-aware backtesting, and live unrealized PnL visibility on the dashboard.
+Features 59–81 are complete on `main`. The system now has ATR stops, ADX regime detection, volatility-adjusted sizing, multi-symbol trading, auto-sync backtest, and multi-timeframe trend confirmation.
 
-Next bounded features (profitability focus):
+Next bounded features:
 
 1. `feature/strategy-iteration-workflow` — close the re-validation loop when live results fall short
-2. `feature/trade-exit-stop-loss` — highest-impact PnL protection; eliminates runaway losing trades
-3. `feature/regime-detection` — ADX filter to cut false signals in ranging markets
-4. `feature/volatility-adjusted-sizing` — normalize risk per trade to market conditions
-5. `feature/multi-symbol-trading` — more edge opportunities without increasing per-trade risk
-6. `feature/auto-sync-on-backtest` — remove manual sync friction; backtest fetches its own data
-7. `feature/multi-timeframe-confirmation` — higher win rate by aligning with dominant trend
+2. `feature/xgboost-signal-strategy` — ML-based signal generation using XGBoost trained on technical indicator features
+
+### 82. `feature/xgboost-signal-strategy`
+
+Status:
+
+- planned
+
+Scope:
+
+- add XGBoost as a new signal strategy alongside existing rule-based strategies
+- engineer features from existing indicators (EMA diff, RSI, MACD histogram, ATR, volume ratio, BB position)
+- label each candle with next-candle direction (up/down) or next N% move as the prediction target
+- train with walk-forward splits to prevent look-ahead bias (train on first 70%, validate on last 30%)
+- save the trained model to `models/xgboost_btcusdt_<timeframe>.json`
+- add `xgboost_signal` as a selectable strategy in the backtest API and worker runtime
+- keep inference pure (no IO in domain layer); model loading happens in the application service layer
+
+Main outputs:
+
+- `scripts/train_xgboost.py` — standalone training script that reads candles from DB and saves model file
+- `app/domain/strategies/xgboost_signal.py` — pure inference strategy using a loaded XGBoost model
+- `app/domain/strategies/features.py` — feature engineering (compute indicator vector per candle window)
+- `app/application/services/model_registry.py` — loads and caches trained model files
+- strategy doc at `docs/strategies/xgboost-signal.md`
+- backtest and worker integration (registered in `StrategyFactory` alongside existing strategies)
+- unit tests for feature engineering and inference path
+
+Why: Rule-based EMA crossover produces too many false signals in ranging markets. XGBoost can learn non-linear combinations of indicators (e.g. RSI + ADX + BB position together) that no single threshold rule captures. Walk-forward training ensures the model generalises to unseen candles rather than overfitting history.

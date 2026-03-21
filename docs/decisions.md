@@ -920,3 +920,45 @@ The system already supported `trading_mode` as a startup environment variable, b
 ### Consequence
 
 The `OperatorConfigRecord` now includes a `trading_mode` column, and the `OperatorRuntimeConfigService` resolves the effective mode from persisted records before falling back to application settings. The operator UI in `web/components/runtime-page.tsx` now includes a selection for this mode, and all related API schemas and test suites have been updated to support it.
+
+## 2026-03-21
+
+### Decision
+
+Reset the daily loss accumulator per calendar day in the backtest simulation.
+
+### Reason
+
+The backtest was tracking cumulative lifetime losses as the "today" loss figure. After a few losing trades pushed the running total past `max_daily_loss_pct`, the daily loss gate permanently locked out all future entries for the rest of the simulation, making backtests appear to stop trading after the first bad day.
+
+### Consequence
+
+The backtest now resets `daily_loss_today` to zero whenever `candle.open_time.date()` changes, matching the intended per-day risk semantics. Historical backtests that appeared to stop early will now run to completion.
+
+## 2026-03-21
+
+### Decision
+
+Change `DEFAULT_TIMEFRAME` from `4h` to `1h` based on backtest evidence.
+
+### Reason
+
+A full 45-combination batch backtest (5 strategies × 9 timeframes) showed `ema_crossover/1h` returning +11.5% while `ema_crossover/4h` returned −10.9% over the same BTC/USDT window. The 1h timeframe produced more trades, better drawdown, and a positive return across the same period.
+
+### Consequence
+
+The default runtime, backtest, and coverage-readiness check all now operate at 1h unless overridden by operator config or request payload.
+
+## 2026-03-21
+
+### Decision
+
+Implement multi-timeframe confirmation as a fail-open domain filter with look-ahead bias protection in backtest.
+
+### Reason
+
+An HTF filter that errors or blocks when candle history is insufficient would make early backtest windows and live bootstrap fail. Fail-open (pass the signal when HTF data is absent) matches the design of the existing ADX and RSI filters and avoids silent data gaps blocking trades that should be allowed.
+
+### Consequence
+
+`is_htf_trend_aligned()` returns `True` when fewer than `period` HTF candles are available. In the backtest engine, only HTF candles with `open_time <= candle.open_time` are passed to the filter, preventing any future HTF data from influencing historical entry decisions.
