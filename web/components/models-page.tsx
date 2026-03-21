@@ -3,7 +3,7 @@
 import type { FormEvent } from "react";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { BrainCircuit, RefreshCcw, ChevronDown, ChevronUp } from "lucide-react";
+import { BrainCircuit, RefreshCcw, ChevronDown, ChevronUp, DatabaseZap } from "lucide-react";
 
 import { OperatorShell } from "@/components/operator-shell";
 import { Badge } from "@/components/ui/badge";
@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/table";
 import {
   getModelStatus,
+  runMarketSync,
   trainModel,
   type ModelStatusItem,
   type TrainModelResponse,
@@ -379,6 +380,17 @@ export function ModelsPage() {
     feature_names: DEFAULT_FEATURES,
   });
   const [trainResult, setTrainResult] = useState<TrainModelResponse | null>(null);
+  const [syncLimit, setSyncLimit] = useState("5000");
+
+  const syncMutation = useMutation({
+    mutationFn: () =>
+      runMarketSync({
+        symbol: form.symbol.trim(),
+        timeframe: form.timeframe,
+        limit: Number(syncLimit),
+        backfill: true,
+      }),
+  });
 
   const trainMutation = useMutation({
     mutationFn: trainModel,
@@ -441,6 +453,56 @@ export function ModelsPage() {
             </div>
           </div>
         </header>
+
+        {/* Sync candles card */}
+        <Card className="border-white/10 bg-[rgba(6,10,14,0.92)]">
+          <CardHeader className="flex flex-row items-center justify-between gap-4 pb-4">
+            <CardTitle className="text-base font-semibold text-white">Sync Candles</CardTitle>
+            <div className="rounded-2xl bg-cyan-400/10 p-3 text-cyan-200">
+              <DatabaseZap className="h-5 w-5" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-wrap items-end gap-4">
+              <label className="flex-1 space-y-2" style={{ minWidth: "140px" }}>
+                <span className={LABEL_CLS}>Number of candles</span>
+                <input
+                  className={INPUT_CLS}
+                  max={50000}
+                  min={100}
+                  onChange={(e) => setSyncLimit(e.target.value)}
+                  step={100}
+                  type="number"
+                  value={syncLimit}
+                />
+              </label>
+              <div className="space-y-2">
+                <span className={LABEL_CLS}>Symbol · Timeframe</span>
+                <p className="rounded-2xl border border-white/10 bg-[#050b11] px-4 py-3 text-sm text-slate-400">
+                  {form.symbol} · {form.timeframe}
+                </p>
+              </div>
+              <button
+                className="rounded-2xl bg-cyan-700 px-5 py-3 text-sm font-medium text-white transition hover:bg-cyan-600 disabled:cursor-not-allowed disabled:opacity-50"
+                disabled={syncMutation.isPending}
+                onClick={() => syncMutation.mutate()}
+                type="button"
+              >
+                {syncMutation.isPending ? "Syncing…" : "Sync"}
+              </button>
+            </div>
+            {syncMutation.isSuccess && (
+              <p className="mt-3 text-sm text-emerald-400">
+                Sync complete — {syncMutation.data.status}
+              </p>
+            )}
+            {syncMutation.isError && (
+              <p className="mt-3 text-sm text-rose-400">
+                {syncMutation.error instanceof Error ? syncMutation.error.message : "Sync failed."}
+              </p>
+            )}
+          </CardContent>
+        </Card>
 
         <div className="grid gap-5 xl:grid-cols-2">
           {/* Training form */}
