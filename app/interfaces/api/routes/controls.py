@@ -126,6 +126,13 @@ def run_backtest(
             rsi_overbought=payload.rsi_overbought,
             rsi_oversold=payload.rsi_oversold,
             volume_ma_period=payload.volume_ma_period,
+            macd_signal_period=payload.macd_signal_period,
+            bb_period=payload.bb_period,
+            bb_std_dev=payload.bb_std_dev,
+            breakout_period=payload.breakout_period,
+            atr_period=payload.atr_period,
+            atr_breakout_multiplier=payload.atr_breakout_multiplier,
+            atr_stop_multiplier=payload.atr_stop_multiplier,
         ),
         source="api.control",
     )

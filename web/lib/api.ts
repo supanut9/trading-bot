@@ -155,6 +155,17 @@ export type BacktestControlRequest = {
   slow_period?: number;
   starting_equity?: number;
   rules?: StrategyRuleBuilderRequest;
+  rsi_period?: number;
+  rsi_overbought?: string;
+  rsi_oversold?: string;
+  volume_ma_period?: number;
+  macd_signal_period?: number;
+  bb_period?: number;
+  bb_std_dev?: string;
+  breakout_period?: number;
+  atr_period?: number;
+  atr_breakout_multiplier?: string;
+  atr_stop_multiplier?: string;
 };
 
 export type BacktestControlResponse = {
