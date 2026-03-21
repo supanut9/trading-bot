@@ -1392,10 +1392,162 @@ Main outputs:
 - operator-driven promotion path from halt-for-rework back through walk-forward, shadow, and qualification gates
 - changelog of strategy versions with their qualification evidence and live outcome summaries
 
+### 74. `feature/futures-leverage-backtest`
+
+Status:
+
+- implemented on `main`
+
+Scope:
+
+- add leverage and margin-mode parameters to the backtest engine
+- simulate realistic liquidation events when price breaches the maintenance-margin threshold
+- surface leverage, margin mode, and liquidation count in backtest results and UI
+- keep the feature bounded to backtest simulation rather than live futures execution
+
+Main outputs:
+
+- configurable leverage (1–125×) and isolated/cross margin mode in backtest API and UI
+- per-candle liquidation check with maintenance margin threshold
+- liquidation events surfaced in backtest execution detail and summary
+- liquidation count visible in backtest run history
+
+### 75. `feature/dashboard-unrealized-pnl`
+
+Status:
+
+- implemented on `main`
+
+Scope:
+
+- mark open positions to market on every worker cycle using the latest candle close price
+- show live unrealized PnL in the dashboard runtime overview
+- fix strategy name overflow in the overview card
+
+Main outputs:
+
+- worker cycle marks open positions to market via `_mark_open_position_to_market`
+- unrealized PnL card in the 5-column runtime overview on the dashboard
+- strategy name truncated with tooltip so long names never break the card layout
+
+### 76. `feature/trade-exit-stop-loss`
+
+Status:
+
+- planned
+
+Scope:
+
+- add ATR-based hard stop loss so a single bad trade cannot erase multiple wins
+- add a trailing stop that locks in profit as price moves in favor
+- keep stop logic in the strategy/risk domain layer rather than in execution services
+- surface stop levels and stop-hit exits in backtest and paper trading results
+
+Main outputs:
+
+- ATR stop multiplier configurable per strategy (e.g. 2× ATR from entry)
+- trailing stop that ratchets up as unrealized PnL grows
+- stop-hit exit reason recorded on trades so operators can distinguish signal exits from stop exits
+- stop levels visible in the backtest candlestick chart
+
+Why: Without a hard stop, one adverse move can hold an underwater position for days and wipe out multiple winning trades. This is the single highest-impact improvement for real-money PnL protection.
+
+### 77. `feature/regime-detection`
+
+Status:
+
+- planned
+
+Scope:
+
+- detect trending vs ranging market regime using ADX before allowing a trade entry
+- only enter when ADX exceeds a configurable threshold (e.g. 25) to avoid false signals in choppy markets
+- add regime filter to the rule-builder indicator set so operators can backtest with and without it
+- keep regime detection as a pre-entry filter rather than a separate strategy selector
+
+Main outputs:
+
+- ADX indicator implementation in the domain layer
+- ADX threshold filter as an optional shared filter in the rule-builder
+- regime filter configurable on the EMA crossover strategy via operator config
+- backtest signal quality metrics showing raw count, regime-filtered rejections, and net signals
+
+Why: EMA crossover generates too many false signals in ranging markets. ADX filtering alone typically reduces trade count by 30–50% while keeping the winning trades, improving expectancy.
+
+### 78. `feature/volatility-adjusted-sizing`
+
+Status:
+
+- planned
+
+Scope:
+
+- replace the flat risk-per-trade percentage with ATR-normalized position sizing
+- larger positions when volatility is low (price moves are smaller), smaller when volatility is high
+- keep total capital-at-risk bounded by the existing `RISK_PER_TRADE_PCT` ceiling
+- surface the ATR-derived size alongside the flat-risk size in backtest and paper reports
+
+Main outputs:
+
+- ATR-based position sizing in the risk service as an opt-in mode
+- `VOLATILITY_SIZING_ENABLED` config flag defaulting to false so existing behavior is unchanged
+- backtest comparison showing equity curves with and without volatility sizing
+
+Why: Fixed 1% risk means the same dollar loss whether the market moves 0.5% or 3% per candle. ATR sizing normalizes expected loss per trade, producing a smoother equity curve.
+
+### 79. `feature/multi-symbol-trading`
+
+Status:
+
+- planned
+
+Scope:
+
+- allow the worker to evaluate and execute across multiple configured symbols in one cycle
+- keep per-symbol position, risk, and execution state isolated — no cross-symbol dependency
+- enforce total capital exposure across all open positions against a configurable ceiling
+- keep the feature bounded to paper and shadow modes until multi-symbol live risk is separately hardened
+
+Main outputs:
+
+- `TRADING_SYMBOLS` config list (e.g. `BTC/USDT,ETH/USDT,SOL/USDT`)
+- per-symbol worker evaluation loop with independent position and risk state
+- total-portfolio exposure gate that prevents opening new positions when aggregate notional exceeds the ceiling
+- dashboard and reports scoped to symbol so operators can inspect per-pair performance
+
+Why: Trading one pair means every no-signal candle is wasted compute. More symbols = more opportunities for the strategy's edge to compound without increasing per-trade risk.
+
+### 80. `feature/multi-timeframe-confirmation`
+
+Status:
+
+- planned
+
+Scope:
+
+- require the higher timeframe (e.g. 4h) trend to align with the lower timeframe (e.g. 1h) entry signal before allowing a buy
+- short trades are only allowed when the higher timeframe trend is also bearish
+- keep the timeframe alignment check in the strategy layer, not in the execution path
+- add multi-timeframe confirmation as an optional rule-builder filter
+
+Main outputs:
+
+- higher-timeframe candle fetch and EMA/trend evaluation in the worker cycle
+- multi-timeframe alignment filter in the rule-builder indicator set
+- backtest engine support for a secondary candle series at a configurable higher timeframe
+- signal quality metrics showing how many entries the alignment filter rejects
+
+Why: Entries that align with the higher timeframe trend have historically higher win rates because they trade with the dominant momentum rather than against it.
+
 ## Current Recommended Queue
 
-Features 59–72 are complete or in progress. The system is now canary-live capable with full safety infrastructure in place and a live performance review loop.
+Features 59–75 are complete or in progress. The system is now canary-live capable with full safety infrastructure, a live performance review loop, leverage-aware backtesting, and live unrealized PnL visibility on the dashboard.
 
-Next bounded feature:
+Next bounded features (profitability focus):
 
-- `feature/strategy-iteration-workflow`
+1. `feature/strategy-iteration-workflow` — close the re-validation loop when live results fall short
+2. `feature/trade-exit-stop-loss` — highest-impact PnL protection; eliminates runaway losing trades
+3. `feature/regime-detection` — ADX filter to cut false signals in ranging markets
+4. `feature/volatility-adjusted-sizing` — normalize risk per trade to market conditions
+5. `feature/multi-symbol-trading` — more edge opportunities without increasing per-trade risk
+6. `feature/multi-timeframe-confirmation` — higher win rate by aligning with dominant trend

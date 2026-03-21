@@ -60,7 +60,7 @@ function MetricBlock({
   return (
     <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-4">
       <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">{label}</p>
-      <p className="mt-3 text-3xl font-semibold tracking-tight text-white">{value}</p>
+      <p className="mt-3 text-3xl font-semibold tracking-tight text-white truncate" title={value}>{value}</p>
       <p className="mt-2 text-sm text-slate-400">{detail}</p>
     </div>
   );
@@ -186,9 +186,16 @@ function LivePriceBlock({ status }: { status: StatusResponse }) {
   );
 }
 
-function RuntimeOverview({ status }: { status: StatusResponse }) {
+function RuntimeOverview({
+  status,
+  performance,
+}: {
+  status: StatusResponse;
+  performance: PerformanceAnalyticsResponse;
+}) {
+  const primarySummary = performance.summaries[0];
   return (
-    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
       <MetricBlock
         label="Execution"
         value={status.execution_mode.toUpperCase()}
@@ -200,6 +207,11 @@ function RuntimeOverview({ status }: { status: StatusResponse }) {
         detail={`EMA ${status.fast_period}/${status.slow_period} from ${status.operator_config_source}`}
       />
       <LivePriceBlock status={status} />
+      <MetricBlock
+        label="Unrealized PnL"
+        value={formatSignedDecimal(Number(primarySummary?.total_unrealized_pnl ?? 0))}
+        detail={`${primarySummary?.open_position_count ?? 0} open position(s)`}
+      />
       <MetricBlock
         label="Live Safety"
         value={status.live_safety_status}
@@ -223,7 +235,7 @@ function SummaryStrip({
   positions: PositionResponse[];
 }) {
   const primarySummary = performance.summaries[0];
-  const realized = positions.reduce((total, item) => total + Number(item.realized_pnl), 0);
+  const unrealized = positions.reduce((total, item) => total + Number(item.unrealized_pnl), 0);
   return (
     <div className="grid gap-4 lg:grid-cols-4">
       <MetricBlock
@@ -242,9 +254,9 @@ function SummaryStrip({
         detail={`${primarySummary?.winning_trades ?? 0} wins / ${primarySummary?.losing_trades ?? 0} losses`}
       />
       <MetricBlock
-        label="Realized PnL"
-        value={formatSignedDecimal(realized)}
-        detail="Position ledger realized total"
+        label="Unrealized PnL"
+        value={formatSignedDecimal(unrealized)}
+        detail="Sum across open positions"
       />
     </div>
   );
@@ -300,7 +312,7 @@ export function DashboardPage() {
 
         {hasToplineData ? (
           <>
-            <RuntimeOverview status={statusQuery.data} />
+            <RuntimeOverview status={statusQuery.data} performance={performanceQuery.data} />
             <SummaryStrip
               performance={performanceQuery.data}
               positions={positionsQuery.data ?? []}

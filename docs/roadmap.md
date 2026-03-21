@@ -96,10 +96,23 @@ Live deployment — ops hardening, canary rollout, and fail-closed halting:
 - 12. `feature/canary-live-rollout` (implemented on `main`)
 - 13. `feature/live-incident-auto-halt` (implemented on `main`)
 
+Backtest hardening and dashboard visibility:
+
+- 14. `feature/futures-leverage-backtest` (implemented on `main`)
+- 15. `feature/dashboard-unrealized-pnl` (implemented on `main`)
+
 Iteration — performance review and strategy improvement loop:
 
-- 14. `feature/live-performance-review-loop` (in progress on `feature/live-performance-review-loop`)
-- 15. `feature/strategy-iteration-workflow`
+- 16. `feature/live-performance-review-loop` (in progress on `feature/live-performance-review-loop`)
+- 17. `feature/strategy-iteration-workflow` (planned)
+
+Profitability improvements — what separates this bot from better real-world bots:
+
+- 18. `feature/trade-exit-stop-loss` — ATR hard stop + trailing stop (highest impact)
+- 19. `feature/regime-detection` — ADX filter to avoid trading in choppy markets
+- 20. `feature/volatility-adjusted-sizing` — size positions relative to ATR, not flat %
+- 21. `feature/multi-symbol-trading` — trade multiple pairs for more edge opportunities
+- 22. `feature/multi-timeframe-confirmation` — higher timeframe trend alignment filter
 
 Project completion boundary:
 
