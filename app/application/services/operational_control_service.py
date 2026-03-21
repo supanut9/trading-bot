@@ -589,6 +589,32 @@ class OperationalControlService:
             if record_history:
                 self._backtest_runs.record_run(source=source, result=control_result)
             return control_result
+        required_candles = self._required_candles_for_options(resolved)
+        sync_limit = required_candles + 100
+
+        with self._session_factory() as session:
+            try:
+                MarketDataSyncService(
+                    session, build_market_data_exchange_client(self._settings)
+                ).sync_recent_closed_candles(
+                    exchange=resolved.exchange,
+                    symbol=resolved.symbol,
+                    timeframe=resolved.timeframe,
+                    limit=sync_limit,
+                    backfill=True,
+                )
+                session.commit()
+            except Exception as exc:
+                from app.core.logger import get_logger as _get_logger
+
+                _get_logger(__name__).warning(
+                    "backtest_auto_sync_failed exchange=%s symbol=%s timeframe=%s error=%s",
+                    resolved.exchange,
+                    resolved.symbol,
+                    resolved.timeframe,
+                    exc,
+                )
+
         with self._session_factory() as session:
             records = MarketDataService(session).list_historical_candles(
                 exchange=resolved.exchange,
@@ -596,7 +622,6 @@ class OperationalControlService:
                 timeframe=resolved.timeframe,
             )
             candle_count = len(records)
-            required_candles = self._required_candles_for_options(resolved)
 
             if not records:
                 backtest_result = None

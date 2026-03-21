@@ -1517,7 +1517,28 @@ Main outputs:
 
 Why: Trading one pair means every no-signal candle is wasted compute. More symbols = more opportunities for the strategy's edge to compound without increasing per-trade risk.
 
-### 80. `feature/multi-timeframe-confirmation`
+### 80. `feature/auto-sync-on-backtest`
+
+Status:
+
+- planned
+
+Scope:
+
+- automatically sync candles from the exchange before every backtest run — no manual sync step required
+- fetch `required_candles + 100` bars so the strategy always has a warm-up buffer
+- return a clear error if exchange API credentials are not configured
+- remove the manual market sync panel from the controls UI since it is no longer needed for backtest workflows
+
+Main outputs:
+
+- auto-sync step injected into `OperationalControlService.run_backtest()` before reading candles from DB
+- `exchange_api_not_configured` error status when credentials are absent
+- market sync form removed from the controls page
+
+Why: Requiring a separate manual sync before every backtest adds friction and is a common source of "not enough candles" failures. Auto-syncing on demand makes the backtest self-contained.
+
+### 81. `feature/multi-timeframe-confirmation`
 
 Status:
 
@@ -1550,4 +1571,5 @@ Next bounded features (profitability focus):
 3. `feature/regime-detection` — ADX filter to cut false signals in ranging markets
 4. `feature/volatility-adjusted-sizing` — normalize risk per trade to market conditions
 5. `feature/multi-symbol-trading` — more edge opportunities without increasing per-trade risk
-6. `feature/multi-timeframe-confirmation` — higher win rate by aligning with dominant trend
+6. `feature/auto-sync-on-backtest` — remove manual sync friction; backtest fetches its own data
+7. `feature/multi-timeframe-confirmation` — higher win rate by aligning with dominant trend

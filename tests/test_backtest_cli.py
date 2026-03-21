@@ -1,13 +1,20 @@
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
+from unittest.mock import patch
 
 from app.application.services.market_data_service import CandleInput, MarketDataService
+from app.application.services.market_data_sync_service import MarketDataSyncResult
 from app.application.services.runtime_startup_service import build_runtime_startup_context
 from app.backtest import main
 from app.config import Settings, get_settings
 from app.infrastructure.database.base import Base
 from app.infrastructure.database.session import create_engine_from_settings, create_session_factory
+
+_SYNC_PATCH = (
+    "app.application.services.market_data_sync_service"
+    ".MarketDataSyncService.sync_recent_closed_candles"
+)
 
 
 def test_backtest_cli_logs_not_enough_candles_and_exits(
@@ -51,7 +58,8 @@ def test_backtest_cli_logs_not_enough_candles_and_exits(
     )
 
     try:
-        main()
+        with patch(_SYNC_PATCH, return_value=MarketDataSyncResult(0, 0, None)):
+            main()
     finally:
         get_settings.cache_clear()
 

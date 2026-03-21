@@ -654,6 +654,10 @@ def test_control_result_includes_leverage_fields(monkeypatch) -> None:
         "app.application.services.operational_control_service.BacktestRunHistoryService",
         FakeBacktestRunHistoryService,
     )
+    monkeypatch.setattr(
+        "app.application.services.market_data_sync_service.MarketDataSyncService.sync_recent_closed_candles",
+        lambda *a, **kw: None,
+    )
 
     class NullSession:
         def __enter__(self):
