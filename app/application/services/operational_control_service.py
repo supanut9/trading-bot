@@ -23,6 +23,7 @@ from app.application.services.live_order_state import (
 )
 from app.application.services.market_data_service import MarketDataService
 from app.application.services.market_data_sync_service import MarketDataSyncService
+from app.application.services.model_registry import default_model_path, load_xgboost_model
 from app.application.services.notification_service import (
     NotificationService,
     build_notification_service,
@@ -49,6 +50,7 @@ from app.domain.strategies.rule_builder import (
     StrategyRuleCondition,
     StrategyRuleGroup,
 )
+from app.domain.strategies.xgboost_signal import XGBoostSignalStrategy
 from app.infrastructure.database.models.candle import CandleRecord
 from app.infrastructure.database.repositories.order_repository import OrderRepository
 from app.infrastructure.database.session import create_session_factory
@@ -63,6 +65,7 @@ BACKTEST_STRATEGY_MACD_CROSSOVER = "macd_crossover"
 BACKTEST_STRATEGY_MEAN_REVERSION_BOLLINGER = "mean_reversion_bollinger"
 BACKTEST_STRATEGY_RSI_MOMENTUM = "rsi_momentum"
 BACKTEST_STRATEGY_BREAKOUT_ATR = "breakout_atr"
+BACKTEST_STRATEGY_XGBOOST_SIGNAL = "xgboost_signal"
 
 _ALL_BACKTEST_STRATEGIES = {
     BACKTEST_STRATEGY_EMA_CROSSOVER,
@@ -71,6 +74,7 @@ _ALL_BACKTEST_STRATEGIES = {
     BACKTEST_STRATEGY_MEAN_REVERSION_BOLLINGER,
     BACKTEST_STRATEGY_RSI_MOMENTUM,
     BACKTEST_STRATEGY_BREAKOUT_ATR,
+    BACKTEST_STRATEGY_XGBOOST_SIGNAL,
 }
 
 _TIMEFRAME_MINUTES: dict[str, int] = {
@@ -139,6 +143,10 @@ class BacktestRunOptions:
     trading_mode: str = "SPOT"
     leverage: int | None = None  # None = auto-fetch for FUTURES
     margin_mode: str = "ISOLATED"
+    # XGBoost strategy params
+    xgb_model_path: str | None = None
+    xgb_buy_threshold: Decimal | None = None
+    xgb_sell_threshold: Decimal | None = None
 
 
 def required_candles_for_backtest_options(options: BacktestRunOptions) -> int:
@@ -159,6 +167,8 @@ def required_candles_for_backtest_options(options: BacktestRunOptions) -> int:
         bp = options.breakout_period or 20
         ap = options.atr_period or 14
         return max(bp, ap) + 2
+    if sname == BACKTEST_STRATEGY_XGBOOST_SIGNAL:
+        return 37  # MIN_CANDLES_FOR_FEATURES
     base = max((options.slow_period or 0) + 1, 0)
     rsi_min = (options.rsi_period + 1) if options.rsi_period is not None else 0
     vol_min = options.volume_ma_period if options.volume_ma_period is not None else 0
@@ -1593,6 +1603,17 @@ class OperationalControlService:
                 atr_period=options.atr_period or 14,
                 atr_breakout_multiplier=options.atr_breakout_multiplier or Decimal("0.5"),
                 atr_stop_multiplier=options.atr_stop_multiplier or Decimal("2.0"),
+            )
+        if sname == BACKTEST_STRATEGY_XGBOOST_SIGNAL:
+            model_path = options.xgb_model_path or default_model_path(
+                symbol=options.symbol or "BTC/USDT",
+                timeframe=options.timeframe or "1h",
+            )
+            model = load_xgboost_model(model_path)
+            return XGBoostSignalStrategy(
+                model=model,
+                buy_threshold=options.xgb_buy_threshold or Decimal("0.55"),
+                sell_threshold=options.xgb_sell_threshold or Decimal("0.45"),
             )
         if sname != BACKTEST_STRATEGY_EMA_CROSSOVER:
             raise ValueError(f"unsupported backtest strategy: {sname}")

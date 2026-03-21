@@ -375,6 +375,9 @@ class BacktestControlRequest(BaseModel):
     trading_mode: str = "SPOT"
     leverage: int | None = None  # None = auto-fetch; ignored for SPOT
     margin_mode: str = "ISOLATED"  # "ISOLATED" or "CROSS"
+    xgb_model_path: str | None = None
+    xgb_buy_threshold: float | None = None
+    xgb_sell_threshold: float | None = None
 
 
 class StrategyRuleConditionRequest(BaseModel):
