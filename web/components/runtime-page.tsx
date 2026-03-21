@@ -243,7 +243,11 @@ export function RuntimePage() {
                   </label>
                   <label className="space-y-2">
                     <span className="text-[11px] uppercase tracking-[0.18em] text-slate-400">
-                      Fast EMA
+                      {form.strategy_name === "ema_crossover" || form.strategy_name === "rule_builder" ? "Fast EMA" :
+                       form.strategy_name === "macd_crossover" ? "MACD Fast" :
+                       form.strategy_name === "mean_reversion_bollinger" ? "MA Window" :
+                       form.strategy_name === "rsi_momentum" ? "RSI Period" :
+                       form.strategy_name === "breakout_atr" ? "Breakout Window" : "Fast Period"}
                     </span>
                     <input
                       className="w-full rounded-2xl border border-white/10 bg-[#09121a] px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-300/40 focus:ring-2 focus:ring-cyan-300/10"
@@ -256,7 +260,11 @@ export function RuntimePage() {
                   </label>
                   <label className="space-y-2">
                     <span className="text-[11px] uppercase tracking-[0.18em] text-slate-400">
-                      Slow EMA
+                      {form.strategy_name === "ema_crossover" || form.strategy_name === "rule_builder" ? "Slow EMA" :
+                       form.strategy_name === "macd_crossover" ? "MACD Slow" :
+                       form.strategy_name === "mean_reversion_bollinger" ? "Reserved (Unused)" :
+                       form.strategy_name === "rsi_momentum" ? "EMA Window" :
+                       form.strategy_name === "breakout_atr" ? "ATR Window" : "Slow Period"}
                     </span>
                     <input
                       className="w-full rounded-2xl border border-white/10 bg-[#09121a] px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-300/40 focus:ring-2 focus:ring-cyan-300/10"
