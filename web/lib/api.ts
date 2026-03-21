@@ -186,6 +186,8 @@ export type BacktestControlRequest = {
   adx_threshold?: string;
   xgb_buy_threshold?: number;
   xgb_sell_threshold?: number;
+  model_type?: string;
+  oos_only?: boolean;
   trading_mode?: string;
   leverage?: number | null;
   margin_mode?: string;
@@ -675,10 +677,17 @@ export type TrainModelRequest = {
   symbol: string;
   timeframe: string;
   exchange: string;
+  model_type: string;
+  label_type: string;
+  label_horizon: number;
+  label_threshold: number;
+  feature_names: string[];
   n_estimators: number;
   max_depth: number;
   learning_rate: number;
   split_ratio: number;
+  buy_threshold: number;
+  sell_threshold: number;
 };
 
 export type FeatureImportance = {
@@ -690,7 +699,13 @@ export type TrainModelResponse = {
   status: string;
   symbol: string;
   timeframe: string;
+  model_type: string;
   model_path: string;
+  label_type: string;
+  label_horizon: number;
+  label_threshold: number;
+  feature_names: string[];
+  oos_start_index: number;
   sample_count: number;
   train_count: number;
   test_count: number;
