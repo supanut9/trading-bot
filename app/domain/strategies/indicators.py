@@ -1,4 +1,5 @@
 from collections.abc import Sequence
+from dataclasses import dataclass
 from decimal import Decimal
 
 
@@ -22,6 +23,18 @@ def calculate_ema(prices: Sequence[Decimal], period: int) -> list[Decimal]:
 
 def latest_ema(prices: Sequence[Decimal], period: int) -> Decimal:
     return calculate_ema(prices, period)[-1]
+
+
+def calculate_sma(prices: Sequence[Decimal], period: int) -> list[Decimal]:
+    if period <= 0:
+        raise ValueError("period must be positive")
+    if len(prices) < period:
+        raise ValueError("not enough prices to calculate SMA")
+    result: list[Decimal] = []
+    for i in range(period - 1, len(prices)):
+        window = prices[i - period + 1 : i + 1]
+        result.append(sum(window, start=Decimal("0")) / Decimal(period))
+    return result
 
 
 def calculate_rsi(prices: Sequence[Decimal], period: int) -> Decimal:
@@ -54,3 +67,112 @@ def calculate_volume_sma(volumes: Sequence[Decimal], period: int) -> Decimal:
     if len(volumes) < period:
         raise ValueError("not enough volumes to calculate SMA")
     return sum(volumes[-period:], start=Decimal("0")) / Decimal(period)
+
+
+def calculate_std_dev(prices: Sequence[Decimal], period: int) -> Decimal:
+    """Population standard deviation of the last `period` prices."""
+    if period <= 0:
+        raise ValueError("period must be positive")
+    if len(prices) < period:
+        raise ValueError("not enough prices to calculate std dev")
+    window = list(prices[-period:])
+    mean = sum(window, start=Decimal("0")) / Decimal(period)
+    variance = sum((p - mean) ** 2 for p in window) / Decimal(period)
+    # integer square root via Newton–Raphson in Decimal
+    return variance.sqrt()
+
+
+@dataclass(frozen=True, slots=True)
+class BollingerBands:
+    upper: Decimal
+    middle: Decimal
+    lower: Decimal
+    bandwidth: Decimal
+
+
+def calculate_bollinger_bands(
+    prices: Sequence[Decimal],
+    period: int = 20,
+    num_std_dev: Decimal = Decimal("2"),
+) -> BollingerBands:
+    """Compute Bollinger Bands using the last `period` closes."""
+    if len(prices) < period:
+        raise ValueError("not enough prices to calculate Bollinger Bands")
+    sma_val = calculate_sma(prices, period)[-1]
+    std = calculate_std_dev(prices, period)
+    upper = sma_val + num_std_dev * std
+    lower = sma_val - num_std_dev * std
+    bandwidth = (upper - lower) / sma_val if sma_val != Decimal("0") else Decimal("0")
+    return BollingerBands(upper=upper, middle=sma_val, lower=lower, bandwidth=bandwidth)
+
+
+@dataclass(frozen=True, slots=True)
+class MacdResult:
+    macd_line: Decimal
+    signal_line: Decimal
+    histogram: Decimal
+
+
+def calculate_macd(
+    prices: Sequence[Decimal],
+    fast_period: int = 12,
+    slow_period: int = 26,
+    signal_period: int = 9,
+) -> list[MacdResult]:
+    """Compute full MACD history. Returns one MacdResult per bar available
+    after both EMAs are warmed up."""
+    if fast_period <= 0 or slow_period <= 0 or signal_period <= 0:
+        raise ValueError("all periods must be positive")
+    if fast_period >= slow_period:
+        raise ValueError("fast_period must be smaller than slow_period")
+
+    fast_emas = calculate_ema(prices, fast_period)
+    slow_emas = calculate_ema(prices, slow_period)
+
+    # Align: slow EMA is shorter by (slow_period - fast_period) bars
+    offset = slow_period - fast_period
+    macd_lines: list[Decimal] = [f - s for f, s in zip(fast_emas[offset:], slow_emas, strict=False)]
+
+    if len(macd_lines) < signal_period:
+        raise ValueError("not enough data to compute MACD signal line")
+
+    signal_emas = calculate_ema(macd_lines, signal_period)
+    # signal_emas has len = len(macd_lines) - signal_period + 1
+    macd_offset = len(macd_lines) - len(signal_emas)
+
+    results: list[MacdResult] = []
+    for i, sig in enumerate(signal_emas):
+        macd_val = macd_lines[macd_offset + i]
+        results.append(
+            MacdResult(
+                macd_line=macd_val,
+                signal_line=sig,
+                histogram=macd_val - sig,
+            )
+        )
+    return results
+
+
+def calculate_atr(
+    highs: Sequence[Decimal],
+    lows: Sequence[Decimal],
+    closes: Sequence[Decimal],
+    period: int = 14,
+) -> Decimal:
+    """Wilder's Average True Range (simple average over `period` bars)."""
+    if period <= 0:
+        raise ValueError("period must be positive")
+    if len(highs) < period + 1 or len(lows) < period + 1 or len(closes) < period + 1:
+        raise ValueError("not enough bars to calculate ATR")
+
+    true_ranges: list[Decimal] = []
+    h_list = list(highs)
+    l_list = list(lows)
+    c_list = list(closes)
+    for i in range(1, len(c_list)):
+        hl = h_list[i] - l_list[i]
+        hc = abs(h_list[i] - c_list[i - 1])
+        lc = abs(l_list[i] - c_list[i - 1])
+        true_ranges.append(max(hl, hc, lc))
+
+    return sum(true_ranges[-period:], start=Decimal("0")) / Decimal(period)
