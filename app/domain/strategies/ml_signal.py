@@ -12,6 +12,7 @@ from app.domain.strategies.base import Candle, Signal
 from app.domain.strategies.features import (
     DEFAULT_FEATURE_NAMES,
     _min_candles_for_features,
+    build_all_feature_vectors,
     build_feature_vector,
 )
 
@@ -41,6 +42,50 @@ class MLSignalStrategy:
 
     def minimum_candles(self) -> int:
         return _min_candles_for_features(self._feature_names)
+
+    def batch_evaluate(self, candles: Sequence[Candle]) -> list[Signal | None]:
+        """Evaluate all candle positions at once — much faster for backtesting.
+
+        Builds all feature vectors in one pass then calls predict_proba once
+        on the full matrix instead of once per candle.
+        """
+        feature_vectors = build_all_feature_vectors(candles, self._feature_names)
+
+        # Collect valid rows for batch inference
+        valid_indices: list[int] = []
+        valid_vectors: list[list[float]] = []
+        for i, vec in enumerate(feature_vectors):
+            if vec is not None:
+                valid_indices.append(i)
+                valid_vectors.append(vec)
+
+        results: list[Signal | None] = [None] * len(candles)
+        if not valid_vectors:
+            return results
+
+        try:
+            probas = self._model.predict_proba(valid_vectors)
+        except Exception:
+            return results
+
+        for i, proba in zip(valid_indices, probas, strict=False):
+            up_prob = Decimal(str(round(float(proba[1]), 6)))
+            if up_prob >= self._buy_threshold:
+                results[i] = Signal(
+                    action="buy",
+                    reason=f"ML up probability {up_prob:.4f} >= {self._buy_threshold}",
+                    fast_value=up_prob,
+                )
+            elif up_prob <= self._sell_threshold:
+                sell_prob = Decimal("1") - up_prob
+                min_sell = Decimal("1") - self._sell_threshold
+                results[i] = Signal(
+                    action="sell",
+                    reason=f"ML down probability {sell_prob:.4f} >= {min_sell}",
+                    fast_value=up_prob,
+                )
+
+        return results
 
     def evaluate(self, candles: Sequence[Candle]) -> Signal | None:
         if len(candles) < self.minimum_candles():

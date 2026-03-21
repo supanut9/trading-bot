@@ -193,6 +193,33 @@ def _min_candles_for_features(names: list[str]) -> int:
 MIN_CANDLES_FOR_FEATURES: int = _BASE_WARMUP
 
 
+def build_all_feature_vectors(
+    candles: Sequence[Candle],
+    feature_names: list[str] | None = None,
+) -> list[list[float] | None]:
+    """Compute a feature vector for every candle position in a single pass.
+
+    Returns a list aligned with *candles* (sorted by open_time).
+    Positions that don't yet have enough warmup candles return None.
+
+    Uses a fixed-size sliding window to avoid the O(n²) memory cost of
+    passing growing slices.
+    """
+    names = feature_names if feature_names is not None else DEFAULT_FEATURE_NAMES
+    min_needed = _min_candles_for_features(names)
+    ordered = sorted(candles, key=lambda c: c.open_time)
+    result: list[list[float] | None] = []
+    for i in range(len(ordered)):
+        if i + 1 < min_needed:
+            result.append(None)
+        else:
+            # Pass only the window needed — avoids growing slices
+            window_start = max(0, i - min_needed * 2)  # extra history for indicators
+            vec = build_feature_vector(ordered[window_start : i + 1], names)
+            result.append(vec)
+    return result
+
+
 def build_feature_matrix(
     candles: Sequence[Candle],
     feature_names: list[str] | None = None,
