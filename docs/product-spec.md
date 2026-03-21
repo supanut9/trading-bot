@@ -169,6 +169,10 @@ Live deployment and iteration:
   - [x] Integrate trading mode into execution services (paper/live)
   - [x] Persist trading mode in operator configuration UI
   - [x] Mode-aware backtesting (SPOT/FUTURES simulation)
+- [x] Symmetric execution (Direct shorting support in Futures)
+- [x] Separate balance tracking (SPOT vs FUTURES wallets)
+- [ ] Multi-symbol concurrent backtesting
+- [ ] Portfolio-level risk metrics (VAR, Correlation)
   - [ ] Implement leverage and margin controls in execution service
   - [ ] Update RiskService to handle leverage-aware liquidation risk
 
