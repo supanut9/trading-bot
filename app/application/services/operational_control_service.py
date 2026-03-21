@@ -1368,8 +1368,8 @@ class OperationalControlService:
         if sname != BACKTEST_STRATEGY_EMA_CROSSOVER:
             raise ValueError(f"unsupported backtest strategy: {sname}")
         return EmaCrossoverStrategy(
-            fast_period=options.fast_period or 0,
-            slow_period=options.slow_period or 0,
+            fast_period=options.fast_period or 20,
+            slow_period=options.slow_period or 50,
             rsi_period=options.rsi_period,
             rsi_overbought=options.rsi_overbought or Decimal("70"),
             rsi_oversold=options.rsi_oversold or Decimal("30"),
