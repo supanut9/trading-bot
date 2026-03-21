@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from datetime import datetime
 from decimal import Decimal
 
 from sqlalchemy.orm import Session
@@ -30,6 +31,7 @@ class TradeView:
     price: Decimal
     fee_amount: Decimal | None
     fee_asset: str | None
+    created_at: datetime
 
 
 class OperationsService:
@@ -64,6 +66,7 @@ class OperationsService:
                 price=trade.price,
                 fee_amount=trade.fee_amount,
                 fee_asset=trade.fee_asset,
+                created_at=trade.created_at,
             )
             for trade in self._trades.list_all(limit=limit)
         ]
