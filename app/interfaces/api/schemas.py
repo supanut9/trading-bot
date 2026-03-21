@@ -503,7 +503,7 @@ class MarketSyncControlResponse(BaseModel):
 class MarketSyncControlRequest(BaseModel):
     symbol: str | None = None
     timeframe: str | None = None
-    limit: int | None = Field(default=None, ge=1, le=1000)
+    limit: int | None = Field(default=None, ge=1, le=50000)
     backfill: bool = False
 
 
