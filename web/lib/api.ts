@@ -182,6 +182,8 @@ export type BacktestControlRequest = {
   atr_period?: number;
   atr_breakout_multiplier?: string;
   atr_stop_multiplier?: string;
+  adx_period?: number;
+  adx_threshold?: string;
   trading_mode?: string;
   leverage?: number | null;
   margin_mode?: string;
@@ -210,6 +212,8 @@ export type BacktestControlResponse = {
   winning_trades: number | null;
   losing_trades: number | null;
   rules: StrategyRuleBuilderRequest | null;
+  adx_period: number | null;
+  adx_threshold: string | null;
   leverage: number | null;
   margin_mode: string;
   liquidation_count: number;

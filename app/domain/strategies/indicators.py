@@ -176,3 +176,86 @@ def calculate_atr(
         true_ranges.append(max(hl, hc, lc))
 
     return sum(true_ranges[-period:], start=Decimal("0")) / Decimal(period)
+
+
+def calculate_adx(
+    highs: Sequence[Decimal],
+    lows: Sequence[Decimal],
+    closes: Sequence[Decimal],
+    period: int = 14,
+) -> Decimal:
+    """Wilder's Average Directional Index (ADX).
+
+    Returns the ADX value in the range [0, 100].
+    Requires at least 2 * period + 1 bars.
+    ADX > 25 generally indicates a trending market; < 20 indicates ranging.
+    """
+    if period <= 0:
+        raise ValueError("period must be positive")
+    min_bars = 2 * period + 1
+    if len(highs) < min_bars or len(lows) < min_bars or len(closes) < min_bars:
+        raise ValueError(f"not enough bars to calculate ADX (need {min_bars})")
+
+    h = list(highs)
+    lo = list(lows)
+    c = list(closes)
+    n = len(c)
+
+    # Compute raw +DM, -DM, TR for each bar
+    plus_dm: list[Decimal] = []
+    minus_dm: list[Decimal] = []
+    true_ranges: list[Decimal] = []
+    for i in range(1, n):
+        up_move = h[i] - h[i - 1]
+        down_move = lo[i - 1] - lo[i]
+        plus_dm.append(up_move if up_move > down_move and up_move > Decimal("0") else Decimal("0"))
+        minus_dm.append(
+            down_move if down_move > up_move and down_move > Decimal("0") else Decimal("0")
+        )
+        hl = h[i] - lo[i]
+        hc = abs(h[i] - c[i - 1])
+        lc = abs(lo[i] - c[i - 1])
+        true_ranges.append(max(hl, hc, lc))
+
+    # Wilder smoothing: seed = sum of first `period` values
+    smoothed_tr = sum(true_ranges[:period], start=Decimal("0"))
+    smoothed_plus = sum(plus_dm[:period], start=Decimal("0"))
+    smoothed_minus = sum(minus_dm[:period], start=Decimal("0"))
+
+    dx_values: list[Decimal] = []
+    period_d = Decimal(period)
+
+    def _di(smoothed_dm: Decimal, smoothed_tr_val: Decimal) -> Decimal:
+        if smoothed_tr_val == Decimal("0"):
+            return Decimal("0")
+        return (smoothed_dm / smoothed_tr_val) * Decimal("100")
+
+    # Compute first DX from initial smoothed values
+    plus_di = _di(smoothed_plus, smoothed_tr)
+    minus_di = _di(smoothed_minus, smoothed_tr)
+    di_sum = plus_di + minus_di
+    dx_values.append(
+        abs(plus_di - minus_di) / di_sum * Decimal("100")
+        if di_sum != Decimal("0")
+        else Decimal("0")
+    )
+
+    # Roll forward for remaining bars using Wilder smoothing
+    for i in range(period, len(true_ranges)):
+        smoothed_tr = smoothed_tr - smoothed_tr / period_d + true_ranges[i]
+        smoothed_plus = smoothed_plus - smoothed_plus / period_d + plus_dm[i]
+        smoothed_minus = smoothed_minus - smoothed_minus / period_d + minus_dm[i]
+        plus_di = _di(smoothed_plus, smoothed_tr)
+        minus_di = _di(smoothed_minus, smoothed_tr)
+        di_sum = plus_di + minus_di
+        dx_values.append(
+            abs(plus_di - minus_di) / di_sum * Decimal("100")
+            if di_sum != Decimal("0")
+            else Decimal("0")
+        )
+
+    # ADX = Wilder smoothed average of DX over `period` values
+    adx = sum(dx_values[:period], start=Decimal("0")) / period_d
+    for dx in dx_values[period:]:
+        adx = (adx * (period_d - Decimal("1")) + dx) / period_d
+    return adx

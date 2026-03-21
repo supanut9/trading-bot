@@ -134,6 +134,8 @@ def run_backtest(
             atr_period=payload.atr_period,
             atr_breakout_multiplier=payload.atr_breakout_multiplier,
             atr_stop_multiplier=payload.atr_stop_multiplier,
+            adx_period=payload.adx_period,
+            adx_threshold=payload.adx_threshold,
             trading_mode=payload.trading_mode,
             leverage=payload.leverage,
             margin_mode=payload.margin_mode,

@@ -101,6 +101,9 @@ class BacktestRunOptions:
     atr_period: int | None = None
     atr_breakout_multiplier: Decimal | None = None
     atr_stop_multiplier: Decimal | None = None
+    # ADX regime filter
+    adx_period: int | None = None
+    adx_threshold: Decimal | None = None
     trading_mode: str = "SPOT"
     leverage: int | None = None  # None = auto-fetch for FUTURES
     margin_mode: str = "ISOLATED"
@@ -127,7 +130,8 @@ def required_candles_for_backtest_options(options: BacktestRunOptions) -> int:
     base = max((options.slow_period or 0) + 1, 0)
     rsi_min = (options.rsi_period + 1) if options.rsi_period is not None else 0
     vol_min = options.volume_ma_period if options.volume_ma_period is not None else 0
-    return max(base, rsi_min, vol_min)
+    adx_min = (2 * options.adx_period + 1) if options.adx_period is not None else 0
+    return max(base, rsi_min, vol_min, adx_min)
 
 
 def _fill_ema_periods(
@@ -242,6 +246,8 @@ class BacktestControlResult:
     rules: RuleBuilderStrategyConfig | None = None
     executions: tuple[BacktestExecutionResult, ...] = ()
     candles: tuple[BacktestCandleResult, ...] = ()
+    adx_period: int | None = None
+    adx_threshold: Decimal | None = None
     leverage: int = 1
     margin_mode: str = "ISOLATED"
     liquidation_count: int = 0
@@ -695,6 +701,8 @@ class OperationalControlService:
             fee_pct=self._quantize_decimal(backtest_result.fee_pct),
             walk_forward=self._build_walk_forward_control_result(walk_forward_result),
             rules=resolved.rules,
+            adx_period=resolved.adx_period,
+            adx_threshold=resolved.adx_threshold,
             leverage=resolved_leverage,
             margin_mode=resolved.margin_mode,
             liquidation_count=backtest_result.liquidation_count,
@@ -1370,6 +1378,9 @@ class OperationalControlService:
             atr_period=active.atr_period,
             atr_breakout_multiplier=active.atr_breakout_multiplier,
             atr_stop_multiplier=active.atr_stop_multiplier,
+            # ADX regime filter
+            adx_period=active.adx_period,
+            adx_threshold=active.adx_threshold,
             trading_mode=active.trading_mode,
             leverage=active.leverage,
             margin_mode=active.margin_mode,
@@ -1451,6 +1462,8 @@ class OperationalControlService:
             rsi_overbought=options.rsi_overbought or Decimal("70"),
             rsi_oversold=options.rsi_oversold or Decimal("30"),
             volume_ma_period=options.volume_ma_period,
+            adx_period=options.adx_period,
+            adx_threshold=options.adx_threshold or Decimal("25"),
         )
 
     @staticmethod
