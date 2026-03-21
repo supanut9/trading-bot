@@ -38,7 +38,11 @@ from app.application.services.worker_orchestration_service import WorkerOrchestr
 from app.config import Settings
 from app.domain.risk import RiskLimits, RiskService
 from app.domain.strategies.base import Candle, Strategy
+from app.domain.strategies.breakout_atr import BreakoutAtrStrategy
 from app.domain.strategies.ema_crossover import EmaCrossoverStrategy
+from app.domain.strategies.macd_crossover import MacdCrossoverStrategy
+from app.domain.strategies.mean_reversion_bollinger import MeanReversionBollingerStrategy
+from app.domain.strategies.rsi_momentum import RsiMomentumStrategy
 from app.domain.strategies.rule_builder import (
     RuleBuilderStrategy,
     RuleBuilderStrategyConfig,
@@ -55,6 +59,19 @@ from app.infrastructure.exchanges.factory import (
 
 BACKTEST_STRATEGY_EMA_CROSSOVER = OPERATOR_STRATEGY_EMA_CROSSOVER
 BACKTEST_STRATEGY_RULE_BUILDER = "rule_builder"
+BACKTEST_STRATEGY_MACD_CROSSOVER = "macd_crossover"
+BACKTEST_STRATEGY_MEAN_REVERSION_BOLLINGER = "mean_reversion_bollinger"
+BACKTEST_STRATEGY_RSI_MOMENTUM = "rsi_momentum"
+BACKTEST_STRATEGY_BREAKOUT_ATR = "breakout_atr"
+
+_ALL_BACKTEST_STRATEGIES = {
+    BACKTEST_STRATEGY_EMA_CROSSOVER,
+    BACKTEST_STRATEGY_RULE_BUILDER,
+    BACKTEST_STRATEGY_MACD_CROSSOVER,
+    BACKTEST_STRATEGY_MEAN_REVERSION_BOLLINGER,
+    BACKTEST_STRATEGY_RSI_MOMENTUM,
+    BACKTEST_STRATEGY_BREAKOUT_ATR,
+}
 
 
 @dataclass(frozen=True, slots=True)
@@ -74,11 +91,36 @@ class BacktestRunOptions:
     rsi_overbought: Decimal | None = None
     rsi_oversold: Decimal | None = None
     volume_ma_period: int | None = None
+    # MACD crossover params
+    macd_signal_period: int | None = None
+    # Bollinger mean-reversion params
+    bb_period: int | None = None
+    bb_std_dev: Decimal | None = None
+    # Breakout ATR params
+    breakout_period: int | None = None
+    atr_period: int | None = None
+    atr_breakout_multiplier: Decimal | None = None
+    atr_stop_multiplier: Decimal | None = None
 
 
 def required_candles_for_backtest_options(options: BacktestRunOptions) -> int:
-    if options.strategy_name == BACKTEST_STRATEGY_RULE_BUILDER and options.rules is not None:
+    sname = options.strategy_name
+    if sname == BACKTEST_STRATEGY_RULE_BUILDER and options.rules is not None:
         return options.rules.minimum_candles()
+    if sname == BACKTEST_STRATEGY_MACD_CROSSOVER:
+        slow = options.slow_period or 26
+        sig = options.macd_signal_period or 9
+        return slow + sig + 1
+    if sname == BACKTEST_STRATEGY_MEAN_REVERSION_BOLLINGER:
+        bb = options.bb_period or 20
+        rsi = options.rsi_period or 14
+        return max(bb, rsi + 1) + 1
+    if sname == BACKTEST_STRATEGY_RSI_MOMENTUM:
+        return (options.rsi_period or 14) + 2
+    if sname == BACKTEST_STRATEGY_BREAKOUT_ATR:
+        bp = options.breakout_period or 20
+        ap = options.atr_period or 14
+        return max(bp, ap) + 2
     base = max((options.slow_period or 0) + 1, 0)
     rsi_min = (options.rsi_period + 1) if options.rsi_period is not None else 0
     vol_min = options.volume_ma_period if options.volume_ma_period is not None else 0
@@ -1228,6 +1270,35 @@ class OperationalControlService:
                 walk_forward_split_ratio=active.walk_forward_split_ratio,
                 rules=rules,
             )
+        # New strategies: resolve with their own param fields
+        base_opts = BacktestRunOptions(
+            strategy_name=strategy_name,
+            exchange=exchange,
+            symbol=symbol,
+            timeframe=timeframe,
+            starting_equity=starting_equity,
+            slippage_pct=active.slippage_pct,
+            fee_pct=active.fee_pct,
+            walk_forward_split_ratio=active.walk_forward_split_ratio,
+            # shared indicator params
+            rsi_period=active.rsi_period,
+            rsi_overbought=active.rsi_overbought,
+            rsi_oversold=active.rsi_oversold,
+            # MACD
+            fast_period=active.fast_period,
+            slow_period=active.slow_period,
+            macd_signal_period=active.macd_signal_period,
+            # Bollinger
+            bb_period=active.bb_period,
+            bb_std_dev=active.bb_std_dev,
+            # Breakout
+            breakout_period=active.breakout_period,
+            atr_period=active.atr_period,
+            atr_breakout_multiplier=active.atr_breakout_multiplier,
+            atr_stop_multiplier=active.atr_stop_multiplier,
+        )
+        if strategy_name in _ALL_BACKTEST_STRATEGIES:
+            return base_opts
         raise ValueError(f"unsupported backtest strategy: {active.strategy_name}")
 
     def _preview_backtest_options(
@@ -1262,14 +1333,40 @@ class OperationalControlService:
         )
 
     @staticmethod
-    def _build_backtest_strategy(options: BacktestRunOptions) -> Strategy:
-        if options.strategy_name == BACKTEST_STRATEGY_RULE_BUILDER:
+    def _build_backtest_strategy(options: BacktestRunOptions) -> Strategy:  # noqa: PLR0911
+        sname = options.strategy_name
+        if sname == BACKTEST_STRATEGY_RULE_BUILDER:
             if options.rules is None:
                 raise ValueError("rule builder strategy requires rules")
             rules = _fill_ema_periods(options.rules, options.fast_period, options.slow_period)
             return RuleBuilderStrategy(rules)
-        if options.strategy_name != BACKTEST_STRATEGY_EMA_CROSSOVER:
-            raise ValueError(f"unsupported backtest strategy: {options.strategy_name}")
+        if sname == BACKTEST_STRATEGY_MACD_CROSSOVER:
+            return MacdCrossoverStrategy(
+                fast_period=options.fast_period or 12,
+                slow_period=options.slow_period or 26,
+                signal_period=options.macd_signal_period or 9,
+            )
+        if sname == BACKTEST_STRATEGY_MEAN_REVERSION_BOLLINGER:
+            return MeanReversionBollingerStrategy(
+                bb_period=options.bb_period or 20,
+                bb_std_dev=options.bb_std_dev or Decimal("2"),
+                rsi_period=options.rsi_period or 14,
+                rsi_oversold=options.rsi_oversold or Decimal("35"),
+                rsi_overbought=options.rsi_overbought or Decimal("65"),
+            )
+        if sname == BACKTEST_STRATEGY_RSI_MOMENTUM:
+            return RsiMomentumStrategy(
+                rsi_period=options.rsi_period or 14,
+            )
+        if sname == BACKTEST_STRATEGY_BREAKOUT_ATR:
+            return BreakoutAtrStrategy(
+                breakout_period=options.breakout_period or 20,
+                atr_period=options.atr_period or 14,
+                atr_breakout_multiplier=options.atr_breakout_multiplier or Decimal("0.5"),
+                atr_stop_multiplier=options.atr_stop_multiplier or Decimal("2.0"),
+            )
+        if sname != BACKTEST_STRATEGY_EMA_CROSSOVER:
+            raise ValueError(f"unsupported backtest strategy: {sname}")
         return EmaCrossoverStrategy(
             fast_period=options.fast_period or 0,
             slow_period=options.slow_period or 0,
