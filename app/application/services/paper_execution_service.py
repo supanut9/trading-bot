@@ -135,6 +135,52 @@ class PaperExecutionService:
         existing_realized = current_position.realized_pnl if current_position else Decimal("0")
 
         if request.side == "buy":
+            # If we are currently short, this buy closes the short
+            if (
+                current_position is not None
+                and current_position.side == "short"
+                and current_position.quantity > Decimal("0")
+            ):
+                closed_quantity = min(request.quantity, existing_quantity)
+                if existing_average is None:
+                    raise ValueError("cannot calculate realized pnl without an average entry price")
+
+                # For a short, realized PnL = (entry_price - closing_price) * closed_qty
+                realized_pnl = (existing_average - request.price) * closed_quantity
+
+                new_quantity = existing_quantity - closed_quantity
+                new_average = existing_average if new_quantity > Decimal("0") else None
+
+                position = self._positions.upsert(
+                    exchange=request.exchange,
+                    symbol=request.symbol,
+                    trading_mode=request.trading_mode,
+                    mode=request.mode,
+                    side="short" if new_quantity > Decimal("0") else "long",
+                    quantity=new_quantity,
+                    average_entry_price=new_average,
+                    realized_pnl=existing_realized + realized_pnl,
+                    unrealized_pnl=Decimal("0"),
+                )
+
+                # If the order is a stop-and-reverse (exceeds the short position)
+                remaining_quantity = request.quantity - closed_quantity
+                if remaining_quantity > Decimal("0"):
+                    # Open a new long with the remainder
+                    position = self._positions.upsert(
+                        exchange=request.exchange,
+                        symbol=request.symbol,
+                        trading_mode=request.trading_mode,
+                        mode=request.mode,
+                        side="long",
+                        quantity=remaining_quantity,
+                        average_entry_price=request.price,
+                        realized_pnl=position.realized_pnl,
+                        unrealized_pnl=Decimal("0"),
+                    )
+                return position, realized_pnl
+
+            # Otherwise, just opening or adding to a long
             total_cost = (existing_quantity * (existing_average or Decimal("0"))) + (
                 request.quantity * request.price
             )
@@ -153,26 +199,79 @@ class PaperExecutionService:
             )
             return position, Decimal("0")
 
-        closed_quantity = request.quantity
-        if existing_average is None:
-            raise ValueError("cannot calculate realized pnl without an average entry price")
-        realized_pnl = (request.price - existing_average) * closed_quantity
+        # Handling "sell" request
+        # If we are currently long, this sell closes the long
+        if (
+            current_position is not None
+            and current_position.side == "long"
+            and current_position.quantity > Decimal("0")
+        ):
+            closed_quantity = min(request.quantity, existing_quantity)
+            if existing_average is None:
+                raise ValueError("cannot calculate realized pnl without an average entry price")
 
-        new_quantity = existing_quantity - closed_quantity
-        new_average = existing_average if new_quantity > Decimal("0") else None
+            # For a long, realized PnL = (closing_price - entry_price) * closed_qty
+            realized_pnl = (request.price - existing_average) * closed_quantity
 
+            new_quantity = existing_quantity - closed_quantity
+            new_average = existing_average if new_quantity > Decimal("0") else None
+
+            position = self._positions.upsert(
+                exchange=request.exchange,
+                symbol=request.symbol,
+                trading_mode=request.trading_mode,
+                mode=request.mode,
+                side="long",
+                quantity=new_quantity,
+                average_entry_price=new_average,
+                realized_pnl=existing_realized + realized_pnl,
+                unrealized_pnl=Decimal("0"),
+            )
+
+            # If the order is a stop-and-reverse and we're in FUTURES mode
+            remaining_quantity = request.quantity - closed_quantity
+            if remaining_quantity > Decimal("0"):
+                if request.trading_mode == "FUTURES":
+                    position = self._positions.upsert(
+                        exchange=request.exchange,
+                        symbol=request.symbol,
+                        trading_mode=request.trading_mode,
+                        mode=request.mode,
+                        side="short",
+                        quantity=remaining_quantity,
+                        average_entry_price=request.price,
+                        realized_pnl=position.realized_pnl,
+                        unrealized_pnl=Decimal("0"),
+                    )
+                else:
+                    raise ValueError(
+                        "cannot execute sell larger than existing long position in SPOT mode"
+                    )
+
+            return position, realized_pnl
+
+        # Otherwise, no existing long position.
+        # In FUTURES, this opens or adds to a short.
+        if request.trading_mode != "FUTURES":
+            raise ValueError("cannot execute sell without an existing long position in SPOT mode")
+
+        total_cost = (existing_quantity * (existing_average or Decimal("0"))) + (
+            request.quantity * request.price
+        )
+        new_quantity = existing_quantity + request.quantity
+        new_average = total_cost / new_quantity
         position = self._positions.upsert(
             exchange=request.exchange,
             symbol=request.symbol,
             trading_mode=request.trading_mode,
             mode=request.mode,
-            side="long",
+            side="short",
             quantity=new_quantity,
             average_entry_price=new_average,
-            realized_pnl=existing_realized + realized_pnl,
+            realized_pnl=existing_realized,
             unrealized_pnl=Decimal("0"),
         )
-        return position, realized_pnl
+        return position, Decimal("0")
 
     def _validate_request_against_position(
         self,
@@ -183,11 +282,16 @@ class PaperExecutionService:
         if request.side != "sell":
             return
 
-        if current_position is None or current_position.quantity <= Decimal("0"):
-            raise ValueError("cannot execute sell without an existing position")
+        if request.trading_mode == "SPOT":
+            if (
+                current_position is None
+                or current_position.side != "long"
+                or current_position.quantity <= Decimal("0")
+            ):
+                raise ValueError("cannot execute sell without an existing position in SPOT mode")
 
-        if current_position.average_entry_price is None:
-            raise ValueError("existing position must have an average entry price")
+            if current_position.average_entry_price is None:
+                raise ValueError("existing position must have an average entry price")
 
-        if request.quantity > current_position.quantity:
-            raise ValueError("cannot execute sell larger than existing position")
+            if request.quantity > current_position.quantity:
+                raise ValueError("cannot execute sell larger than existing position in SPOT mode")
