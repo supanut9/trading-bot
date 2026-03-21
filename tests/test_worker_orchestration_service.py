@@ -463,3 +463,122 @@ def test_rejects_live_mode_when_strategy_not_qualified(tmp_path: Path) -> None:
 
         assert result.status == "not_qualified"
         assert "not passed all qualification gates" in result.detail
+
+
+# ---------------------------------------------------------------------------
+# Multi-symbol tests
+# ---------------------------------------------------------------------------
+
+
+def store_candles_for_symbol(
+    session: object,
+    settings: Settings,
+    symbol: str,
+    closes: list[int],
+) -> None:
+    svc = MarketDataService(session)
+    start = datetime(2026, 1, 1, tzinfo=UTC)
+    candles = [
+        CandleInput(
+            open_time=start + timedelta(hours=i),
+            close_time=start + timedelta(hours=i + 1),
+            open_price=Decimal(c),
+            high_price=Decimal(c),
+            low_price=Decimal(c),
+            close_price=Decimal(c),
+            volume=Decimal("1"),
+        )
+        for i, c in enumerate(closes)
+    ]
+    svc.store_candles(
+        exchange=settings.exchange_name,
+        symbol=symbol,
+        timeframe=settings.default_timeframe,
+        candles=candles,
+    )
+
+
+def test_multi_symbol_single_entry_falls_through_to_single_cycle(tmp_path: Path) -> None:
+    """When TRADING_SYMBOLS has one entry, behaves identically to single-symbol mode."""
+    service, session, settings = build_service(
+        tmp_path,
+        TRADING_SYMBOLS="BTC/USDT",
+    )
+    store_closes(session, settings, [10, 10, 10, 10, 10, 9, 9, 9, 9])
+    result = service.run_cycle()
+    # No crossover signal yet; strategy should return no_signal
+    assert result.status == "no_signal"
+
+
+def test_multi_symbol_blocked_in_live_mode(tmp_path: Path) -> None:
+    """Multi-symbol cycles must be blocked when execution_mode is live."""
+    service, session, settings = build_service(
+        tmp_path,
+        TRADING_SYMBOLS="BTC/USDT,ETH/USDT",
+        PAPER_TRADING=False,
+        LIVE_TRADING_ENABLED=True,
+        EXCHANGE_API_KEY="key",
+        EXCHANGE_API_SECRET="secret",
+    )
+    result = service.run_cycle()
+    assert result.status == "multi_symbol_live_blocked"
+    assert "not supported in live mode" in result.detail
+
+
+def test_multi_symbol_processes_all_symbols(tmp_path: Path) -> None:
+    """run_cycle processes every symbol in TRADING_SYMBOLS and returns multi_symbol_cycle."""
+    service, session, settings = build_service(
+        tmp_path,
+        TRADING_SYMBOLS="BTC/USDT,ETH/USDT",
+    )
+    # Neither symbol has a signal — both cycles return no_signal
+    store_candles_for_symbol(session, settings, "BTC/USDT", [10, 10, 10, 10, 10, 9, 9, 9, 9])
+    store_candles_for_symbol(session, settings, "ETH/USDT", [10, 10, 10, 10, 10, 9, 9, 9, 9])
+    result = service.run_cycle()
+    assert result.status == "multi_symbol_cycle"
+    assert "2 symbols" in result.detail
+    assert "0 executed" in result.detail
+
+
+def test_multi_symbol_active_symbols_defaults_to_default_symbol(tmp_path: Path) -> None:
+    """_active_symbols falls back to [default_symbol] when TRADING_SYMBOLS is empty."""
+    service, session, settings = build_service(tmp_path)
+    assert service._active_symbols == ["BTC/USDT"]
+
+
+def test_multi_symbol_active_symbols_returns_configured_list(tmp_path: Path) -> None:
+    """_active_symbols returns all entries from TRADING_SYMBOLS."""
+    service, session, settings = build_service(tmp_path, TRADING_SYMBOLS="BTC/USDT,ETH/USDT")
+    assert service._active_symbols == ["BTC/USDT", "ETH/USDT"]
+
+
+def test_multi_symbol_each_symbol_independent_no_position_cross_contamination(
+    tmp_path: Path,
+) -> None:
+    """A buy signal on BTC/USDT must not open a position for ETH/USDT."""
+    service, session, settings = build_service(
+        tmp_path,
+        TRADING_SYMBOLS="BTC/USDT,ETH/USDT",
+    )
+    # BTC crosses up (buy signal): slow EMA catches up then fast surges
+    store_candles_for_symbol(session, settings, "BTC/USDT", [10, 10, 10, 10, 10, 9, 9, 9, 20])
+    # ETH has no signal
+    store_candles_for_symbol(session, settings, "ETH/USDT", [10, 10, 10, 10, 10, 9, 9, 9, 9])
+    service.run_cycle()
+
+    pos_repo = PositionRepository(session)
+    btc_pos = pos_repo.get(
+        exchange=settings.exchange_name,
+        symbol="BTC/USDT",
+        trading_mode=settings.trading_mode,
+        mode="paper",
+    )
+    eth_pos = pos_repo.get(
+        exchange=settings.exchange_name,
+        symbol="ETH/USDT",
+        trading_mode=settings.trading_mode,
+        mode="paper",
+    )
+    # BTC should have a position; ETH should not
+    assert btc_pos is not None and btc_pos.quantity > Decimal("0")
+    assert eth_pos is None or eth_pos.quantity == Decimal("0")
