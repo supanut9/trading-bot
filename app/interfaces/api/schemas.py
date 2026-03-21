@@ -28,6 +28,7 @@ class StatusResponse(BaseModel):
     fast_period: int
     slow_period: int
     operator_config_source: str
+    trading_mode: str | None = None
     database_url: str
     database_status: str
     latest_price_status: str
@@ -59,6 +60,7 @@ class TradeResponse(BaseModel):
     price: Decimal
     fee_amount: Decimal | None
     fee_asset: str | None
+    created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -228,6 +230,7 @@ class BacktestControlResponse(BaseModel):
     exchange: str
     symbol: str
     timeframe: str
+    trading_mode: str = "SPOT"
     fast_period: int | None = None
     slow_period: int | None = None
     starting_equity_input: Decimal
@@ -339,6 +342,7 @@ class BacktestControlRequest(BaseModel):
     atr_period: int | None = None
     atr_breakout_multiplier: Decimal | None = None
     atr_stop_multiplier: Decimal | None = None
+    trading_mode: str = "SPOT"
 
 
 class StrategyRuleConditionRequest(BaseModel):
@@ -370,6 +374,7 @@ class OperatorConfigResponse(BaseModel):
     timeframe: str
     fast_period: int
     slow_period: int
+    trading_mode: str
     source: str
     changed: bool = False
     notified: bool = False
@@ -383,6 +388,7 @@ class OperatorConfigRequest(BaseModel):
     timeframe: str
     fast_period: int
     slow_period: int
+    trading_mode: str = "SPOT"
 
 
 class MarketSyncControlResponse(BaseModel):

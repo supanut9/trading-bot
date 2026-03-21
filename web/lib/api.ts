@@ -14,6 +14,7 @@ export type StatusResponse = {
   timeframe: string;
   fast_period: number;
   slow_period: number;
+  trading_mode: string;
   operator_config_source: string;
   database_url: string;
   database_status: string;
@@ -86,6 +87,7 @@ export type TradeResponse = {
   price: string;
   fee_amount: string | null;
   fee_asset: string | null;
+  created_at: string;
 };
 
 export type OperatorConfigResponse = {
@@ -97,6 +99,7 @@ export type OperatorConfigResponse = {
   timeframe: string;
   fast_period: number;
   slow_period: number;
+  trading_mode: string;
   source: string;
   changed: boolean;
   notified: boolean;
@@ -166,6 +169,7 @@ export type BacktestControlRequest = {
   atr_period?: number;
   atr_breakout_multiplier?: string;
   atr_stop_multiplier?: string;
+  trading_mode?: string;
 };
 
 export type BacktestControlResponse = {
@@ -176,6 +180,7 @@ export type BacktestControlResponse = {
   exchange: string;
   symbol: string;
   timeframe: string;
+  trading_mode: string;
   fast_period: number | null;
   slow_period: number | null;
   starting_equity_input: string;
@@ -203,6 +208,7 @@ export type BacktestRunResponse = {
   exchange: string;
   symbol: string;
   timeframe: string;
+  trading_mode: string;
   fast_period: number | null;
   slow_period: number | null;
   starting_equity_input: string;
@@ -230,6 +236,7 @@ export type OperatorConfigRequest = {
   timeframe: string;
   fast_period: number;
   slow_period: number;
+  trading_mode: string;
 };
 
 export type MarketSyncControlRequest = {
@@ -541,6 +548,7 @@ export function getMarketDataCoverage(params?: {
   fast_period?: number;
   slow_period?: number;
   rules?: StrategyRuleBuilderRequest;
+  trading_mode?: string;
 }): Promise<MarketDataCoverageResponse> {
   const searchParams = new URLSearchParams();
   if (params?.strategy_name) {
@@ -563,6 +571,9 @@ export function getMarketDataCoverage(params?: {
   }
   if (params?.rules) {
     searchParams.set("rules_json", JSON.stringify(params.rules));
+  }
+  if (params?.trading_mode) {
+    searchParams.set("trading_mode", params.trading_mode);
   }
   const suffix = searchParams.toString();
   return request<MarketDataCoverageResponse>(

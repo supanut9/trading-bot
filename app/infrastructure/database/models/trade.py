@@ -9,7 +9,7 @@ from app.infrastructure.database.base import Base, TimestampMixin
 class TradeRecord(TimestampMixin, Base):
     __tablename__ = "trades"
     __table_args__ = (
-        Index("ix_trades_lookup", "exchange", "symbol"),
+        Index("ix_trades_lookup", "exchange", "symbol", "trading_mode"),
         Index("ix_trades_order_id", "order_id"),
     )
 
@@ -17,6 +17,7 @@ class TradeRecord(TimestampMixin, Base):
     order_id: Mapped[int | None] = mapped_column(ForeignKey("orders.id"))
     exchange: Mapped[str] = mapped_column(String(50), nullable=False)
     symbol: Mapped[str] = mapped_column(String(50), nullable=False)
+    trading_mode: Mapped[str] = mapped_column(String(20), nullable=False, default="SPOT")
     side: Mapped[str] = mapped_column(String(10), nullable=False)
     quantity: Mapped[Decimal] = mapped_column(Numeric(20, 8), nullable=False)
     price: Mapped[Decimal] = mapped_column(Numeric(20, 8), nullable=False)

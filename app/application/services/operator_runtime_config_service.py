@@ -12,6 +12,16 @@ from app.infrastructure.database.repositories.operator_config_repository import 
 
 PAPER_RUNTIME_OPERATOR_CONFIG = "paper_runtime_defaults"
 OPERATOR_STRATEGY_EMA_CROSSOVER = "ema_crossover"
+OPERATOR_SUPPORTED_STRATEGIES = frozenset(
+    [
+        "ema_crossover",
+        "rule_builder",
+        "macd_crossover",
+        "mean_reversion_bollinger",
+        "rsi_momentum",
+        "breakout_atr",
+    ]
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -22,6 +32,7 @@ class OperatorRuntimeConfig:
     timeframe: str
     fast_period: int
     slow_period: int
+    trading_mode: str
     source: str
     updated_at: datetime | None = None
     updated_by: str | None = None
@@ -49,6 +60,7 @@ class OperatorRuntimeConfigService:
                 timeframe=self._settings.default_timeframe,
                 fast_period=self._settings.strategy_fast_period,
                 slow_period=self._settings.strategy_slow_period,
+                trading_mode=self._settings.trading_mode,
                 source="settings",
             )
         record = self._configs.get_by_name(PAPER_RUNTIME_OPERATOR_CONFIG)
@@ -60,6 +72,7 @@ class OperatorRuntimeConfigService:
                 timeframe=self._settings.default_timeframe,
                 fast_period=self._settings.strategy_fast_period,
                 slow_period=self._settings.strategy_slow_period,
+                trading_mode=self._settings.trading_mode,
                 source="settings",
             )
         return OperatorRuntimeConfig(
@@ -69,6 +82,7 @@ class OperatorRuntimeConfigService:
             timeframe=record.timeframe,
             fast_period=record.fast_period,
             slow_period=record.slow_period,
+            trading_mode=record.trading_mode,
             source="runtime_config",
             updated_at=record.updated_at,
             updated_by=record.updated_by,
@@ -82,18 +96,25 @@ class OperatorRuntimeConfigService:
         timeframe: str,
         fast_period: int,
         slow_period: int,
+        trading_mode: str,
         updated_by: str,
     ) -> OperatorRuntimeConfigUpdate:
         normalized_strategy = strategy_name.strip().lower()
-        normalized_symbol = symbol.strip()
+        normalized_symbol = symbol.strip().upper()
         normalized_timeframe = timeframe.strip()
-        if normalized_strategy != OPERATOR_STRATEGY_EMA_CROSSOVER:
+        normalized_trading_mode = trading_mode.strip().upper()
+        if normalized_strategy not in OPERATOR_SUPPORTED_STRATEGIES:
             raise ValueError(f"unsupported runtime strategy: {strategy_name}")
+        if normalized_trading_mode not in ("SPOT", "FUTURES"):
+            raise ValueError(f"unsupported trading mode: {trading_mode}")
         if not normalized_symbol or not normalized_timeframe:
             raise ValueError("symbol and timeframe are required")
         if fast_period <= 0 or slow_period <= 0:
             raise ValueError("strategy periods must be positive")
-        if fast_period >= slow_period:
+        if (
+            normalized_strategy in ("ema_crossover", "macd_crossover")
+            and fast_period >= slow_period
+        ):
             raise ValueError("fast period must be smaller than slow period")
 
         previous = self.get_effective_config()
@@ -104,6 +125,7 @@ class OperatorRuntimeConfigService:
             timeframe=normalized_timeframe,
             fast_period=fast_period,
             slow_period=slow_period,
+            trading_mode=normalized_trading_mode,
             updated_by=updated_by,
         )
         current = OperatorRuntimeConfig(
@@ -113,6 +135,7 @@ class OperatorRuntimeConfigService:
             timeframe=record.timeframe,
             fast_period=record.fast_period,
             slow_period=record.slow_period,
+            trading_mode=record.trading_mode,
             source="runtime_config",
             updated_at=record.updated_at,
             updated_by=record.updated_by,

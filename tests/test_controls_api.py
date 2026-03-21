@@ -358,6 +358,7 @@ def test_operator_config_control_returns_current_defaults(tmp_path: Path) -> Non
         assert payload["strategy_name"] == "ema_crossover"
         assert payload["symbol"] == settings.default_symbol
         assert payload["timeframe"] == settings.default_timeframe
+        assert payload["trading_mode"] == "SPOT"
         assert payload["source"] == "settings"
     finally:
         teardown_client()
@@ -374,6 +375,7 @@ def test_operator_config_control_persists_runtime_defaults(tmp_path: Path) -> No
                 "timeframe": "4h",
                 "fast_period": 3,
                 "slow_period": 5,
+                "trading_mode": "FUTURES",
             },
         )
 
@@ -383,6 +385,7 @@ def test_operator_config_control_persists_runtime_defaults(tmp_path: Path) -> No
         assert payload["detail"] == "operator runtime config updated"
         assert payload["symbol"] == "ETH/USDT"
         assert payload["timeframe"] == "4h"
+        assert payload["trading_mode"] == "FUTURES"
         assert payload["source"] == "runtime_config"
         assert payload["changed"] is True
     finally:
@@ -400,6 +403,7 @@ def test_worker_cycle_control_uses_runtime_operator_config(tmp_path: Path) -> No
                 "timeframe": "4h",
                 "fast_period": 3,
                 "slow_period": 5,
+                "trading_mode": "SPOT",
             },
         )
         store_market_closes(
@@ -565,6 +569,7 @@ def test_market_sync_control_accepts_explicit_market_selection(tmp_path: Path) -
                 "timeframe": "1h",
                 "fast_period": 3,
                 "slow_period": 5,
+                "trading_mode": "SPOT",
             },
         )
         session_factory = create_session_factory(settings)

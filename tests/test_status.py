@@ -18,10 +18,28 @@ from app.infrastructure.database.session import (
 from app.main import app
 
 
-def test_status_endpoint_returns_bootstrap_configuration() -> None:
-    client = TestClient(app)
+def test_status_endpoint_returns_bootstrap_configuration(tmp_path: Path) -> None:
+    settings = Settings(DATABASE_URL=f"sqlite:///{tmp_path / 'status_bootstrap.db'}")
+    engine = create_engine_from_settings(settings)
+    Base.metadata.create_all(bind=engine)
+    session_factory = create_session_factory(settings)
+    session = session_factory()
 
-    response = client.get("/status")
+    def override_get_session():
+        try:
+            yield session
+        finally:
+            pass
+
+    app.dependency_overrides[get_settings] = lambda: settings
+    app.dependency_overrides[get_session] = override_get_session
+
+    try:
+        client = TestClient(app)
+        response = client.get("/status")
+    finally:
+        app.dependency_overrides.clear()
+        session.close()
 
     assert response.status_code == 200
     payload = response.json()
@@ -36,8 +54,10 @@ def test_status_endpoint_returns_bootstrap_configuration() -> None:
     assert payload["live_max_position_quantity"] is None
     assert payload["database_status"] in {"available", "unavailable"}
     assert payload["latest_price_status"] in {"available", "unavailable"}
-    assert payload["account_balance_status"] == "disabled"
-    assert payload["account_balances"] == []
+    assert payload["account_balance_status"] == "simulated"
+    assert len(payload["account_balances"]) == 1
+    assert payload["account_balances"][0]["asset"] == "USDT"
+    assert "10000.0" in payload["account_balances"][0]["free"]
 
 
 def test_status_endpoint_returns_live_account_balances_when_enabled(
@@ -85,7 +105,7 @@ def test_status_endpoint_returns_live_account_balances_when_enabled(
 
     monkeypatch.setattr(
         "app.application.services.status_service.build_live_order_exchange_client",
-        lambda _settings: FakeClient(),
+        lambda _settings, **kwargs: FakeClient(),
     )
     monkeypatch.setattr(
         "app.application.services.status_service.build_market_data_exchange_client",

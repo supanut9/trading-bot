@@ -64,6 +64,7 @@ type BacktestFormState = {
   atr_period: string;
   atr_breakout_multiplier: string;
   atr_stop_multiplier: string;
+  trading_mode: string;
 };
 
 type RuleBuilderPresetKey = BacktestFormState["preset_key"];
@@ -973,6 +974,7 @@ export function BacktestPage() {
     atr_period: "14",
     atr_breakout_multiplier: "0.5",
     atr_stop_multiplier: "2.0",
+    trading_mode: "SPOT",
   });
   const [hasHydratedDefaults, setHasHydratedDefaults] = useState(false);
 
@@ -1002,6 +1004,7 @@ export function BacktestPage() {
         timeframe: form.timeframe.trim(),
         fast_period: Number(form.fast_period),
         slow_period: Number(form.slow_period),
+        trading_mode: form.trading_mode,
         rules: form.strategy_name === "rule_builder" ? cloneRules(form.rules) : undefined,
       }),
   });
@@ -1028,6 +1031,7 @@ export function BacktestPage() {
       ...current,
       symbol: operatorConfigQuery.data.symbol,
       timeframe: operatorConfigQuery.data.timeframe,
+      trading_mode: operatorConfigQuery.data.trading_mode,
       fast_period: String(operatorConfigQuery.data.fast_period),
       slow_period: String(operatorConfigQuery.data.slow_period),
       rules: buildPresetRules(
@@ -1092,6 +1096,7 @@ export function BacktestPage() {
         atr_period: "14",
         atr_breakout_multiplier: "0.5",
         atr_stop_multiplier: "2.0",
+        trading_mode: run.trading_mode ?? "SPOT",
       });
       return;
     }
@@ -1272,6 +1277,22 @@ export function BacktestPage() {
                           {option}
                         </option>
                       ))}
+                    </select>
+                  </label>
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-2">
+                  <label className="space-y-2">
+                    <span className="text-[11px] uppercase tracking-[0.18em] text-slate-400">
+                      Trading Mode
+                    </span>
+                    <select
+                      className="w-full rounded-2xl border border-white/10 bg-[#09121a] px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-300/40 focus:ring-2 focus:ring-cyan-300/10"
+                      onChange={(event) => updateField("trading_mode", event.target.value)}
+                      value={form.trading_mode}
+                    >
+                      <option value="SPOT">SPOT</option>
+                      <option value="FUTURES">FUTURES</option>
                     </select>
                   </label>
                 </div>

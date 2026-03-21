@@ -23,6 +23,7 @@ class OperatorConfigRepository:
         timeframe: str,
         fast_period: int,
         slow_period: int,
+        trading_mode: str = "SPOT",
         updated_by: str,
     ) -> OperatorConfigRecord:
         record = self.get_by_name(config_name)
@@ -34,6 +35,7 @@ class OperatorConfigRepository:
                 timeframe=timeframe,
                 fast_period=fast_period,
                 slow_period=slow_period,
+                trading_mode=trading_mode,
                 updated_by=updated_by,
             )
             self._session.add(record)
@@ -45,6 +47,7 @@ class OperatorConfigRepository:
         record.timeframe = timeframe
         record.fast_period = fast_period
         record.slow_period = slow_period
+        record.trading_mode = trading_mode
         record.updated_by = updated_by
         self._session.flush()
         return record

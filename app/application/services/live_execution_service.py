@@ -17,6 +17,7 @@ from app.infrastructure.database.repositories.position_repository import Positio
 from app.infrastructure.exchanges.base import (
     ExchangeOrderRequest,
     ExchangeOrderSubmission,
+    FuturesOrderExchangeClient,
     LiveOrderExchangeClient,
 )
 
@@ -42,7 +43,11 @@ class LiveExecutionResult:
 
 class LiveExecutionService:
     def __init__(
-        self, session: Session, settings: Settings, *, client: LiveOrderExchangeClient
+        self,
+        session: Session,
+        settings: Settings,
+        *,
+        client: LiveOrderExchangeClient | FuturesOrderExchangeClient,
     ) -> None:
         self._session = session
         self._settings = settings
@@ -63,6 +68,7 @@ class LiveExecutionService:
         current_position = self._positions.get(
             exchange=request.exchange,
             symbol=request.symbol,
+            trading_mode=request.trading_mode,
             mode=request.mode,
         )
         self._validate_request_against_position(
@@ -120,6 +126,7 @@ class LiveExecutionService:
             side=request.side,
             order_type=order_type,
             status="submitting",
+            trading_mode=request.trading_mode,
             mode=request.mode,
             quantity=request.quantity,
             price=price,
@@ -134,6 +141,7 @@ class LiveExecutionService:
                 quantity=request.quantity,
                 price=price if order_type == "limit" else None,
                 order_type=order_type,
+                trading_mode=request.trading_mode,
                 validate_only=self._settings.live_order_validate_only,
                 client_order_id=request.client_order_id,
             )
@@ -154,6 +162,7 @@ class LiveExecutionService:
             exchange=request.exchange,
             symbol=request.symbol,
             side=request.side,
+            trading_mode=request.trading_mode,
         ):
             return
         raise DuplicateLiveOrderError("active live order already exists for the same market side")

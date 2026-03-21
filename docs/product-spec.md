@@ -11,6 +11,7 @@ Build a maintainable trading bot that supports research, backtesting, paper trad
 - candle-based execution
 - paper trading only
 - API endpoints for health, status, positions, trades, candle ingestion, market sync, reporting exports, and bounded manual controls
+- support for both spot and futures/leverage modes
 
 ## Current Milestone
 
@@ -56,24 +57,26 @@ Strategy quality (must come before live work):
 
 Live readiness:
 
-4. `feature/exchange-rule-enforcement`
-5. `feature/shadow-strategy-runtime`
-6. `feature/strategy-qualification-gates`
+4. `feature/futures-leverage-support`
+5. `feature/exchange-rule-enforcement`
+6. `feature/shadow-strategy-runtime`
+7. `feature/strategy-qualification-gates`
 
 Live execution infrastructure:
 
-7. `feature/live-risk-hard-gates`
-8. `feature/smart-order-execution`
-9. `feature/validate-only-live-orders`
-10. `feature/live-ledger-reconciliation-hardening`
+8. `feature/live-risk-hard-gates`
+9. `feature/smart-order-execution`
+10. `feature/validate-only-live-orders`
+11. `feature/live-ledger-reconciliation-hardening`
+12. `feature/live-futures-execution-hardening`
 
 Live deployment and iteration:
 
-11. `feature/production-secrets-and-ops-hardening`
-12. `feature/canary-live-rollout`
-13. `feature/live-incident-auto-halt`
-14. `feature/live-performance-review-loop`
-15. `feature/strategy-iteration-workflow`
+13. `feature/production-secrets-and-ops-hardening`
+14. `feature/canary-live-rollout`
+15. `feature/live-incident-auto-halt`
+16. `feature/live-performance-review-loop`
+17. `feature/strategy-iteration-workflow`
 
 ## Initial Market And Strategy
 
@@ -131,7 +134,7 @@ Live deployment and iteration:
 - allow operators to edit backtest-only rule-builder groups and conditions inside the backtest page while reusing the existing control API
 - persist recent backtest runs with summary metrics and allow the backtest page to hydrate its form from a stored run
 - provide read-only Next.js recovery reporting with stale-order visibility, unresolved live-order queue, recent recovery events, and filtered export links
-- persist paper-runtime operator defaults for symbol, timeframe, and EMA periods so operator actions do not depend only on startup env
+- persist paper-runtime operator defaults for symbol, timeframe, trading mode (SPOT/FUTURES), and EMA periods so operator actions do not depend only on startup env
 - render a compact reporting summary over the latest worker outcome, PnL, trade count, positions, and stale live state
 - derive durable operator-facing performance analytics from persisted trades and positions without adding a dedicated summary table first
 - expose the computed performance equity curve through both the reporting page and CSV export surfaces
@@ -159,6 +162,19 @@ Live deployment and iteration:
 - execution mode must be configured explicitly as either paper or live, never both
 - explicit live mode must fail safely when exchange submission or later fill reconciliation cannot confirm runtime state
 - live-capable operation requires PostgreSQL persistence, backup coverage, startup sync, scheduled reconciliation, and tested alerts
+- [x] **Feature: Futures/leverage support**
+  - [x] Update config/settings for trading mode (SPOT/FUTURES)
+  - [ ] Implement Binance Futures exchange client
+  - [x] Update database models for trading mode segregation
+  - [x] Integrate trading mode into execution services (paper/live)
+  - [x] Persist trading mode in operator configuration UI
+  - [x] Mode-aware backtesting (SPOT/FUTURES simulation)
+- [x] Symmetric execution (Direct shorting support in Futures)
+- [x] Separate balance tracking (SPOT vs FUTURES wallets)
+- [ ] Multi-symbol concurrent backtesting
+- [ ] Portfolio-level risk metrics (VAR, Correlation)
+  - [ ] Implement leverage and margin controls in execution service
+  - [ ] Update RiskService to handle leverage-aware liquidation risk
 
 ## Current Paper Execution Baseline
 
@@ -175,7 +191,6 @@ Live deployment and iteration:
 ## Explicit Non-Goals
 
 - high-frequency trading
-- futures or leverage
-- multiple execution strategies in production
+- multiple concurrent execution strategies in production
 - multi-exchange routing
 - autonomous portfolio optimization

@@ -8,6 +8,10 @@ vi.mock("next/navigation", () => ({
   usePathname: () => "/",
 }));
 
+vi.mock("@/components/trading-chart", () => ({
+  TradingChart: () => <div data-testid="trading-chart-mock" />,
+}));
+
 const fetchMock = vi.fn();
 
 function renderWithQueryClient(): void {

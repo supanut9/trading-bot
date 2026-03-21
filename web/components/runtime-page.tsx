@@ -21,9 +21,11 @@ type RuntimeFormState = {
   timeframe: string;
   fast_period: string;
   slow_period: string;
+  trading_mode: string;
 };
 
 const timeframeOptions = ["5m", "15m", "1h", "4h", "1d"];
+const tradingModeOptions = ["SPOT", "FUTURES"];
 
 function SummaryStrip({
   config,
@@ -42,14 +44,14 @@ function SummaryStrip({
       <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-4">
         <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Market</p>
         <p className="mt-3 text-2xl font-semibold tracking-tight text-white">{config.symbol}</p>
-        <p className="mt-2 text-sm text-slate-400">{config.exchange.toUpperCase()}</p>
+        <p className="mt-2 text-sm text-slate-400">{config.trading_mode} mode</p>
       </div>
       <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-4">
         <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Timeframe</p>
         <p className="mt-3 text-2xl font-semibold tracking-tight text-white">
           {config.timeframe}
         </p>
-        <p className="mt-2 text-sm text-slate-400">Source {config.source}</p>
+        <p className="mt-2 text-sm text-slate-400">{config.exchange.toUpperCase()}</p>
       </div>
       <div className="rounded-3xl border border-cyan-300/15 bg-cyan-300/5 p-4">
         <p className="text-[11px] uppercase tracking-[0.2em] text-cyan-200/80">EMA Window</p>
@@ -71,6 +73,7 @@ export function RuntimePage() {
     timeframe: "",
     fast_period: "",
     slow_period: "",
+    trading_mode: "SPOT",
   });
   const [hasHydratedDefaults, setHasHydratedDefaults] = useState(false);
 
@@ -94,6 +97,7 @@ export function RuntimePage() {
       timeframe: operatorConfigQuery.data.timeframe,
       fast_period: String(operatorConfigQuery.data.fast_period),
       slow_period: String(operatorConfigQuery.data.slow_period),
+      trading_mode: operatorConfigQuery.data.trading_mode,
     });
     setHasHydratedDefaults(true);
   }, [hasHydratedDefaults, operatorConfigQuery.data]);
@@ -114,6 +118,7 @@ export function RuntimePage() {
       timeframe: form.timeframe,
       fast_period: Number(form.fast_period),
       slow_period: Number(form.slow_period),
+      trading_mode: form.trading_mode,
     };
     updateMutation.mutate(payload);
   }
@@ -172,7 +177,7 @@ export function RuntimePage() {
             </CardHeader>
             <CardContent>
               <form className="space-y-5" onSubmit={handleSubmit}>
-                <div className="grid gap-4 md:grid-cols-2">
+                <div className="grid gap-4 md:grid-cols-3">
                   <label className="space-y-2">
                     <span className="text-[11px] uppercase tracking-[0.18em] text-slate-400">
                       Strategy
@@ -183,6 +188,27 @@ export function RuntimePage() {
                       value={form.strategy_name}
                     >
                       <option value="ema_crossover">ema_crossover</option>
+                      <option value="rule_builder">rule_builder</option>
+                      <option value="macd_crossover">macd_crossover</option>
+                      <option value="mean_reversion_bollinger">mean_reversion_bollinger</option>
+                      <option value="rsi_momentum">rsi_momentum</option>
+                      <option value="breakout_atr">breakout_atr</option>
+                    </select>
+                  </label>
+                  <label className="space-y-2">
+                    <span className="text-[11px] uppercase tracking-[0.18em] text-slate-400">
+                      Trading Mode
+                    </span>
+                    <select
+                      className="w-full rounded-2xl border border-white/10 bg-[#09121a] px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-300/40 focus:ring-2 focus:ring-cyan-300/10"
+                      onChange={(event) => updateField("trading_mode", event.target.value)}
+                      value={form.trading_mode}
+                    >
+                      {tradingModeOptions.map((option) => (
+                        <option key={option} value={option}>
+                          {option} Mode
+                        </option>
+                      ))}
                     </select>
                   </label>
                   <label className="space-y-2">
@@ -217,7 +243,11 @@ export function RuntimePage() {
                   </label>
                   <label className="space-y-2">
                     <span className="text-[11px] uppercase tracking-[0.18em] text-slate-400">
-                      Fast EMA
+                      {form.strategy_name === "ema_crossover" || form.strategy_name === "rule_builder" ? "Fast EMA" :
+                       form.strategy_name === "macd_crossover" ? "MACD Fast" :
+                       form.strategy_name === "mean_reversion_bollinger" ? "MA Window" :
+                       form.strategy_name === "rsi_momentum" ? "RSI Period" :
+                       form.strategy_name === "breakout_atr" ? "Breakout Window" : "Fast Period"}
                     </span>
                     <input
                       className="w-full rounded-2xl border border-white/10 bg-[#09121a] px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-300/40 focus:ring-2 focus:ring-cyan-300/10"
@@ -230,7 +260,11 @@ export function RuntimePage() {
                   </label>
                   <label className="space-y-2">
                     <span className="text-[11px] uppercase tracking-[0.18em] text-slate-400">
-                      Slow EMA
+                      {form.strategy_name === "ema_crossover" || form.strategy_name === "rule_builder" ? "Slow EMA" :
+                       form.strategy_name === "macd_crossover" ? "MACD Slow" :
+                       form.strategy_name === "mean_reversion_bollinger" ? "Reserved (Unused)" :
+                       form.strategy_name === "rsi_momentum" ? "EMA Window" :
+                       form.strategy_name === "breakout_atr" ? "ATR Window" : "Slow Period"}
                     </span>
                     <input
                       className="w-full rounded-2xl border border-white/10 bg-[#09121a] px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-300/40 focus:ring-2 focus:ring-cyan-300/10"

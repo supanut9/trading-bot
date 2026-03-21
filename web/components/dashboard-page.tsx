@@ -1,12 +1,18 @@
 "use client";
 
 import { useQueries } from "@tanstack/react-query";
+import dynamic from "next/dynamic";
 import { AlertTriangle, Database, Gauge, Layers3, ShieldAlert, TrendingUp } from "lucide-react";
 
 import { OperatorShell } from "@/components/operator-shell";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+
+const ClientTradingChart = dynamic(
+  () => import("@/components/trading-chart").then((mod) => mod.TradingChart),
+  { ssr: false, loading: () => <div className="h-[400px] w-full animate-pulse bg-white/5" /> }
+);
 import {
   Table,
   TableBody,
@@ -300,6 +306,29 @@ export function DashboardPage() {
               positions={positionsQuery.data ?? []}
             />
           </>
+        ) : null}
+
+        {statusQuery.data && tradesQuery.data ? (
+          <Card className="overflow-hidden">
+            <CardHeader className="border-b border-white/5 bg-[#09121a]/50">
+              <div>
+                <CardTitle>Live Market & Fills</CardTitle>
+                <CardDescription>
+                  Real-time {statusQuery.data.symbol} on {statusQuery.data.timeframe} with paper trade history overlay.
+                </CardDescription>
+              </div>
+            </CardHeader>
+            <CardContent className="p-0">
+               {/* We must dynamically import it so it only runs on the client-side without SSR errors because of TradingView lw-charts */}
+              <ClientTradingChart
+                symbol={statusQuery.data.symbol}
+                timeframe={statusQuery.data.timeframe}
+                trades={tradesQuery.data}
+                fast_period={statusQuery.data.fast_period}
+                slow_period={statusQuery.data.slow_period}
+              />
+            </CardContent>
+          </Card>
         ) : null}
 
         <div className="grid gap-5 xl:grid-cols-[minmax(0,1.55fr)_minmax(360px,0.85fr)]">

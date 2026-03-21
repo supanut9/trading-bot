@@ -34,7 +34,8 @@ class PortfolioState:
     weekly_realized_loss_pct: Decimal
     concurrent_exposure_pct: Decimal
     consecutive_losses: int
-    trading_mode: Literal["paper", "live"]
+    execution_mode: Literal["paper", "live", "shadow"]
+    trading_mode: Literal["SPOT", "FUTURES"]
 
 
 @dataclass(frozen=True, slots=True)

@@ -90,6 +90,7 @@ def update_operator_config(
         timeframe=request.timeframe,
         fast_period=request.fast_period,
         slow_period=request.slow_period,
+        trading_mode=request.trading_mode,
         source="api.control",
     )
     return OperatorConfigResponse.model_validate(result)

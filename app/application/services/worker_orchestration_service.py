@@ -19,8 +19,12 @@ from app.application.services.symbol_rules_service import SymbolRulesService
 from app.config import Settings
 from app.core.logger import get_logger
 from app.domain.risk import PortfolioState, RiskLimits, RiskService, TradeContext
-from app.domain.strategies.base import Candle, Signal
+from app.domain.strategies.base import Candle, Signal, Strategy
+from app.domain.strategies.breakout_atr import BreakoutAtrStrategy
 from app.domain.strategies.ema_crossover import EmaCrossoverStrategy
+from app.domain.strategies.macd_crossover import MacdCrossoverStrategy
+from app.domain.strategies.mean_reversion_bollinger import MeanReversionBollingerStrategy
+from app.domain.strategies.rsi_momentum import RsiMomentumStrategy
 from app.infrastructure.database.models.position import PositionRecord
 from app.infrastructure.database.repositories.order_repository import (
     DuplicateClientOrderIdError,
@@ -55,7 +59,7 @@ class WorkerOrchestrationService:
         session: Session,
         settings: Settings,
         *,
-        strategy: EmaCrossoverStrategy | None = None,
+        strategy: Strategy | None = None,
         risk_service: RiskService | None = None,
         market_sync: MarketDataSyncService | None = None,
         execution_service: ExecutionService | None = None,
@@ -69,20 +73,7 @@ class WorkerOrchestrationService:
         self._positions = PositionRepository(session)
         self._orders = OrderRepository(session)
         self._market_sync = market_sync
-        self._strategy = strategy or EmaCrossoverStrategy(
-            fast_period=self._fast_period,
-            slow_period=self._slow_period,
-            rsi_period=(
-                settings.strategy_rsi_period if settings.strategy_rsi_filter_enabled else None
-            ),
-            rsi_overbought=Decimal(str(settings.strategy_rsi_overbought)),
-            rsi_oversold=Decimal(str(settings.strategy_rsi_oversold)),
-            volume_ma_period=(
-                settings.strategy_volume_ma_period
-                if settings.strategy_volume_filter_enabled
-                else None
-            ),
-        )
+        self._strategy = strategy or self._build_strategy(operator_config, settings)
         live_halt_state = LiveOperatorControlService(
             session, settings
         ).get_live_trading_halt_state()
@@ -108,7 +99,7 @@ class WorkerOrchestrationService:
 
     def run_cycle(self) -> WorkerCycleResult:
         candle_limit = max(
-            self._slow_period + 1,
+            self._min_required_candles,
             self._settings.market_data_sync_limit,
         )
         if self._settings.market_data_sync_enabled:
@@ -139,7 +130,7 @@ class WorkerOrchestrationService:
             timeframe=self._timeframe,
             limit=candle_limit,
         )
-        if len(candles) < self._slow_period + 1:
+        if len(candles) < self._min_required_candles:
             logger.info(
                 "worker_cycle_skipped reason=not_enough_candles "
                 "exchange=%s symbol=%s timeframe=%s count=%s required=%s",
@@ -147,7 +138,7 @@ class WorkerOrchestrationService:
                 self._symbol,
                 self._timeframe,
                 len(candles),
-                self._slow_period + 1,
+                self._min_required_candles,
             )
             return WorkerCycleResult(status="no_candles", detail="not enough candles")
 
@@ -229,6 +220,7 @@ class WorkerOrchestrationService:
         current_position = self._positions.get(
             exchange=self._settings.exchange_name,
             symbol=self._symbol,
+            trading_mode=self._settings.trading_mode,
             mode=self._trading_mode,
         )
         latest_candle = max(candles, key=lambda candle: candle.open_time)
@@ -354,6 +346,7 @@ class WorkerOrchestrationService:
                     quantity=quantity,
                     price=latest_price,
                     mode=self._trading_mode,
+                    trading_mode=self._settings.trading_mode,
                     client_order_id=client_order_id,
                     submitted_reason=signal.reason,
                 )
@@ -572,7 +565,8 @@ class WorkerOrchestrationService:
             weekly_realized_loss_pct=weekly_realized_loss_pct,
             concurrent_exposure_pct=concurrent_exposure_pct,
             consecutive_losses=consecutive_losses,
-            trading_mode=mode,
+            execution_mode=mode,  # type: ignore
+            trading_mode=self._settings.trading_mode,  # type: ignore
         )
 
     @staticmethod
@@ -583,8 +577,65 @@ class WorkerOrchestrationService:
         symbol_token = self._symbol.replace("/", "-").lower()
         candle_token = close_time.strftime("%Y%m%d%H%M%S")
         return (
-            f"{self._trading_mode}-{self._settings.exchange_name}-"
+            f"{self._trading_mode}-{self._settings.trading_mode}-{self._settings.exchange_name}-"
             f"{symbol_token}-{self._timeframe}-{signal.action}-{candle_token}"
+        )
+
+    @staticmethod
+    def _build_strategy(
+        operator_config: OperatorRuntimeConfig | None,
+        settings: Settings,
+    ) -> Strategy:
+        strategy_name = (
+            operator_config.strategy_name if operator_config is not None else "ema_crossover"
+        )
+        fast = (
+            operator_config.fast_period
+            if operator_config is not None
+            else settings.strategy_fast_period
+        )
+        slow = (
+            operator_config.slow_period
+            if operator_config is not None
+            else settings.strategy_slow_period
+        )
+        if strategy_name == "macd_crossover":
+            return MacdCrossoverStrategy(
+                fast_period=fast,
+                slow_period=slow,
+                signal_period=9,
+            )
+        if strategy_name == "mean_reversion_bollinger":
+            return MeanReversionBollingerStrategy(
+                bb_period=20,
+                bb_std_dev=Decimal("2"),
+                rsi_period=14,
+                rsi_oversold=Decimal("35"),
+                rsi_overbought=Decimal("65"),
+            )
+        if strategy_name == "rsi_momentum":
+            return RsiMomentumStrategy(rsi_period=14)
+        if strategy_name == "breakout_atr":
+            return BreakoutAtrStrategy(
+                breakout_period=20,
+                atr_period=14,
+                atr_breakout_multiplier=Decimal("0.5"),
+                atr_stop_multiplier=Decimal("2.0"),
+            )
+        # ema_crossover (default) and rule_builder fall back to EMA
+        return EmaCrossoverStrategy(
+            fast_period=fast,
+            slow_period=slow,
+            rsi_period=(
+                settings.strategy_rsi_period if settings.strategy_rsi_filter_enabled else None
+            ),
+            rsi_overbought=Decimal(str(settings.strategy_rsi_overbought)),
+            rsi_oversold=Decimal(str(settings.strategy_rsi_oversold)),
+            volume_ma_period=(
+                settings.strategy_volume_ma_period
+                if settings.strategy_volume_filter_enabled
+                else None
+            ),
         )
 
     def _get_market_sync(self) -> MarketDataSyncService:
@@ -618,3 +669,20 @@ class WorkerOrchestrationService:
         if self._operator_config is not None:
             return self._operator_config.slow_period
         return self._settings.strategy_slow_period
+
+    @property
+    def _min_required_candles(self) -> int:
+        strategy_name = (
+            self._operator_config.strategy_name
+            if self._operator_config is not None
+            else "ema_crossover"
+        )
+        if strategy_name == "macd_crossover":
+            return self._slow_period + 9 + 1  # slow + signal_period + 1
+        if strategy_name == "mean_reversion_bollinger":
+            return max(20, 14 + 1) + 1  # max(bb_period, rsi_period+1) + 1
+        if strategy_name == "rsi_momentum":
+            return 14 + 2
+        if strategy_name == "breakout_atr":
+            return max(20, 14) + 2  # max(breakout_period, atr_period) + 2
+        return self._slow_period + 1  # ema_crossover and rule_builder

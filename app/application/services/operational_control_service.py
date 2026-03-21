@@ -101,6 +101,7 @@ class BacktestRunOptions:
     atr_period: int | None = None
     atr_breakout_multiplier: Decimal | None = None
     atr_stop_multiplier: Decimal | None = None
+    trading_mode: str = "SPOT"
 
 
 def required_candles_for_backtest_options(options: BacktestRunOptions) -> int:
@@ -289,6 +290,7 @@ class OperatorConfigControlResult:
     timeframe: str
     fast_period: int
     slow_period: int
+    trading_mode: str
     source: str
     changed: bool = False
     notified: bool = False
@@ -864,6 +866,7 @@ class OperationalControlService:
             timeframe=config.timeframe,
             fast_period=config.fast_period,
             slow_period=config.slow_period,
+            trading_mode=config.trading_mode,
             source=config.source,
         )
 
@@ -933,6 +936,7 @@ class OperationalControlService:
         timeframe: str,
         fast_period: int,
         slow_period: int,
+        trading_mode: str,
         source: str = "internal",
         audit: bool = True,
     ) -> OperatorConfigControlResult:
@@ -947,6 +951,7 @@ class OperationalControlService:
                     timeframe=timeframe,
                     fast_period=fast_period,
                     slow_period=slow_period,
+                    trading_mode=trading_mode,
                     updated_by=source,
                 )
                 session.commit()
@@ -961,6 +966,7 @@ class OperationalControlService:
                 timeframe=timeframe.strip() or current.timeframe,
                 fast_period=fast_period,
                 slow_period=slow_period,
+                trading_mode=trading_mode,
                 source=current.source,
             )
 
@@ -977,6 +983,7 @@ class OperationalControlService:
             timeframe=update.current.timeframe,
             fast_period=update.current.fast_period,
             slow_period=update.current.slow_period,
+            trading_mode=update.current.trading_mode,
             source=update.current.source,
             changed=update.changed,
         )
@@ -1132,6 +1139,7 @@ class OperationalControlService:
             starting_equity=options.starting_equity,
             slippage_pct=slippage_pct,
             fee_pct=fee_pct,
+            trading_mode=options.trading_mode,
         ).run(
             [
                 Candle(
@@ -1181,6 +1189,7 @@ class OperationalControlService:
             starting_equity=options.starting_equity,
             slippage_pct=slippage_pct,
             fee_pct=fee_pct,
+            trading_mode=options.trading_mode,
         ).run_walk_forward(
             candles,
             split_ratio=options.walk_forward_split_ratio or Decimal("0.7"),
