@@ -117,6 +117,13 @@ class Settings(BaseSettings):
     strategy_adx_filter_enabled: bool = Field(default=False, alias="STRATEGY_ADX_FILTER_ENABLED")
     strategy_adx_period: int = Field(default=14, alias="STRATEGY_ADX_PERIOD")
     strategy_adx_threshold: float = Field(default=25.0, alias="STRATEGY_ADX_THRESHOLD")
+    multi_tf_confirmation_enabled: bool = Field(
+        default=False, alias="MULTI_TF_CONFIRMATION_ENABLED"
+    )
+    multi_tf_confirmation_timeframe: str = Field(
+        default="4h", alias="MULTI_TF_CONFIRMATION_TIMEFRAME"
+    )
+    multi_tf_confirmation_period: int = Field(default=21, alias="MULTI_TF_CONFIRMATION_PERIOD")
     volatility_sizing_enabled: bool = Field(default=False, alias="VOLATILITY_SIZING_ENABLED")
     volatility_sizing_atr_period: int = Field(default=14, alias="VOLATILITY_SIZING_ATR_PERIOD")
     backtest_slippage_pct: float = Field(default=0.0005, alias="BACKTEST_SLIPPAGE_PCT")

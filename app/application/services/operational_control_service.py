@@ -133,6 +133,9 @@ class BacktestRunOptions:
     # ADX regime filter
     adx_period: int | None = None
     adx_threshold: Decimal | None = None
+    # Multi-timeframe confirmation
+    multi_tf_timeframe: str | None = None
+    multi_tf_period: int | None = None
     trading_mode: str = "SPOT"
     leverage: int | None = None  # None = auto-fetch for FUTURES
     margin_mode: str = "ISOLATED"
@@ -643,6 +646,62 @@ class OperationalControlService:
                     exc,
                 )
 
+        # HTF confirmation: resolve which HTF timeframe and period to use
+        effective_htf_timeframe: str | None = resolved.multi_tf_timeframe or (
+            self._settings.multi_tf_confirmation_timeframe
+            if self._settings.multi_tf_confirmation_enabled
+            else None
+        )
+        effective_htf_period: int = resolved.multi_tf_period or (
+            self._settings.multi_tf_confirmation_period
+            if self._settings.multi_tf_confirmation_enabled
+            else 21
+        )
+        htf_candles: list[Candle] = []
+        if effective_htf_timeframe:
+            htf_sync_limit = _compute_backtest_sync_limit(
+                effective_htf_timeframe, effective_htf_period + 30
+            )
+            with self._session_factory() as session:
+                try:
+                    MarketDataSyncService(
+                        session, build_market_data_exchange_client(self._settings)
+                    ).sync_candles_paginated(
+                        exchange=resolved.exchange,
+                        symbol=resolved.symbol,
+                        timeframe=effective_htf_timeframe,
+                        total_limit=htf_sync_limit,
+                    )
+                    session.commit()
+                except Exception as exc:
+                    from app.core.logger import get_logger as _get_logger
+
+                    _get_logger(__name__).warning(
+                        "backtest_htf_sync_failed exchange=%s symbol=%s timeframe=%s error=%s",
+                        resolved.exchange,
+                        resolved.symbol,
+                        effective_htf_timeframe,
+                        exc,
+                    )
+            with self._session_factory() as session:
+                htf_records = MarketDataService(session).list_historical_candles(
+                    exchange=resolved.exchange,
+                    symbol=resolved.symbol,
+                    timeframe=effective_htf_timeframe,
+                )
+                htf_candles = [
+                    Candle(
+                        open_time=r.open_time,
+                        close_time=r.close_time,
+                        open_price=r.open_price,
+                        high_price=r.high_price,
+                        low_price=r.low_price,
+                        close_price=r.close_price,
+                        volume=r.volume,
+                    )
+                    for r in htf_records
+                ]
+
         with self._session_factory() as session:
             records = MarketDataService(session).list_historical_candles(
                 exchange=resolved.exchange,
@@ -662,9 +721,19 @@ class OperationalControlService:
                 status = "skipped"
                 detail = "not_enough_candles"
             else:
-                backtest_result = self._run_backtest_from_records(records, options=resolved)
+                backtest_result = self._run_backtest_from_records(
+                    records,
+                    options=resolved,
+                    htf_candles=htf_candles,
+                    htf_period=effective_htf_period,
+                )
                 walk_forward_result = (
-                    self._run_walk_forward_from_records(records, options=resolved)
+                    self._run_walk_forward_from_records(
+                        records,
+                        options=resolved,
+                        htf_candles=htf_candles,
+                        htf_period=effective_htf_period,
+                    )
                     if resolved.walk_forward_split_ratio is not None
                     else None
                 )
@@ -1232,6 +1301,8 @@ class OperationalControlService:
         records: Sequence[CandleRecord],
         *,
         options: BacktestRunOptions,
+        htf_candles: Sequence[Candle] | None = None,
+        htf_period: int = 21,
     ) -> BacktestResult:
         slippage_pct = (
             options.slippage_pct
@@ -1257,6 +1328,8 @@ class OperationalControlService:
             trailing_stop_enabled=self._settings.trailing_stop_enabled,
             volatility_sizing_enabled=self._settings.volatility_sizing_enabled,
             volatility_sizing_atr_period=self._settings.volatility_sizing_atr_period,
+            htf_candles=htf_candles or [],
+            htf_period=htf_period,
         ).run(
             [
                 Candle(
@@ -1277,6 +1350,8 @@ class OperationalControlService:
         records: Sequence[CandleRecord],
         *,
         options: BacktestRunOptions,
+        htf_candles: Sequence[Candle] | None = None,
+        htf_period: int = 21,
     ) -> WalkForwardResult:
         slippage_pct = (
             options.slippage_pct
@@ -1314,6 +1389,8 @@ class OperationalControlService:
             trailing_stop_enabled=self._settings.trailing_stop_enabled,
             volatility_sizing_enabled=self._settings.volatility_sizing_enabled,
             volatility_sizing_atr_period=self._settings.volatility_sizing_atr_period,
+            htf_candles=htf_candles or [],
+            htf_period=htf_period,
         ).run_walk_forward(
             candles,
             split_ratio=options.walk_forward_split_ratio or Decimal("0.7"),
@@ -1388,6 +1465,8 @@ class OperationalControlService:
                 rsi_overbought=active.rsi_overbought,
                 rsi_oversold=active.rsi_oversold,
                 volume_ma_period=active.volume_ma_period,
+                multi_tf_timeframe=active.multi_tf_timeframe,
+                multi_tf_period=active.multi_tf_period,
                 trading_mode=active.trading_mode,
                 leverage=active.leverage,
                 margin_mode=active.margin_mode,
@@ -1405,6 +1484,8 @@ class OperationalControlService:
                 fee_pct=active.fee_pct,
                 walk_forward_split_ratio=active.walk_forward_split_ratio,
                 rules=rules,
+                multi_tf_timeframe=active.multi_tf_timeframe,
+                multi_tf_period=active.multi_tf_period,
                 trading_mode=active.trading_mode,
                 leverage=active.leverage,
                 margin_mode=active.margin_mode,
@@ -1438,6 +1519,9 @@ class OperationalControlService:
             # ADX regime filter
             adx_period=active.adx_period,
             adx_threshold=active.adx_threshold,
+            # Multi-timeframe confirmation
+            multi_tf_timeframe=active.multi_tf_timeframe,
+            multi_tf_period=active.multi_tf_period,
             trading_mode=active.trading_mode,
             leverage=active.leverage,
             margin_mode=active.margin_mode,

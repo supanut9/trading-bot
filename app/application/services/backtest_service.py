@@ -6,6 +6,7 @@ from decimal import Decimal
 from app.domain.risk import PortfolioState, RiskLimits, RiskService, TradeContext
 from app.domain.strategies.base import Candle, Strategy
 from app.domain.strategies.ema_crossover import EmaCrossoverStrategy
+from app.domain.strategies.multi_timeframe import is_htf_trend_aligned
 
 MAINTENANCE_MARGIN_RATE = Decimal("0.004")
 
@@ -84,6 +85,8 @@ class BacktestService:
         trailing_stop_enabled: bool = False,
         volatility_sizing_enabled: bool = False,
         volatility_sizing_atr_period: int = 14,
+        htf_candles: Sequence[Candle] | None = None,
+        htf_period: int = 21,
     ) -> None:
         self._strategy = strategy or EmaCrossoverStrategy()
         self._volatility_sizing_enabled = volatility_sizing_enabled
@@ -107,6 +110,11 @@ class BacktestService:
         self._stop_loss_atr_multiplier = stop_loss_atr_multiplier
         self._stop_loss_atr_period = stop_loss_atr_period
         self._trailing_stop_enabled = trailing_stop_enabled
+        # HTF confirmation: sorted once at init for O(n) per-candle slicing
+        self._htf_candles: tuple[Candle, ...] = (
+            tuple(sorted(htf_candles, key=lambda c: c.open_time)) if htf_candles else ()
+        )
+        self._htf_period = htf_period
 
     def run(self, candles: Sequence[Candle]) -> BacktestResult:
         ordered_candles = sorted(candles, key=lambda candle: candle.open_time)
@@ -323,6 +331,13 @@ class BacktestService:
             signal = self._strategy.evaluate(ordered_candles[: index + 1])
             if signal is None:
                 continue
+
+            # HTF confirmation: only use HTF candles whose open_time <= current candle
+            # (prevents look-ahead bias)
+            if self._htf_candles:
+                relevant_htf = [c for c in self._htf_candles if c.open_time <= candle.open_time]
+                if not is_htf_trend_aligned(relevant_htf, signal, self._htf_period):
+                    continue
 
             portfolio = self._build_portfolio_state(
                 current_equity=marked_equity,

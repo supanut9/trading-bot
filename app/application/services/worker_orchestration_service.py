@@ -25,6 +25,7 @@ from app.domain.strategies.breakout_atr import BreakoutAtrStrategy
 from app.domain.strategies.ema_crossover import EmaCrossoverStrategy
 from app.domain.strategies.macd_crossover import MacdCrossoverStrategy
 from app.domain.strategies.mean_reversion_bollinger import MeanReversionBollingerStrategy
+from app.domain.strategies.multi_timeframe import is_htf_trend_aligned
 from app.domain.strategies.rsi_momentum import RsiMomentumStrategy
 from app.infrastructure.database.models.position import PositionRecord
 from app.infrastructure.database.repositories.order_repository import (
@@ -307,6 +308,42 @@ class WorkerOrchestrationService:
                 detail="sell signal skipped because no position is open",
                 signal_action=signal.action,
             )
+
+        if self._settings.multi_tf_confirmation_enabled:
+            htf_timeframe = self._settings.multi_tf_confirmation_timeframe
+            htf_period = self._settings.multi_tf_confirmation_period
+            htf_records = self._market_data.list_recent_candles(
+                exchange=self._settings.exchange_name,
+                symbol=symbol,
+                timeframe=htf_timeframe,
+                limit=htf_period + 30,
+            )
+            htf_candles = [
+                Candle(
+                    open_time=r.open_time,
+                    close_time=r.close_time,
+                    open_price=r.open_price,
+                    high_price=r.high_price,
+                    low_price=r.low_price,
+                    close_price=r.close_price,
+                    volume=r.volume,
+                )
+                for r in htf_records
+            ]
+            if not is_htf_trend_aligned(htf_candles, signal, htf_period):
+                logger.info(
+                    "worker_cycle_skipped reason=multi_tf_rejected "
+                    "exchange=%s symbol=%s signal=%s htf_timeframe=%s",
+                    self._settings.exchange_name,
+                    symbol,
+                    signal.action,
+                    htf_timeframe,
+                )
+                return WorkerCycleResult(
+                    status="multi_tf_rejected",
+                    detail=f"signal rejected: HTF ({htf_timeframe}) trend not aligned",
+                    signal_action=signal.action,
+                )
 
         latest_price = latest_candle.close_price
         atr_for_sizing = (

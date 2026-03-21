@@ -645,3 +645,132 @@ def test_trailing_stop_ratchets_up_and_protects_profit() -> None:
     assert result.stop_loss_count == 1
     stop_exec = next(e for e in result.executions if e.reason == "stop_loss")
     assert stop_exec.realized_pnl > Decimal("0"), "trailing stop should lock in profit"
+
+
+# ── Multi-timeframe confirmation tests ────────────────────────────────────────
+
+
+def _make_htf_candle(*, close: int, offset_hours: int) -> Candle:
+    open_time = datetime(2026, 1, 1, tzinfo=UTC) + timedelta(hours=offset_hours)
+    price = Decimal(close)
+    return Candle(
+        open_time=open_time,
+        close_time=open_time + timedelta(hours=4),
+        open_price=price,
+        high_price=price,
+        low_price=price,
+        close_price=price,
+        volume=Decimal("1"),
+    )
+
+
+def test_htf_confirmation_blocks_buy_when_htf_bearish() -> None:
+    """When HTF trend is bearish (price below EMA), buy signals should be filtered out.
+
+    All HTF candles are timestamped before the base buy signal at hour 100
+    so look-ahead protection does not exclude them.
+    """
+    # Base candles start at hour 100 so HTF candles (hours 0-84) are all in the past
+    base_start = datetime(2026, 1, 1, tzinfo=UTC) + timedelta(hours=100)
+    base_candles = [
+        Candle(
+            open_time=base_start + timedelta(hours=i),
+            close_time=base_start + timedelta(hours=i + 1),
+            open_price=Decimal(c),
+            high_price=Decimal(c),
+            low_price=Decimal(c),
+            close_price=Decimal(c),
+            volume=Decimal("1"),
+        )
+        for i, c in enumerate([10, 12, 20, 30])
+    ]
+    # HTF is bearish: 21 high-price candles then a collapse to 50 — all before hour 100
+    htf_candles = [_make_htf_candle(close=200, offset_hours=i) for i in range(21)] + [
+        _make_htf_candle(close=50, offset_hours=21)
+    ]
+
+    result = BacktestService(
+        strategy=StubStrategy(),
+        starting_equity=Decimal("10000"),
+        htf_candles=htf_candles,
+        htf_period=21,
+    ).run(base_candles)
+
+    # Buy should be blocked by HTF filter; no completed trades
+    assert result.total_trades == 0
+    assert result.realized_pnl == Decimal("0")
+
+
+def test_htf_confirmation_allows_buy_when_htf_bullish() -> None:
+    """When HTF trend is bullish (price above EMA), buy signals should pass through."""
+    base_start = datetime(2026, 1, 1, tzinfo=UTC) + timedelta(hours=100)
+    base_candles = [
+        Candle(
+            open_time=base_start + timedelta(hours=i),
+            close_time=base_start + timedelta(hours=i + 1),
+            open_price=Decimal(c),
+            high_price=Decimal(c),
+            low_price=Decimal(c),
+            close_price=Decimal(c),
+            volume=Decimal("1"),
+        )
+        for i, c in enumerate([10, 12, 20, 30])
+    ]
+    # HTF is bullish: 21 flat at 100 then surge to 200 — all before hour 100
+    htf_candles = [_make_htf_candle(close=100, offset_hours=i) for i in range(21)] + [
+        _make_htf_candle(close=200, offset_hours=21)
+    ]
+
+    result = BacktestService(
+        strategy=StubStrategy(),
+        starting_equity=Decimal("10000"),
+        htf_candles=htf_candles,
+        htf_period=21,
+    ).run(base_candles)
+
+    # Buy should pass through and complete at least one round trip
+    assert result.total_trades >= 2
+
+
+def test_htf_confirmation_disabled_when_no_htf_candles() -> None:
+    """Empty htf_candles list disables the filter entirely."""
+    base_candles = build_candles([10, 12, 20, 30])
+
+    result = BacktestService(
+        strategy=StubStrategy(),
+        starting_equity=Decimal("10000"),
+        htf_candles=[],
+        htf_period=21,
+    ).run(base_candles)
+
+    assert result.total_trades >= 2
+
+
+def test_htf_look_ahead_protection() -> None:
+    """HTF candles after the current base candle's time must not be used."""
+    base_candles = build_candles([10, 12, 20, 30])
+    base_start = datetime(2026, 1, 1, tzinfo=UTC)
+
+    # HTF candle that is AFTER all base candles — should not influence signal at base[2]
+    # Place HTF candle far in the future (bearish: price 50 vs EMA ~200)
+    future_htf = [_make_htf_candle(close=200, offset_hours=i * 4) for i in range(21)] + [
+        Candle(
+            open_time=base_start + timedelta(days=365),  # far future
+            close_time=base_start + timedelta(days=365, hours=4),
+            open_price=Decimal(50),
+            high_price=Decimal(50),
+            low_price=Decimal(50),
+            close_price=Decimal(50),
+            volume=Decimal("1"),
+        )
+    ]
+
+    result = BacktestService(
+        strategy=StubStrategy(),
+        starting_equity=Decimal("10000"),
+        htf_candles=future_htf,
+        htf_period=21,
+    ).run(base_candles)
+
+    # The bearish HTF candle is in the future — buy should not be blocked
+    assert result.total_trades >= 2
