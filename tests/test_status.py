@@ -19,7 +19,9 @@ from app.main import app
 
 
 def test_status_endpoint_returns_bootstrap_configuration(tmp_path: Path) -> None:
-    settings = Settings(DATABASE_URL=f"sqlite:///{tmp_path / 'status_bootstrap.db'}")
+    settings = Settings(
+        DATABASE_URL=f"sqlite:///{tmp_path / 'status_bootstrap.db'}", PAPER_ACCOUNT_EQUITY=10000.0
+    )
     engine = create_engine_from_settings(settings)
     Base.metadata.create_all(bind=engine)
     session_factory = create_session_factory(settings)
