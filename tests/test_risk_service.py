@@ -537,3 +537,110 @@ def test_rejects_as_hard_violation_for_major_breaches() -> None:
     assert decision.approved is False
     assert decision.is_hard_violation is True
     assert decision.reason == "daily loss limit reached"
+
+
+def build_portfolio(equity: str = "10000") -> PortfolioState:
+    return PortfolioState(
+        account_equity=Decimal(equity),
+        open_positions=0,
+        current_position_quantity=Decimal("0"),
+        daily_realized_loss_pct=Decimal("0"),
+        weekly_realized_loss_pct=Decimal("0"),
+        concurrent_exposure_pct=Decimal("0"),
+        consecutive_losses=0,
+        execution_mode="paper",
+        trading_mode="SPOT",
+    )
+
+
+def test_volatility_sizing_uses_atr_as_divisor() -> None:
+    """With volatility sizing, quantity = dollar_risk / atr instead of / entry_price."""
+    service = RiskService(
+        RiskLimits(
+            risk_per_trade_pct=Decimal("0.01"),
+            max_open_positions=1,
+            max_daily_loss_pct=Decimal("0.03"),
+            paper_trading_only=True,
+            volatility_sizing_enabled=True,
+        )
+    )
+    # equity=10000, risk=1% → dollar_risk=100; atr=500 → qty=100/500=0.2
+    decision = service.evaluate(
+        portfolio=build_portfolio("10000"),
+        trade=TradeContext(
+            signal=build_signal(),
+            entry_price=Decimal("50000"),
+            atr_value=Decimal("500"),
+        ),
+    )
+    assert decision.approved is True
+    assert decision.quantity == Decimal("0.20000000")
+
+
+def test_volatility_sizing_falls_back_to_price_when_atr_is_none() -> None:
+    """When atr_value is None, falls back to price-based sizing even if flag is enabled."""
+    service = RiskService(
+        RiskLimits(
+            risk_per_trade_pct=Decimal("0.01"),
+            max_open_positions=1,
+            max_daily_loss_pct=Decimal("0.03"),
+            paper_trading_only=True,
+            volatility_sizing_enabled=True,
+        )
+    )
+    decision = service.evaluate(
+        portfolio=build_portfolio("10000"),
+        trade=TradeContext(signal=build_signal(), entry_price=Decimal("50000"), atr_value=None),
+    )
+    assert decision.approved is True
+    assert decision.quantity == Decimal("0.00200000")
+
+
+def test_volatility_sizing_disabled_uses_price_even_with_atr_provided() -> None:
+    """When flag is off, ATR is ignored and price-based sizing is used."""
+    service = RiskService(
+        RiskLimits(
+            risk_per_trade_pct=Decimal("0.01"),
+            max_open_positions=1,
+            max_daily_loss_pct=Decimal("0.03"),
+            paper_trading_only=True,
+            volatility_sizing_enabled=False,
+        )
+    )
+    decision = service.evaluate(
+        portfolio=build_portfolio("10000"),
+        trade=TradeContext(
+            signal=build_signal(),
+            entry_price=Decimal("50000"),
+            atr_value=Decimal("500"),
+        ),
+    )
+    assert decision.approved is True
+    assert decision.quantity == Decimal("0.00200000")
+
+
+def test_volatility_sizing_smaller_when_high_volatility() -> None:
+    """High ATR → smaller quantity than low ATR (same equity and risk%)."""
+    service = RiskService(
+        RiskLimits(
+            risk_per_trade_pct=Decimal("0.01"),
+            max_open_positions=1,
+            max_daily_loss_pct=Decimal("0.03"),
+            paper_trading_only=True,
+            volatility_sizing_enabled=True,
+        )
+    )
+    low_vol = service.evaluate(
+        portfolio=build_portfolio(),
+        trade=TradeContext(
+            signal=build_signal(), entry_price=Decimal("100"), atr_value=Decimal("1")
+        ),
+    )
+    high_vol = service.evaluate(
+        portfolio=build_portfolio(),
+        trade=TradeContext(
+            signal=build_signal(), entry_price=Decimal("100"), atr_value=Decimal("5")
+        ),
+    )
+    assert low_vol.approved and high_vol.approved
+    assert low_vol.quantity > high_vol.quantity

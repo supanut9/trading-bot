@@ -104,6 +104,8 @@ class Settings(BaseSettings):
     strategy_adx_filter_enabled: bool = Field(default=False, alias="STRATEGY_ADX_FILTER_ENABLED")
     strategy_adx_period: int = Field(default=14, alias="STRATEGY_ADX_PERIOD")
     strategy_adx_threshold: float = Field(default=25.0, alias="STRATEGY_ADX_THRESHOLD")
+    volatility_sizing_enabled: bool = Field(default=False, alias="VOLATILITY_SIZING_ENABLED")
+    volatility_sizing_atr_period: int = Field(default=14, alias="VOLATILITY_SIZING_ATR_PERIOD")
     backtest_slippage_pct: float = Field(default=0.0005, alias="BACKTEST_SLIPPAGE_PCT")
     backtest_fee_pct: float = Field(default=0.001, alias="BACKTEST_FEE_PCT")
     backtest_overfitting_threshold_pct: float = Field(

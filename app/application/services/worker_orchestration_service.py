@@ -94,6 +94,7 @@ class WorkerOrchestrationService:
                 live_max_order_notional=settings.live_max_order_notional,
                 live_max_position_quantity=settings.live_max_position_quantity,
                 symbol_rules=stored_symbol_rules,
+                volatility_sizing_enabled=settings.volatility_sizing_enabled,
             )
         )
 
@@ -278,9 +279,14 @@ class WorkerOrchestrationService:
             )
 
         latest_price = latest_candle.close_price
+        atr_for_sizing = (
+            self._compute_atr_from_candles(candles)
+            if self._settings.volatility_sizing_enabled
+            else None
+        )
         risk_decision = self._risk.evaluate(
             portfolio=self._build_portfolio_state(current_position),
-            trade=TradeContext(signal=signal, entry_price=latest_price),
+            trade=TradeContext(signal=signal, entry_price=latest_price, atr_value=atr_for_sizing),
         )
         if not risk_decision.approved:
             logger.warning(

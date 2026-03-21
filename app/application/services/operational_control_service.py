@@ -1202,6 +1202,8 @@ class OperationalControlService:
             stop_loss_atr_multiplier=Decimal(str(self._settings.stop_loss_atr_multiplier)),
             stop_loss_atr_period=self._settings.stop_loss_atr_period,
             trailing_stop_enabled=self._settings.trailing_stop_enabled,
+            volatility_sizing_enabled=self._settings.volatility_sizing_enabled,
+            volatility_sizing_atr_period=self._settings.volatility_sizing_atr_period,
         ).run(
             [
                 Candle(
@@ -1257,6 +1259,8 @@ class OperationalControlService:
             stop_loss_atr_multiplier=Decimal(str(self._settings.stop_loss_atr_multiplier)),
             stop_loss_atr_period=self._settings.stop_loss_atr_period,
             trailing_stop_enabled=self._settings.trailing_stop_enabled,
+            volatility_sizing_enabled=self._settings.volatility_sizing_enabled,
+            volatility_sizing_atr_period=self._settings.volatility_sizing_atr_period,
         ).run_walk_forward(
             candles,
             split_ratio=options.walk_forward_split_ratio or Decimal("0.7"),
@@ -1507,6 +1511,7 @@ class OperationalControlService:
                 max_open_positions=self._settings.max_open_positions,
                 max_daily_loss_pct=Decimal(str(self._settings.max_daily_loss_pct)),
                 paper_trading_only=not self._settings.live_trading_enabled,
+                volatility_sizing_enabled=self._settings.volatility_sizing_enabled,
             )
         )
 
