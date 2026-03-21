@@ -40,6 +40,7 @@ def load_xgboost_model(model_path: str) -> Any:
         raise ImportError("xgboost is not installed — run: pip install xgboost") from exc
 
     model = xgb.XGBClassifier()
+    model._estimator_type = "classifier"  # required by xgboost>=2 sklearn wrapper
     model.load_model(str(path))
     _model_cache[model_path] = model
     logger.info("loaded xgboost model from %s", model_path)
