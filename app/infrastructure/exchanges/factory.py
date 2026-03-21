@@ -17,14 +17,17 @@ def build_market_data_exchange_client(settings: Settings) -> MarketDataExchangeC
     raise ValueError(f"unsupported exchange for market data sync: {settings.exchange_name}")
 
 
-def build_live_order_exchange_client(settings: Settings) -> LiveOrderExchangeClient:
+def build_live_order_exchange_client(
+    settings: Settings, trading_mode: str | None = None
+) -> LiveOrderExchangeClient:
+    mode = trading_mode or settings.trading_mode
     if settings.exchange_name.lower() == "binance":
         if not settings.exchange_api_key or not settings.exchange_api_secret:
             raise ValueError(
                 "EXCHANGE_API_KEY and EXCHANGE_API_SECRET are required for live order routing"
             )
 
-        if settings.trading_mode == "FUTURES":
+        if mode == "FUTURES":
             return BinanceFuturesOrderClient(
                 api_key=settings.exchange_api_key,
                 api_secret=settings.exchange_api_secret,

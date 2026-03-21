@@ -9,7 +9,16 @@ class RiskService:
         self._limits = limits
 
     def evaluate(self, portfolio: PortfolioState, trade: TradeContext) -> RiskDecision:
-        is_entry = trade.signal.action == "buy"
+        if portfolio.trading_mode == "SPOT":
+            is_entry = trade.signal.action == "buy"
+        else:  # FUTURES
+            # Entry if opening new position or increasing existing one
+            if portfolio.current_position_quantity == Decimal("0"):
+                is_entry = True
+            elif portfolio.current_position_quantity > Decimal("0"):
+                is_entry = trade.signal.action == "buy"
+            else:  # position < 0 (short)
+                is_entry = trade.signal.action == "sell"
 
         if self._limits.paper_trading_only and portfolio.execution_mode != "paper":
             return RiskDecision(approved=False, reason="live trading is not allowed by risk policy")
