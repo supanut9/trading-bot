@@ -1,4 +1,5 @@
 from dataclasses import asdict
+from decimal import Decimal
 from typing import Annotated
 
 from fastapi import APIRouter, Body, Depends, status
@@ -141,6 +142,17 @@ def run_backtest(
             trading_mode=payload.trading_mode,
             leverage=payload.leverage,
             margin_mode=payload.margin_mode,
+            xgb_model_path=payload.xgb_model_path,
+            xgb_buy_threshold=(
+                Decimal(str(payload.xgb_buy_threshold))
+                if payload.xgb_buy_threshold is not None
+                else None
+            ),
+            xgb_sell_threshold=(
+                Decimal(str(payload.xgb_sell_threshold))
+                if payload.xgb_sell_threshold is not None
+                else None
+            ),
         ),
         source="api.control",
     )

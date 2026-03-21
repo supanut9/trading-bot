@@ -928,6 +928,36 @@ class WorkerOrchestrationService:
                 atr_breakout_multiplier=Decimal("0.5"),
                 atr_stop_multiplier=Decimal("2.0"),
             )
+        if strategy_name == "xgboost_signal":
+            from app.application.services.model_registry import (  # noqa: PLC0415
+                default_model_path,
+                load_xgboost_model,
+            )
+            from app.domain.strategies.xgboost_signal import (  # noqa: PLC0415
+                XGBoostSignalStrategy,
+            )
+
+            fast_period = (
+                operator_config.fast_period
+                if operator_config is not None
+                else settings.strategy_fast_period
+            )
+            model_path = default_model_path(
+                symbol=settings.default_symbol,
+                timeframe=settings.default_timeframe,
+            )
+            try:
+                model = load_xgboost_model(model_path)
+            except FileNotFoundError:
+                logger.warning(
+                    "xgboost model not found at %s — falling back to EMA crossover",
+                    model_path,
+                )
+                return EmaCrossoverStrategy(
+                    fast_period=fast_period or 20,
+                    slow_period=slow or 50,
+                )
+            return XGBoostSignalStrategy(model=model)
         # ema_crossover (default) and rule_builder fall back to EMA
         return EmaCrossoverStrategy(
             fast_period=fast,
