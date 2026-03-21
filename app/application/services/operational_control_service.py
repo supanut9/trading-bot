@@ -472,16 +472,25 @@ class OperationalControlService:
             resolved_symbol = (active.symbol or operator_config.symbol).strip()
             resolved_timeframe = (active.timeframe or operator_config.timeframe).strip()
             try:
-                result = MarketDataSyncService(
+                svc = MarketDataSyncService(
                     session,
                     build_market_data_exchange_client(self._settings),
-                ).sync_recent_closed_candles(
-                    exchange=self._settings.exchange_name,
-                    symbol=resolved_symbol,
-                    timeframe=resolved_timeframe,
-                    limit=resolved_limit,
-                    backfill=active.backfill,
                 )
+                if resolved_limit > 1000:
+                    result = svc.sync_candles_paginated(
+                        exchange=self._settings.exchange_name,
+                        symbol=resolved_symbol,
+                        timeframe=resolved_timeframe,
+                        total_limit=resolved_limit,
+                    )
+                else:
+                    result = svc.sync_recent_closed_candles(
+                        exchange=self._settings.exchange_name,
+                        symbol=resolved_symbol,
+                        timeframe=resolved_timeframe,
+                        limit=resolved_limit,
+                        backfill=active.backfill,
+                    )
             except Exception:
                 failed = MarketSyncControlResult(
                     status="failed",
