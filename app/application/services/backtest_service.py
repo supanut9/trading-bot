@@ -117,64 +117,138 @@ class BacktestService:
                 continue
 
             if signal.action == "buy":
+                # Already long, ignore same-side signal
                 if position_quantity > Decimal("0"):
                     continue
 
                 fill_price = candle.close_price * (Decimal("1") + self._slippage_pct)
-                entry_fee = fill_price * decision.quantity * self._fee_pct
-                position_quantity = decision.quantity
-                average_entry_fill_price = fill_price
-                pending_entry_fee = entry_fee
-                total_fees_paid += entry_fee
-                executions.append(
-                    BacktestExecution(
-                        action="buy",
-                        price=candle.close_price,
-                        fill_price=fill_price,
-                        quantity=position_quantity,
-                        fee=entry_fee,
-                        realized_pnl=Decimal("0"),
-                        reason=signal.reason,
+
+                # Closing a short
+                if position_quantity < Decimal("0"):
+                    exit_fee = fill_price * abs(position_quantity) * self._fee_pct
+                    trade_pnl = (
+                        (average_entry_fill_price - fill_price) * abs(position_quantity)
+                        - pending_entry_fee
+                        - exit_fee
                     )
-                )
-            elif position_quantity > Decimal("0") and average_entry_fill_price is not None:
+                    realized_pnl += trade_pnl
+                    total_fees_paid += exit_fee
+                    if trade_pnl > Decimal("0"):
+                        winning_trades += 1
+                    elif trade_pnl < Decimal("0"):
+                        losing_trades += 1
+                    executions.append(
+                        BacktestExecution(
+                            action="buy",
+                            price=candle.close_price,
+                            fill_price=fill_price,
+                            quantity=abs(position_quantity),
+                            fee=exit_fee,
+                            realized_pnl=trade_pnl,
+                            reason=f"close short: {signal.reason}",
+                        )
+                    )
+                    position_quantity = Decimal("0")
+                    average_entry_fill_price = None
+                    pending_entry_fee = Decimal("0")
+
+                # Opening a long
+                if position_quantity == Decimal("0"):
+                    entry_fee = fill_price * decision.quantity * self._fee_pct
+                    position_quantity = decision.quantity
+                    average_entry_fill_price = fill_price
+                    pending_entry_fee = entry_fee
+                    total_fees_paid += entry_fee
+                    executions.append(
+                        BacktestExecution(
+                            action="buy",
+                            price=candle.close_price,
+                            fill_price=fill_price,
+                            quantity=position_quantity,
+                            fee=entry_fee,
+                            realized_pnl=Decimal("0"),
+                            reason=signal.reason,
+                        )
+                    )
+
+            elif signal.action == "sell":
+                # Already short, ignore same-side signal
+                if position_quantity < Decimal("0"):
+                    continue
+
                 fill_price = candle.close_price * (Decimal("1") - self._slippage_pct)
+
+                # Closing a long
+                if position_quantity > Decimal("0"):
+                    exit_fee = fill_price * position_quantity * self._fee_pct
+                    trade_pnl = (
+                        (fill_price - average_entry_fill_price) * position_quantity
+                        - pending_entry_fee
+                        - exit_fee
+                    )
+                    realized_pnl += trade_pnl
+                    total_fees_paid += exit_fee
+                    if trade_pnl > Decimal("0"):
+                        winning_trades += 1
+                    elif trade_pnl < Decimal("0"):
+                        losing_trades += 1
+                    executions.append(
+                        BacktestExecution(
+                            action="sell",
+                            price=candle.close_price,
+                            fill_price=fill_price,
+                            quantity=position_quantity,
+                            fee=exit_fee,
+                            realized_pnl=trade_pnl,
+                            reason=f"close long: {signal.reason}",
+                        )
+                    )
+                    position_quantity = Decimal("0")
+                    average_entry_fill_price = None
+                    pending_entry_fee = Decimal("0")
+
+                # Opening a short (FUTURES only)
+                if self._trading_mode == "FUTURES" and position_quantity == Decimal("0"):
+                    entry_fee = fill_price * decision.quantity * self._fee_pct
+                    position_quantity = -decision.quantity  # Negative for shorts
+                    average_entry_fill_price = fill_price
+                    pending_entry_fee = entry_fee
+                    total_fees_paid += entry_fee
+                    executions.append(
+                        BacktestExecution(
+                            action="sell",
+                            price=candle.close_price,
+                            fill_price=fill_price,
+                            quantity=abs(position_quantity),
+                            fee=entry_fee,
+                            realized_pnl=Decimal("0"),
+                            reason=signal.reason,
+                        )
+                    )
+
+        if position_quantity != Decimal("0") and average_entry_fill_price is not None:
+            final_candle = ordered_candles[-1]
+            final_price = final_candle.close_price
+
+            if position_quantity > Decimal("0"):
+                fill_price = final_price * (Decimal("1") - self._slippage_pct)
                 exit_fee = fill_price * position_quantity * self._fee_pct
                 trade_pnl = (
                     (fill_price - average_entry_fill_price) * position_quantity
                     - pending_entry_fee
                     - exit_fee
                 )
-                realized_pnl += trade_pnl
-                total_fees_paid += exit_fee
-                if trade_pnl > Decimal("0"):
-                    winning_trades += 1
-                elif trade_pnl < Decimal("0"):
-                    losing_trades += 1
-                executions.append(
-                    BacktestExecution(
-                        action="sell",
-                        price=candle.close_price,
-                        fill_price=fill_price,
-                        quantity=position_quantity,
-                        fee=exit_fee,
-                        realized_pnl=trade_pnl,
-                        reason=signal.reason,
-                    )
+                action = "sell"
+            else:  # short
+                fill_price = final_price * (Decimal("1") + self._slippage_pct)
+                exit_fee = fill_price * abs(position_quantity) * self._fee_pct
+                trade_pnl = (
+                    (average_entry_fill_price - fill_price) * abs(position_quantity)
+                    - pending_entry_fee
+                    - exit_fee
                 )
-                position_quantity = Decimal("0")
-                average_entry_fill_price = None
-                pending_entry_fee = Decimal("0")
+                action = "buy"
 
-        if position_quantity > Decimal("0") and average_entry_fill_price is not None:
-            final_price = ordered_candles[-1].close_price
-            fill_price = final_price * (Decimal("1") - self._slippage_pct)
-            exit_fee = fill_price * position_quantity * self._fee_pct
-            trade_pnl = (
-                (fill_price - average_entry_fill_price) * position_quantity
-                - pending_entry_fee
-                - exit_fee
-            )
             realized_pnl += trade_pnl
             total_fees_paid += exit_fee
             if trade_pnl > Decimal("0"):
@@ -183,10 +257,10 @@ class BacktestService:
                 losing_trades += 1
             executions.append(
                 BacktestExecution(
-                    action="sell",
+                    action=action,
                     price=final_price,
                     fill_price=fill_price,
-                    quantity=position_quantity,
+                    quantity=abs(position_quantity),
                     fee=exit_fee,
                     realized_pnl=trade_pnl,
                     reason="forced close on final candle",
@@ -280,10 +354,14 @@ class BacktestService:
         average_entry_fill_price: Decimal | None,
         mark_price: Decimal,
     ) -> Decimal:
-        if position_quantity <= Decimal("0") or average_entry_fill_price is None:
+        if position_quantity == Decimal("0") or average_entry_fill_price is None:
             return self._starting_equity + realized_pnl
 
-        unrealized_pnl = (mark_price - average_entry_fill_price) * position_quantity
+        if position_quantity > Decimal("0"):
+            unrealized_pnl = (mark_price - average_entry_fill_price) * position_quantity
+        else:  # short
+            unrealized_pnl = (average_entry_fill_price - mark_price) * abs(position_quantity)
+
         return self._starting_equity + realized_pnl + unrealized_pnl
 
     @staticmethod
