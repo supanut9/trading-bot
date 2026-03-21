@@ -2,6 +2,7 @@ from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
 from app.application.services.backtest_service import BacktestService, WalkForwardResult
+from app.domain.risk import RiskLimits, RiskService
 from app.domain.strategies.base import Candle, Signal
 from app.domain.strategies.ema_crossover import EmaCrossoverStrategy
 
@@ -59,6 +60,83 @@ class StubStrategy:
                 slow_value=Decimal("1"),
             )
         return None
+
+
+def _build_candle_on_date(*, close: int, day_offset: int, hour: int = 0) -> Candle:
+    open_time = datetime(2026, 1, 1, tzinfo=UTC) + timedelta(days=day_offset, hours=hour)
+    price = Decimal(close)
+    return Candle(
+        open_time=open_time,
+        close_time=open_time + timedelta(hours=1),
+        open_price=price,
+        high_price=price,
+        low_price=price,
+        close_price=price,
+        volume=Decimal("1"),
+    )
+
+
+class BuySellEveryOtherDayStrategy:
+    """Buys at price 20, sells at price 10 — deliberately triggers losses — one per day."""
+
+    def __init__(self) -> None:
+        self._call = 0
+
+    def evaluate(self, candles: list[Candle]) -> Signal | None:
+        close = candles[-1].close_price
+        if close == Decimal("20"):
+            return Signal(
+                action="buy", reason="entry", fast_value=Decimal("1"), slow_value=Decimal("0")
+            )
+        if close == Decimal("10"):
+            return Signal(
+                action="sell", reason="exit", fast_value=Decimal("0"), slow_value=Decimal("1")
+            )
+        return None
+
+
+def test_daily_loss_limit_resets_each_new_day() -> None:
+    """
+    Daily loss limit must not permanently block entries after the first bad day.
+    Scenario: Day 1 → buy at 20, sell at 10 (loss of ~50%). Day 2 → should be able to buy again.
+    With the old (buggy) code, cumulative loss would permanently block Day 2's entry.
+    """
+    # Day 0: warm-up candles (no signal)
+    # Day 1 hour 0: buy signal (close=20), Day 1 hour 1: sell signal (close=10) → losing trade
+    # Day 2 hour 0: buy signal (close=20) → should NOT be blocked by previous day's loss
+    candles = [
+        _build_candle_on_date(close=5, day_offset=0, hour=0),  # warm-up
+        _build_candle_on_date(close=5, day_offset=0, hour=1),  # warm-up
+        _build_candle_on_date(close=20, day_offset=1, hour=0),  # Day 1: buy
+        _build_candle_on_date(close=10, day_offset=1, hour=1),  # Day 1: sell at loss
+        _build_candle_on_date(close=20, day_offset=2, hour=0),  # Day 2: buy (should work)
+        _build_candle_on_date(close=10, day_offset=2, hour=1),  # Day 2: sell at loss
+        _build_candle_on_date(close=20, day_offset=3, hour=0),  # Day 3: buy (should work)
+        _build_candle_on_date(close=15, day_offset=3, hour=1),  # Day 3: end
+    ]
+
+    # Use a tight daily loss limit (1%) to make sure cumulative loss would block under old logic
+    risk = RiskService(
+        RiskLimits(
+            risk_per_trade_pct=Decimal("0.01"),
+            max_open_positions=1,
+            max_daily_loss_pct=Decimal("0.01"),  # 1% daily — old code would block after day 1
+            paper_trading_only=True,
+        )
+    )
+    service = BacktestService(
+        strategy=BuySellEveryOtherDayStrategy(),
+        risk_service=risk,
+        starting_equity=Decimal("1000"),
+    )
+    result = service.run(candles)
+
+    # Should have at least 2 buy entries (Day 1 and Day 2) — not permanently blocked after day 1
+    buy_entries = [e for e in result.executions if e.action == "buy" and "entry" in e.reason]
+    assert len(buy_entries) >= 2, (
+        f"Expected trades on multiple days but got only {len(buy_entries)} entries. "
+        "Daily loss limit may not be resetting per day."
+    )
 
 
 def test_backtest_runs_round_trip_and_realizes_profit() -> None:

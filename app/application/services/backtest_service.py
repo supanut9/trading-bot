@@ -1,6 +1,6 @@
 from collections.abc import Sequence
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 
 from app.domain.risk import PortfolioState, RiskLimits, RiskService, TradeContext
@@ -127,9 +127,17 @@ class BacktestService:
         current_stop_price: Decimal | None = None
         highest_price_since_entry: Decimal | None = None
         stop_loss_count: int = 0
+        current_day: date | None = None
+        daily_loss_today: Decimal = Decimal("0")
 
         for index in range(len(ordered_candles)):
             candle = ordered_candles[index]
+
+            # Reset daily loss tracker when the calendar date rolls over
+            candle_date = candle.open_time.date()
+            if current_day is None or candle_date != current_day:
+                current_day = candle_date
+                daily_loss_today = Decimal("0")
 
             # Liquidation check (before strategy signal)
             if (
@@ -169,6 +177,7 @@ class BacktestService:
                     winning_trades += 1
                 elif trade_pnl < Decimal("0"):
                     losing_trades += 1
+                    daily_loss_today += abs(trade_pnl)
                 breach_price = (
                     candle.low_price if current_position_side == "long" else candle.high_price
                 )
@@ -249,6 +258,7 @@ class BacktestService:
                         winning_trades += 1
                     elif stop_pnl < Decimal("0"):
                         losing_trades += 1
+                        daily_loss_today += abs(stop_pnl)
                     executions.append(
                         BacktestExecution(
                             action=stop_action,
@@ -316,8 +326,8 @@ class BacktestService:
 
             portfolio = self._build_portfolio_state(
                 current_equity=marked_equity,
-                realized_pnl=realized_pnl,
                 position_quantity=position_quantity,
+                daily_loss_today=daily_loss_today,
             )
             atr_for_sizing = (
                 self._compute_atr_for_sizing(ordered_candles[: index + 1])
@@ -356,6 +366,7 @@ class BacktestService:
                         winning_trades += 1
                     elif trade_pnl < Decimal("0"):
                         losing_trades += 1
+                        daily_loss_today += abs(trade_pnl)
                     executions.append(
                         BacktestExecution(
                             action="buy",
@@ -440,6 +451,7 @@ class BacktestService:
                         winning_trades += 1
                     elif trade_pnl < Decimal("0"):
                         losing_trades += 1
+                        daily_loss_today += abs(trade_pnl)
                     executions.append(
                         BacktestExecution(
                             action="sell",
@@ -675,12 +687,12 @@ class BacktestService:
         self,
         *,
         current_equity: Decimal,
-        realized_pnl: Decimal,
         position_quantity: Decimal,
+        daily_loss_today: Decimal,
     ) -> PortfolioState:
         daily_realized_loss_pct = Decimal("0")
-        if self._starting_equity > Decimal("0") and realized_pnl < Decimal("0"):
-            daily_realized_loss_pct = abs(realized_pnl) / self._starting_equity
+        if self._starting_equity > Decimal("0") and daily_loss_today > Decimal("0"):
+            daily_realized_loss_pct = daily_loss_today / self._starting_equity
 
         return PortfolioState(
             account_equity=current_equity,
