@@ -244,6 +244,17 @@ class BacktestControlResponse(BaseModel):
     total_fees_paid: Decimal | None = None
     slippage_pct: Decimal | None = None
     fee_pct: Decimal | None = None
+    rsi_period: int | None = None
+    rsi_overbought: Decimal | None = None
+    rsi_oversold: Decimal | None = None
+    volume_ma_period: int | None = None
+    macd_signal_period: int | None = None
+    bb_period: int | None = None
+    bb_std_dev: Decimal | None = None
+    breakout_period: int | None = None
+    atr_period: int | None = None
+    atr_breakout_multiplier: Decimal | None = None
+    atr_stop_multiplier: Decimal | None = None
     walk_forward: WalkForwardResponse | None = None
     rules: "StrategyRuleBuilderRequest | None" = None
     executions: list["BacktestExecutionResponse"] = Field(default_factory=list)
@@ -286,6 +297,17 @@ class BacktestRunResponse(BaseModel):
     total_trades: int | None = None
     winning_trades: int | None = None
     losing_trades: int | None = None
+    rsi_period: int | None = None
+    rsi_overbought: Decimal | None = None
+    rsi_oversold: Decimal | None = None
+    volume_ma_period: int | None = None
+    macd_signal_period: int | None = None
+    bb_period: int | None = None
+    bb_std_dev: Decimal | None = None
+    breakout_period: int | None = None
+    atr_period: int | None = None
+    atr_breakout_multiplier: Decimal | None = None
+    atr_stop_multiplier: Decimal | None = None
     rules: "StrategyRuleBuilderRequest | None" = None
 
 
@@ -310,6 +332,13 @@ class BacktestControlRequest(BaseModel):
     rsi_overbought: Decimal | None = None
     rsi_oversold: Decimal | None = None
     volume_ma_period: int | None = None
+    macd_signal_period: int | None = None
+    bb_period: int | None = None
+    bb_std_dev: Decimal | None = None
+    breakout_period: int | None = None
+    atr_period: int | None = None
+    atr_breakout_multiplier: Decimal | None = None
+    atr_stop_multiplier: Decimal | None = None
 
 
 class StrategyRuleConditionRequest(BaseModel):

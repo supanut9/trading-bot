@@ -40,7 +40,13 @@ import {
 import { formatDecimal, formatSignedDecimal } from "@/lib/format";
 
 type BacktestFormState = {
-  strategy_name: "ema_crossover" | "rule_builder";
+  strategy_name:
+    | "ema_crossover"
+    | "rule_builder"
+    | "macd_crossover"
+    | "mean_reversion_bollinger"
+    | "rsi_momentum"
+    | "breakout_atr";
   preset_key: "ema_crossover_equivalent" | "ema_rsi_confirmation" | "mean_reversion";
   symbol: string;
   timeframe: string;
@@ -48,6 +54,16 @@ type BacktestFormState = {
   slow_period: string;
   starting_equity: string;
   rules: StrategyRuleBuilderRequest;
+  rsi_period: string;
+  rsi_overbought: string;
+  rsi_oversold: string;
+  macd_signal_period: string;
+  bb_period: string;
+  bb_std_dev: string;
+  breakout_period: string;
+  atr_period: string;
+  atr_breakout_multiplier: string;
+  atr_stop_multiplier: string;
 };
 
 type RuleBuilderPresetKey = BacktestFormState["preset_key"];
@@ -947,6 +963,16 @@ export function BacktestPage() {
     slow_period: "",
     starting_equity: "10000",
     rules: buildPresetRules("ema_crossover_equivalent", "20", "50"),
+    rsi_period: "14",
+    rsi_overbought: "65",
+    rsi_oversold: "35",
+    macd_signal_period: "9",
+    bb_period: "20",
+    bb_std_dev: "2.0",
+    breakout_period: "20",
+    atr_period: "14",
+    atr_breakout_multiplier: "0.5",
+    atr_stop_multiplier: "2.0",
   });
   const [hasHydratedDefaults, setHasHydratedDefaults] = useState(false);
 
@@ -1056,13 +1082,24 @@ export function BacktestPage() {
         slow_period: inferred.slowPeriod,
         starting_equity: String(Number(run.starting_equity_input)),
         rules: cloneRules(run.rules),
+        rsi_period: "14",
+        rsi_overbought: "65",
+        rsi_oversold: "35",
+        macd_signal_period: "9",
+        bb_period: "20",
+        bb_std_dev: "2.0",
+        breakout_period: "20",
+        atr_period: "14",
+        atr_breakout_multiplier: "0.5",
+        atr_stop_multiplier: "2.0",
       });
       return;
     }
 
+    // Default hydration for other strategies
     setForm((current) => ({
       ...current,
-      strategy_name: "ema_crossover",
+      strategy_name: run.strategy_name as BacktestFormState["strategy_name"],
       symbol: run.symbol,
       timeframe: run.timeframe,
       fast_period: run.fast_period !== null ? String(run.fast_period) : current.fast_period,
@@ -1084,6 +1121,23 @@ export function BacktestPage() {
     if (form.strategy_name === "ema_crossover") {
       payload.fast_period = Number(form.fast_period);
       payload.slow_period = Number(form.slow_period);
+    } else if (form.strategy_name === "macd_crossover") {
+      payload.fast_period = Number(form.fast_period);
+      payload.slow_period = Number(form.slow_period);
+      payload.macd_signal_period = Number(form.macd_signal_period);
+    } else if (form.strategy_name === "mean_reversion_bollinger") {
+      payload.bb_period = Number(form.bb_period);
+      payload.bb_std_dev = form.bb_std_dev;
+      payload.rsi_period = Number(form.rsi_period);
+      payload.rsi_overbought = form.rsi_overbought;
+      payload.rsi_oversold = form.rsi_oversold;
+    } else if (form.strategy_name === "rsi_momentum") {
+      payload.rsi_period = Number(form.rsi_period);
+    } else if (form.strategy_name === "breakout_atr") {
+      payload.breakout_period = Number(form.breakout_period);
+      payload.atr_period = Number(form.atr_period);
+      payload.atr_breakout_multiplier = form.atr_breakout_multiplier;
+      payload.atr_stop_multiplier = form.atr_stop_multiplier;
     } else {
       payload.rules = cloneRules(form.rules);
     }
@@ -1169,6 +1223,10 @@ export function BacktestPage() {
                       value={form.strategy_name}
                     >
                       <option value="ema_crossover">ema_crossover</option>
+                      <option value="macd_crossover">macd_crossover</option>
+                      <option value="mean_reversion_bollinger">mean_reversion_bollinger</option>
+                      <option value="rsi_momentum">rsi_momentum</option>
+                      <option value="breakout_atr">breakout_atr</option>
                       <option value="rule_builder">rule_builder</option>
                     </select>
                   </label>
@@ -1218,35 +1276,211 @@ export function BacktestPage() {
                   </label>
                 </div>
 
-                <div className="grid gap-4 md:grid-cols-2">
-                  <label className="space-y-2">
-                    <span className="text-[11px] uppercase tracking-[0.18em] text-slate-400">
-                      Fast EMA
-                    </span>
-                    <input
-                      className="w-full rounded-2xl border border-white/10 bg-[#09121a] px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-300/40 focus:ring-2 focus:ring-cyan-300/10"
-                      min={1}
-                      onChange={(event) => updateField("fast_period", event.target.value)}
-                      required
-                      type="number"
-                      value={form.fast_period}
-                    />
-                  </label>
+                {(form.strategy_name === "ema_crossover" ||
+                  form.strategy_name === "macd_crossover" ||
+                  form.strategy_name === "rule_builder") && (
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <label className="space-y-2">
+                      <span className="text-[11px] uppercase tracking-[0.18em] text-slate-400">
+                        Fast EMA
+                      </span>
+                      <input
+                        className="w-full rounded-2xl border border-white/10 bg-[#09121a] px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-300/40 focus:ring-2 focus:ring-cyan-300/10"
+                        min={1}
+                        onChange={(event) => updateField("fast_period", event.target.value)}
+                        required
+                        type="number"
+                        value={form.fast_period}
+                      />
+                    </label>
 
-                  <label className="space-y-2">
+                    <label className="space-y-2">
+                      <span className="text-[11px] uppercase tracking-[0.18em] text-slate-400">
+                        Slow EMA
+                      </span>
+                      <input
+                        className="w-full rounded-2xl border border-white/10 bg-[#09121a] px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-300/40 focus:ring-2 focus:ring-cyan-300/10"
+                        min={1}
+                        onChange={(event) => updateField("slow_period", event.target.value)}
+                        required
+                        type="number"
+                        value={form.slow_period}
+                      />
+                    </label>
+                  </div>
+                )}
+
+                {form.strategy_name === "macd_crossover" && (
+                  <label className="block space-y-2">
                     <span className="text-[11px] uppercase tracking-[0.18em] text-slate-400">
-                      Slow EMA
+                      Signal Period
                     </span>
                     <input
                       className="w-full rounded-2xl border border-white/10 bg-[#09121a] px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-300/40 focus:ring-2 focus:ring-cyan-300/10"
                       min={1}
-                      onChange={(event) => updateField("slow_period", event.target.value)}
+                      onChange={(event) => updateField("macd_signal_period", event.target.value)}
                       required
                       type="number"
-                      value={form.slow_period}
+                      value={form.macd_signal_period}
                     />
                   </label>
-                </div>
+                )}
+
+                {form.strategy_name === "mean_reversion_bollinger" && (
+                  <div className="space-y-5">
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <label className="space-y-2">
+                        <span className="text-[11px] uppercase tracking-[0.18em] text-slate-400">
+                          BB Period
+                        </span>
+                        <input
+                          className="w-full rounded-2xl border border-white/10 bg-[#09121a] px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-300/40 focus:ring-2 focus:ring-cyan-300/10"
+                          min={1}
+                          onChange={(event) => updateField("bb_period", event.target.value)}
+                          required
+                          type="number"
+                          value={form.bb_period}
+                        />
+                      </label>
+                      <label className="space-y-2">
+                        <span className="text-[11px] uppercase tracking-[0.18em] text-slate-400">
+                          BB Std Dev
+                        </span>
+                        <input
+                          className="w-full rounded-2xl border border-white/10 bg-[#09121a] px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-300/40 focus:ring-2 focus:ring-cyan-300/10"
+                          min={0.1}
+                          onChange={(event) => updateField("bb_std_dev", event.target.value)}
+                          required
+                          step="0.1"
+                          type="number"
+                          value={form.bb_std_dev}
+                        />
+                      </label>
+                    </div>
+                    <div className="grid gap-4 md:grid-cols-3">
+                      <label className="space-y-2">
+                        <span className="text-[11px] uppercase tracking-[0.18em] text-slate-400">
+                          RSI Period
+                        </span>
+                        <input
+                          className="w-full rounded-2xl border border-white/10 bg-[#09121a] px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-300/40 focus:ring-2 focus:ring-cyan-300/10"
+                          min={1}
+                          onChange={(event) => updateField("rsi_period", event.target.value)}
+                          required
+                          type="number"
+                          value={form.rsi_period}
+                        />
+                      </label>
+                      <label className="space-y-2">
+                        <span className="text-[11px] uppercase tracking-[0.18em] text-slate-400">
+                          RSI Oversold
+                        </span>
+                        <input
+                          className="w-full rounded-2xl border border-white/10 bg-[#09121a] px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-300/40 focus:ring-2 focus:ring-cyan-300/10"
+                          max={100}
+                          min={1}
+                          onChange={(event) => updateField("rsi_oversold", event.target.value)}
+                          required
+                          type="number"
+                          value={form.rsi_oversold}
+                        />
+                      </label>
+                      <label className="space-y-2">
+                        <span className="text-[11px] uppercase tracking-[0.18em] text-slate-400">
+                          RSI Overbought
+                        </span>
+                        <input
+                          className="w-full rounded-2xl border border-white/10 bg-[#09121a] px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-300/40 focus:ring-2 focus:ring-cyan-300/10"
+                          max={100}
+                          min={1}
+                          onChange={(event) => updateField("rsi_overbought", event.target.value)}
+                          required
+                          type="number"
+                          value={form.rsi_overbought}
+                        />
+                      </label>
+                    </div>
+                  </div>
+                )}
+
+                {form.strategy_name === "rsi_momentum" && (
+                  <label className="block space-y-2">
+                    <span className="text-[11px] uppercase tracking-[0.18em] text-slate-400">
+                      RSI Period
+                    </span>
+                    <input
+                      className="w-full rounded-2xl border border-white/10 bg-[#09121a] px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-300/40 focus:ring-2 focus:ring-cyan-300/10"
+                      min={1}
+                      onChange={(event) => updateField("rsi_period", event.target.value)}
+                      required
+                      type="number"
+                      value={form.rsi_period}
+                    />
+                  </label>
+                )}
+
+                {form.strategy_name === "breakout_atr" && (
+                  <div className="space-y-5">
+                    <div className="grid gap-4 md:grid-cols-2">
+                    <label className="space-y-2">
+                        <span className="text-[11px] uppercase tracking-[0.18em] text-slate-400">
+                          Breakout Period
+                        </span>
+                        <input
+                          className="w-full rounded-2xl border border-white/10 bg-[#09121a] px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-300/40 focus:ring-2 focus:ring-cyan-300/10"
+                          min={1}
+                          onChange={(event) => updateField("breakout_period", event.target.value)}
+                          required
+                          type="number"
+                          value={form.breakout_period}
+                        />
+                      </label>
+                      <label className="space-y-2">
+                        <span className="text-[11px] uppercase tracking-[0.18em] text-slate-400">
+                          ATR Period
+                        </span>
+                        <input
+                          className="w-full rounded-2xl border border-white/10 bg-[#09121a] px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-300/40 focus:ring-2 focus:ring-cyan-300/10"
+                          min={1}
+                          onChange={(event) => updateField("atr_period", event.target.value)}
+                          required
+                          type="number"
+                          value={form.atr_period}
+                        />
+                      </label>
+                    </div>
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <label className="space-y-2">
+                        <span className="text-[11px] uppercase tracking-[0.18em] text-slate-400">
+                          ATR Breakout Mult
+                        </span>
+                        <input
+                          className="w-full rounded-2xl border border-white/10 bg-[#09121a] px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-300/40 focus:ring-2 focus:ring-cyan-300/10"
+                          min={0.1}
+                          onChange={(event) => updateField("atr_breakout_multiplier", event.target.value)}
+                          required
+                          step="0.1"
+                          type="number"
+                          value={form.atr_breakout_multiplier}
+                        />
+                      </label>
+                      <label className="space-y-2">
+                        <span className="text-[11px] uppercase tracking-[0.18em] text-slate-400">
+                          ATR Stop Mult
+                        </span>
+                        <input
+                          className="w-full rounded-2xl border border-white/10 bg-[#09121a] px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-300/40 focus:ring-2 focus:ring-cyan-300/10"
+                          min={0.1}
+                          onChange={(event) => updateField("atr_stop_multiplier", event.target.value)}
+                          required
+                          step="0.1"
+                          type="number"
+                          value={form.atr_stop_multiplier}
+                        />
+                      </label>
+                    </div>
+                  </div>
+                )}
 
                 {form.strategy_name === "rule_builder" ? (
                   <div className="space-y-4 rounded-[1.8rem] border border-cyan-300/10 bg-cyan-300/[0.04] p-4">
