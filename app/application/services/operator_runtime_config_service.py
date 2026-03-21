@@ -12,6 +12,16 @@ from app.infrastructure.database.repositories.operator_config_repository import 
 
 PAPER_RUNTIME_OPERATOR_CONFIG = "paper_runtime_defaults"
 OPERATOR_STRATEGY_EMA_CROSSOVER = "ema_crossover"
+OPERATOR_SUPPORTED_STRATEGIES = frozenset(
+    [
+        "ema_crossover",
+        "rule_builder",
+        "macd_crossover",
+        "mean_reversion_bollinger",
+        "rsi_momentum",
+        "breakout_atr",
+    ]
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -93,7 +103,7 @@ class OperatorRuntimeConfigService:
         normalized_symbol = symbol.strip().upper()
         normalized_timeframe = timeframe.strip()
         normalized_trading_mode = trading_mode.strip().upper()
-        if normalized_strategy != OPERATOR_STRATEGY_EMA_CROSSOVER:
+        if normalized_strategy not in OPERATOR_SUPPORTED_STRATEGIES:
             raise ValueError(f"unsupported runtime strategy: {strategy_name}")
         if normalized_trading_mode not in ("SPOT", "FUTURES"):
             raise ValueError(f"unsupported trading mode: {trading_mode}")
@@ -101,7 +111,10 @@ class OperatorRuntimeConfigService:
             raise ValueError("symbol and timeframe are required")
         if fast_period <= 0 or slow_period <= 0:
             raise ValueError("strategy periods must be positive")
-        if fast_period >= slow_period:
+        if (
+            normalized_strategy in ("ema_crossover", "macd_crossover")
+            and fast_period >= slow_period
+        ):
             raise ValueError("fast period must be smaller than slow period")
 
         previous = self.get_effective_config()
