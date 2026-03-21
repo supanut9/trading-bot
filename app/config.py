@@ -1,9 +1,18 @@
 from decimal import Decimal
 from functools import lru_cache
-from typing import Literal
+from typing import Annotated, Literal
 
-from pydantic import Field, model_validator
+from pydantic import BeforeValidator, Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+def _parse_symbol_list(v: object) -> list[str]:
+    """Accept a comma-separated string or a list; return a deduplicated list of stripped symbols."""
+    if isinstance(v, str):
+        return [s.strip() for s in v.split(",") if s.strip()]
+    if isinstance(v, list):
+        return [str(s).strip() for s in v if str(s).strip()]
+    return []
 
 
 class Settings(BaseSettings):
@@ -32,6 +41,10 @@ class Settings(BaseSettings):
     )
     default_symbol: str = Field(default="BTC/USDT", alias="DEFAULT_SYMBOL")
     default_timeframe: str = Field(default="1h", alias="DEFAULT_TIMEFRAME")
+    trading_symbols: Annotated[list[str], BeforeValidator(_parse_symbol_list)] = Field(
+        default=[],
+        alias="TRADING_SYMBOLS",
+    )
     strategy_fast_period: int = Field(default=20, alias="STRATEGY_FAST_PERIOD")
     strategy_slow_period: int = Field(default=50, alias="STRATEGY_SLOW_PERIOD")
     paper_account_equity: float = Field(default=10000.0, alias="PAPER_ACCOUNT_EQUITY")
