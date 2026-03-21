@@ -82,14 +82,19 @@ class BacktestService:
         stop_loss_atr_multiplier: Decimal = Decimal("0"),
         stop_loss_atr_period: int = 14,
         trailing_stop_enabled: bool = False,
+        volatility_sizing_enabled: bool = False,
+        volatility_sizing_atr_period: int = 14,
     ) -> None:
         self._strategy = strategy or EmaCrossoverStrategy()
+        self._volatility_sizing_enabled = volatility_sizing_enabled
+        self._volatility_sizing_atr_period = volatility_sizing_atr_period
         self._risk = risk_service or RiskService(
             RiskLimits(
                 risk_per_trade_pct=Decimal("0.01"),
                 max_open_positions=1,
                 max_daily_loss_pct=Decimal("0.03"),
                 paper_trading_only=True,
+                volatility_sizing_enabled=volatility_sizing_enabled,
             )
         )
         self._starting_equity = starting_equity
@@ -314,9 +319,18 @@ class BacktestService:
                 realized_pnl=realized_pnl,
                 position_quantity=position_quantity,
             )
+            atr_for_sizing = (
+                self._compute_atr_for_sizing(ordered_candles[: index + 1])
+                if self._volatility_sizing_enabled
+                else None
+            )
             decision = self._risk.evaluate(
                 portfolio=portfolio,
-                trade=TradeContext(signal=signal, entry_price=candle.close_price),
+                trade=TradeContext(
+                    signal=signal,
+                    entry_price=candle.close_price,
+                    atr_value=atr_for_sizing,
+                ),
             )
             if not decision.approved:
                 continue
@@ -591,6 +605,24 @@ class BacktestService:
             overfitting_warning=return_degradation_pct > overfitting_threshold_pct,
             overfitting_threshold_pct=overfitting_threshold_pct,
         )
+
+    def _compute_atr_for_sizing(self, candles: Sequence[Candle]) -> Decimal | None:
+        """ATR used for volatility-adjusted position sizing (uses volatility_sizing_atr_period)."""
+        from app.domain.strategies.indicators import calculate_atr
+
+        period = self._volatility_sizing_atr_period
+        if len(candles) < period + 1:
+            return None
+        recent = list(candles)[-(period + 1) :]
+        try:
+            return calculate_atr(
+                highs=[c.high_price for c in recent],
+                lows=[c.low_price for c in recent],
+                closes=[c.close_price for c in recent],
+                period=period,
+            )
+        except ValueError:
+            return None
 
     def _compute_atr_for_candles(self, candles: Sequence[Candle]) -> Decimal | None:
         from app.domain.strategies.indicators import calculate_atr

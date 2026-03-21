@@ -23,6 +23,7 @@ class RiskLimits:
     live_max_order_notional: Decimal | None = None
     live_max_position_quantity: Decimal | None = None
     symbol_rules: SymbolRules | None = field(default=None, compare=True)
+    volatility_sizing_enabled: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -42,6 +43,7 @@ class PortfolioState:
 class TradeContext:
     signal: Signal
     entry_price: Decimal
+    atr_value: Decimal | None = None
 
 
 @dataclass(frozen=True, slots=True)

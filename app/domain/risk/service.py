@@ -69,8 +69,16 @@ class RiskService:
                 is_hard_violation=True,
             )
 
-        position_notional = portfolio.account_equity * self._limits.risk_per_trade_pct
-        quantity = (position_notional / trade.entry_price).quantize(
+        dollar_risk = portfolio.account_equity * self._limits.risk_per_trade_pct
+        # ATR-normalized sizing: target dollar_risk per trade, sized so that one ATR move
+        # equals exactly dollar_risk. Falls back to price-based sizing when unavailable.
+        use_atr = (
+            self._limits.volatility_sizing_enabled
+            and trade.atr_value is not None
+            and trade.atr_value > Decimal("0")
+        )
+        divisor = trade.atr_value if use_atr else trade.entry_price
+        quantity = (dollar_risk / divisor).quantize(  # type: ignore[operator]
             Decimal("0.00000001"),
             rounding=ROUND_DOWN,
         )
