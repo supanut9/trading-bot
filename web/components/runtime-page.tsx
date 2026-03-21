@@ -188,6 +188,11 @@ export function RuntimePage() {
                       value={form.strategy_name}
                     >
                       <option value="ema_crossover">ema_crossover</option>
+                      <option value="rule_builder">rule_builder</option>
+                      <option value="macd_crossover">macd_crossover</option>
+                      <option value="mean_reversion_bollinger">mean_reversion_bollinger</option>
+                      <option value="rsi_momentum">rsi_momentum</option>
+                      <option value="breakout_atr">breakout_atr</option>
                     </select>
                   </label>
                   <label className="space-y-2">
