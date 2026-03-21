@@ -12,6 +12,7 @@ import {
   SlidersHorizontal,
 } from "lucide-react";
 
+import { BacktestChart } from "@/components/backtest-chart";
 import { MarketCoveragePanel } from "@/components/market-coverage-panel";
 import { OperatorShell } from "@/components/operator-shell";
 import { Badge } from "@/components/ui/badge";
@@ -840,7 +841,7 @@ function ResultPanel({
         </div>
       ) : null}
 
-      <ExecutionCurve result={result} />
+      <BacktestChart result={result} />
 
       <div className="rounded-[1.8rem] border border-white/10 bg-white/[0.03] p-4">
         <div className="mb-4 flex flex-wrap gap-2">
