@@ -35,6 +35,7 @@ Current baseline on `main`:
 - fee-aware live execution gates that block entry signals when expected profit does not cover estimated fees
 - automatic slippage tracking for live fills using signal-time price and final average fill price
 - automated fallback mechanism for timed-out live limit orders that cancels and resubmits as market orders
+- ATR hard stop and trailing stop, ADX regime filter, ATR volatility-adjusted sizing, multi-symbol worker loop, auto-sync before backtest, and multi-timeframe HTF trend confirmation
 
 Current production boundary:
 
@@ -56,11 +57,7 @@ Iteration and strategy improvement (current focus):
 
 Profitability improvements (what separates this bot from better real-world bots):
 
-3. `feature/trade-exit-stop-loss` — ATR hard stop + trailing stop; highest-impact PnL protection
-4. `feature/regime-detection` — ADX filter to avoid false signals in ranging markets
-5. `feature/volatility-adjusted-sizing` — normalize position size to market volatility via ATR
-6. `feature/multi-symbol-trading` — trade multiple pairs for more edge opportunities per cycle
-7. `feature/multi-timeframe-confirmation` — higher timeframe trend alignment to improve win rate
+3. `feature/xgboost-signal-strategy` — ML-based signal using XGBoost trained on indicator features (planned)
 
 ## Initial Market And Strategy
 
