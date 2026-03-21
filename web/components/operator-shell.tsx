@@ -3,7 +3,7 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Activity, AreaChart, Bot, CandlestickChart, ShieldCheck, WalletCards } from "lucide-react";
+import { Activity, AreaChart, Bot, BrainCircuit, CandlestickChart, ShieldCheck, WalletCards } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 
@@ -14,6 +14,7 @@ type OperatorShellProps = {
 const navItems = [
   { label: "Overview", href: "/", icon: AreaChart, state: "Live now" },
   { label: "Backtest", href: "/backtest", icon: CandlestickChart, state: "Live now" },
+  { label: "Models", href: "/models", icon: BrainCircuit, state: "Live now" },
   { label: "Reports", href: "/reports", icon: WalletCards, state: "Live now" },
   { label: "Runtime", href: "/runtime", icon: Activity, state: "Next slice" },
   { label: "Controls", href: "/controls", icon: ShieldCheck, state: "Live now" },

@@ -47,7 +47,8 @@ type BacktestFormState = {
     | "macd_crossover"
     | "mean_reversion_bollinger"
     | "rsi_momentum"
-    | "breakout_atr";
+    | "breakout_atr"
+    | "xgboost_signal";
   preset_key: "ema_crossover_equivalent" | "ema_rsi_confirmation" | "mean_reversion";
   symbol: string;
   timeframe: string;
@@ -65,6 +66,8 @@ type BacktestFormState = {
   atr_period: string;
   atr_breakout_multiplier: string;
   atr_stop_multiplier: string;
+  xgb_buy_threshold: string;
+  xgb_sell_threshold: string;
   trading_mode: string;
   leverage: string;           // "" = auto
   margin_mode: string;
@@ -1028,6 +1031,8 @@ export function BacktestPage() {
     atr_period: "14",
     atr_breakout_multiplier: "0.5",
     atr_stop_multiplier: "2.0",
+    xgb_buy_threshold: "0.55",
+    xgb_sell_threshold: "0.45",
     trading_mode: "SPOT",
     leverage: "",
     margin_mode: "ISOLATED",
@@ -1152,6 +1157,8 @@ export function BacktestPage() {
         atr_period: "14",
         atr_breakout_multiplier: "0.5",
         atr_stop_multiplier: "2.0",
+        xgb_buy_threshold: "0.55",
+        xgb_sell_threshold: "0.45",
         trading_mode: run.trading_mode ?? "SPOT",
         leverage: "",
         margin_mode: "ISOLATED",
@@ -1207,6 +1214,9 @@ export function BacktestPage() {
       payload.atr_period = Number(form.atr_period);
       payload.atr_breakout_multiplier = form.atr_breakout_multiplier;
       payload.atr_stop_multiplier = form.atr_stop_multiplier;
+    } else if (form.strategy_name === "xgboost_signal") {
+      payload.xgb_buy_threshold = Number(form.xgb_buy_threshold);
+      payload.xgb_sell_threshold = Number(form.xgb_sell_threshold);
     } else {
       payload.rules = cloneRules(form.rules);
     }
@@ -1296,6 +1306,7 @@ export function BacktestPage() {
                       <option value="mean_reversion_bollinger">mean_reversion_bollinger</option>
                       <option value="rsi_momentum">rsi_momentum</option>
                       <option value="breakout_atr">breakout_atr</option>
+                      <option value="xgboost_signal">XGBoost Signal</option>
                       <option value="rule_builder">rule_builder</option>
                     </select>
                   </label>
@@ -1593,6 +1604,46 @@ export function BacktestPage() {
                           step="0.1"
                           type="number"
                           value={form.atr_stop_multiplier}
+                        />
+                      </label>
+                    </div>
+                  </div>
+                )}
+
+                {form.strategy_name === "xgboost_signal" && (
+                  <div className="space-y-4">
+                    <div className="rounded-2xl border border-amber-300/20 bg-amber-300/[0.04] px-4 py-3 text-sm text-amber-200">
+                      Train a model first on the Models page before running this strategy.
+                    </div>
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <label className="space-y-2">
+                        <span className="text-[11px] uppercase tracking-[0.18em] text-slate-400">
+                          Buy Threshold
+                        </span>
+                        <input
+                          className="w-full rounded-2xl border border-white/10 bg-[#09121a] px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-300/40 focus:ring-2 focus:ring-cyan-300/10"
+                          max={0.99}
+                          min={0.51}
+                          onChange={(event) => updateField("xgb_buy_threshold", event.target.value)}
+                          required
+                          step={0.01}
+                          type="number"
+                          value={form.xgb_buy_threshold}
+                        />
+                      </label>
+                      <label className="space-y-2">
+                        <span className="text-[11px] uppercase tracking-[0.18em] text-slate-400">
+                          Sell Threshold
+                        </span>
+                        <input
+                          className="w-full rounded-2xl border border-white/10 bg-[#09121a] px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-300/40 focus:ring-2 focus:ring-cyan-300/10"
+                          max={0.49}
+                          min={0.01}
+                          onChange={(event) => updateField("xgb_sell_threshold", event.target.value)}
+                          required
+                          step={0.01}
+                          type="number"
+                          value={form.xgb_sell_threshold}
                         />
                       </label>
                     </div>

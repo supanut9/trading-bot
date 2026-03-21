@@ -380,6 +380,49 @@ class BacktestControlRequest(BaseModel):
     xgb_sell_threshold: float | None = None
 
 
+class TrainModelRequest(BaseModel):
+    symbol: str = "BTC/USDT"
+    timeframe: str = "1h"
+    exchange: str = "binance"
+    n_estimators: int = Field(default=200, ge=10, le=2000)
+    max_depth: int = Field(default=4, ge=1, le=20)
+    learning_rate: float = Field(default=0.1, gt=0.0, le=1.0)
+    split_ratio: float = Field(default=0.7, gt=0.0, lt=1.0)
+
+
+class FeatureImportanceSchema(BaseModel):
+    feature: str
+    importance: float
+
+
+class TrainModelResponse(BaseModel):
+    status: str
+    symbol: str
+    timeframe: str
+    model_path: str
+    sample_count: int
+    train_count: int
+    test_count: int
+    accuracy: float | None = None
+    precision: float | None = None
+    recall: float | None = None
+    roc_auc: float | None = None
+    feature_importances: list[FeatureImportanceSchema] = []
+    detail: str = ""
+
+
+class ModelStatusItem(BaseModel):
+    symbol: str
+    timeframe: str
+    model_path: str
+    exists: bool
+    file_size_kb: float | None = None
+
+
+class ModelStatusResponse(BaseModel):
+    models: list[ModelStatusItem]
+
+
 class StrategyRuleConditionRequest(BaseModel):
     indicator: Literal["ema_cross", "price_vs_ema", "rsi_threshold"]
     operator: Literal["bullish", "bearish", "above", "below"]

@@ -20,6 +20,7 @@ from app.interfaces.api.backtest_rule_mapping import (
 from app.interfaces.api.schemas import (
     BacktestControlRequest,
     BacktestControlResponse,
+    FeatureImportanceSchema,
     LiveCancelControlRequest,
     LiveCancelControlResponse,
     LiveHaltControlRequest,
@@ -27,12 +28,18 @@ from app.interfaces.api.schemas import (
     LiveReconcileControlResponse,
     MarketSyncControlRequest,
     MarketSyncControlResponse,
+    ModelStatusItem,
+    ModelStatusResponse,
     OperatorConfigRequest,
     OperatorConfigResponse,
     QualificationGateResponse,
     QualificationReportResponse,
     SymbolRulesControlResponse,
+    TrainModelResponse,
     WorkerControlResponse,
+)
+from app.interfaces.api.schemas import (
+    TrainModelRequest as TrainModelRequestSchema,
 )
 
 router = APIRouter(prefix="/controls", tags=["controls"])
@@ -309,3 +316,89 @@ def get_qualification(
             for g in report.gates
         ],
     )
+
+
+@router.post(
+    "/train-model",
+    response_model=TrainModelResponse,
+    status_code=status.HTTP_200_OK,
+)
+def train_model(
+    payload: TrainModelRequestSchema,
+    session_factory: sessionmaker[Session] = session_factory_dependency,
+) -> TrainModelResponse:
+    from app.application.services.model_training_service import (  # noqa: PLC0415
+        ModelTrainingService,
+    )
+    from app.application.services.model_training_service import (
+        TrainModelRequest as SvcRequest,
+    )
+    from app.infrastructure.database.repositories.market_data import (  # noqa: PLC0415
+        MarketDataRepository,
+    )
+
+    with session_factory() as session:
+        repo = MarketDataRepository(session)
+        service = ModelTrainingService(market_data_repo=repo)
+        result = service.train(
+            SvcRequest(
+                symbol=payload.symbol,
+                timeframe=payload.timeframe,
+                exchange=payload.exchange,
+                n_estimators=payload.n_estimators,
+                max_depth=payload.max_depth,
+                learning_rate=payload.learning_rate,
+                split_ratio=payload.split_ratio,
+            )
+        )
+    return TrainModelResponse(
+        status=result.status,
+        symbol=result.symbol,
+        timeframe=result.timeframe,
+        model_path=result.model_path,
+        sample_count=result.sample_count,
+        train_count=result.train_count,
+        test_count=result.test_count,
+        accuracy=result.accuracy,
+        precision=result.precision,
+        recall=result.recall,
+        roc_auc=result.roc_auc,
+        feature_importances=[
+            FeatureImportanceSchema(feature=f.feature, importance=f.importance)
+            for f in result.feature_importances
+        ],
+        detail=result.detail,
+    )
+
+
+@router.get(
+    "/model-status",
+    response_model=ModelStatusResponse,
+    status_code=status.HTTP_200_OK,
+)
+def model_status() -> ModelStatusResponse:
+    from pathlib import Path
+
+    models_dir = Path("models")
+    items: list[ModelStatusItem] = []
+    if models_dir.exists():
+        for path in sorted(models_dir.glob("xgboost_*.json")):
+            # Filename pattern: xgboost_btcusdt_1h.json
+            parts = path.stem.split("_")  # ["xgboost", "btcusdt", "1h"]
+            timeframe = parts[-1] if len(parts) >= 3 else "unknown"
+            raw_symbol = (
+                "_".join(parts[1:-1])
+                if len(parts) >= 3
+                else (parts[1] if len(parts) >= 2 else "unknown")
+            )
+            size_kb = round(path.stat().st_size / 1024, 1)
+            items.append(
+                ModelStatusItem(
+                    symbol=raw_symbol.upper(),
+                    timeframe=timeframe,
+                    model_path=str(path),
+                    exists=True,
+                    file_size_kb=size_kb,
+                )
+            )
+    return ModelStatusResponse(models=items)
