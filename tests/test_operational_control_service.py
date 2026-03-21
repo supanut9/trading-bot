@@ -655,7 +655,7 @@ def test_control_result_includes_leverage_fields(monkeypatch) -> None:
         FakeBacktestRunHistoryService,
     )
     monkeypatch.setattr(
-        "app.application.services.market_data_sync_service.MarketDataSyncService.sync_recent_closed_candles",
+        "app.application.services.market_data_sync_service.MarketDataSyncService.sync_candles_paginated",
         lambda *a, **kw: None,
     )
 

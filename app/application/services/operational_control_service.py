@@ -73,6 +73,35 @@ _ALL_BACKTEST_STRATEGIES = {
     BACKTEST_STRATEGY_BREAKOUT_ATR,
 }
 
+_TIMEFRAME_MINUTES: dict[str, int] = {
+    "1m": 1,
+    "3m": 3,
+    "5m": 5,
+    "15m": 15,
+    "30m": 30,
+    "1h": 60,
+    "2h": 120,
+    "4h": 240,
+    "6h": 360,
+    "8h": 480,
+    "12h": 720,
+    "1d": 1440,
+    "3d": 4320,
+    "1w": 10080,
+}
+_BACKTEST_MIN_DAYS = 7
+
+
+def _compute_backtest_sync_limit(timeframe: str, required_candles: int) -> int:
+    """Return how many candles to fetch for a backtest.
+
+    Always covers at least 7 days of history so small-timeframe strategies
+    have enough bars to produce signals, regardless of strategy warm-up size.
+    """
+    minutes = _TIMEFRAME_MINUTES.get(timeframe, 60)
+    seven_day_candles = (_BACKTEST_MIN_DAYS * 24 * 60) // minutes
+    return max(required_candles + 100, seven_day_candles)
+
 
 @dataclass(frozen=True, slots=True)
 class BacktestRunOptions:
@@ -590,18 +619,17 @@ class OperationalControlService:
                 self._backtest_runs.record_run(source=source, result=control_result)
             return control_result
         required_candles = self._required_candles_for_options(resolved)
-        sync_limit = required_candles + 100
+        sync_limit = _compute_backtest_sync_limit(resolved.timeframe, required_candles)
 
         with self._session_factory() as session:
             try:
                 MarketDataSyncService(
                     session, build_market_data_exchange_client(self._settings)
-                ).sync_recent_closed_candles(
+                ).sync_candles_paginated(
                     exchange=resolved.exchange,
                     symbol=resolved.symbol,
                     timeframe=resolved.timeframe,
-                    limit=sync_limit,
-                    backfill=True,
+                    total_limit=sync_limit,
                 )
                 session.commit()
             except Exception as exc:

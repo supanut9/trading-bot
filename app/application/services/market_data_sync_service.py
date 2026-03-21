@@ -105,6 +105,71 @@ class MarketDataSyncService:
             latest_open_time=latest_open_time,
         )
 
+    def sync_candles_paginated(
+        self,
+        *,
+        exchange: str,
+        symbol: str,
+        timeframe: str,
+        total_limit: int,
+        page_size: int = 1000,
+    ) -> MarketDataSyncResult:
+        """Fetch up to total_limit candles by paginating backwards in time."""
+        all_candles: list[ExchangeCandle] = []
+        end_time = None
+        remaining = total_limit
+
+        while remaining > 0:
+            batch_size = min(remaining, page_size)
+            candles = self._client.fetch_closed_candles(
+                symbol=symbol,
+                timeframe=timeframe,
+                limit=batch_size,
+                end_time=end_time,
+            )
+            if not candles:
+                break
+            all_candles.extend(candles)
+            remaining -= len(candles)
+            if len(candles) < batch_size:
+                break  # exchange has no more historical data
+            # paginate: next request must end before the oldest candle we have
+            end_time = min(c.open_time for c in candles)
+
+        if not all_candles:
+            logger.info(
+                "market_data_sync_paginated_completed exchange=%s symbol=%s timeframe=%s "
+                "fetched=0 stored=0",
+                exchange,
+                symbol,
+                timeframe,
+            )
+            return MarketDataSyncResult(fetched_count=0, stored_count=0, latest_open_time=None)
+
+        stored = self._market_data.store_candles(
+            exchange=exchange,
+            symbol=symbol,
+            timeframe=timeframe,
+            candles=[self._to_candle_input(c) for c in all_candles],
+        )
+        latest_open_time = max(c.open_time for c in all_candles)
+        logger.info(
+            "market_data_sync_paginated_completed exchange=%s symbol=%s timeframe=%s "
+            "fetched=%s stored=%s pages=%s latest_open_time=%s",
+            exchange,
+            symbol,
+            timeframe,
+            len(all_candles),
+            len(stored),
+            (total_limit + page_size - 1) // page_size,
+            latest_open_time.isoformat(),
+        )
+        return MarketDataSyncResult(
+            fetched_count=len(all_candles),
+            stored_count=len(stored),
+            latest_open_time=latest_open_time,
+        )
+
     @staticmethod
     def _to_candle_input(candle: ExchangeCandle) -> CandleInput:
         return CandleInput(

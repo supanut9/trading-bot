@@ -103,6 +103,7 @@ class MarketDataExchangeClient(Protocol):
         symbol: str,
         timeframe: str,
         limit: int,
+        end_time: datetime | None = None,
     ) -> Sequence[ExchangeCandle]: ...
 
     def fetch_latest_price(self, *, symbol: str) -> ExchangeTickerPrice: ...
