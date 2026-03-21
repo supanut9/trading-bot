@@ -38,6 +38,7 @@ def build_service(
         RISK_PER_TRADE_PCT=0.01,
         MAX_OPEN_POSITIONS=1,
         MAX_DAILY_LOSS_PCT=0.03,
+        STRATEGY_ADX_FILTER_ENABLED=False,
         **setting_overrides,
     )
     engine = create_engine_from_settings(settings)
@@ -378,6 +379,7 @@ def test_rejects_live_buy_when_runtime_halt_override_is_enabled(tmp_path: Path) 
         EXCHANGE_API_KEY="key",
         EXCHANGE_API_SECRET="secret",
         LIVE_TRADING_HALTED=False,
+        STRATEGY_ADX_FILTER_ENABLED=False,
     )
     engine = create_engine_from_settings(settings)
     Base.metadata.create_all(bind=engine)

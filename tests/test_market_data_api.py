@@ -20,7 +20,10 @@ from app.main import app
 
 
 def build_client(tmp_path: Path) -> tuple[TestClient, object]:
-    settings = Settings(DATABASE_URL=f"sqlite:///{tmp_path / 'market_data_api.db'}")
+    settings = Settings(
+        DATABASE_URL=f"sqlite:///{tmp_path / 'market_data_api.db'}",
+        DEFAULT_TIMEFRAME="1h",
+    )
     engine = create_engine_from_settings(settings)
     Base.metadata.create_all(bind=engine)
     session = create_session_factory(settings)()
