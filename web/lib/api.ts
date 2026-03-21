@@ -124,9 +124,20 @@ export type MarketDataCoverageResponse = {
 export type BacktestExecutionResponse = {
   action: string;
   price: string;
+  fill_price: string;
   quantity: string;
   realized_pnl: string;
   reason: string;
+  candle_open_time: string;
+};
+
+export type BacktestCandleResponse = {
+  open_time: string;
+  open_price: string;
+  high_price: string;
+  low_price: string;
+  close_price: string;
+  volume: string;
 };
 
 export type StrategyRuleConditionRequest = {
@@ -196,6 +207,7 @@ export type BacktestControlResponse = {
   losing_trades: number | null;
   rules: StrategyRuleBuilderRequest | null;
   executions: BacktestExecutionResponse[];
+  candles: BacktestCandleResponse[];
 };
 
 export type BacktestRunResponse = {

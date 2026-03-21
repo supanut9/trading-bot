@@ -164,6 +164,17 @@ class BacktestExecutionResult:
     fee: Decimal
     realized_pnl: Decimal
     reason: str
+    candle_open_time: datetime = datetime.min
+
+
+@dataclass(frozen=True, slots=True)
+class BacktestCandleResult:
+    open_time: datetime
+    open_price: Decimal
+    high_price: Decimal
+    low_price: Decimal
+    close_price: Decimal
+    volume: Decimal
 
 
 @dataclass(frozen=True, slots=True)
@@ -226,6 +237,7 @@ class BacktestControlResult:
     walk_forward: WalkForwardControlResult | None = None
     rules: RuleBuilderStrategyConfig | None = None
     executions: tuple[BacktestExecutionResult, ...] = ()
+    candles: tuple[BacktestCandleResult, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -674,8 +686,20 @@ class OperationalControlService:
                     fee=self._quantize_decimal(execution.fee) or Decimal("0"),
                     realized_pnl=self._quantize_decimal(execution.realized_pnl) or Decimal("0"),
                     reason=execution.reason,
+                    candle_open_time=execution.candle_open_time,
                 )
                 for execution in backtest_result.executions
+            ),
+            candles=tuple(
+                BacktestCandleResult(
+                    open_time=c.open_time,
+                    open_price=self._quantize_decimal(c.open_price) or Decimal("0"),
+                    high_price=self._quantize_decimal(c.high_price) or Decimal("0"),
+                    low_price=self._quantize_decimal(c.low_price) or Decimal("0"),
+                    close_price=self._quantize_decimal(c.close_price) or Decimal("0"),
+                    volume=self._quantize_decimal(c.volume) or Decimal("0"),
+                )
+                for c in backtest_result.candles
             ),
         )
         if audit:
