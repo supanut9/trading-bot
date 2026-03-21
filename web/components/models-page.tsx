@@ -1,7 +1,7 @@
 "use client";
 
 import type { FormEvent } from "react";
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { BrainCircuit, RefreshCcw, ChevronDown, ChevronUp, DatabaseZap } from "lucide-react";
 
@@ -379,10 +379,9 @@ function ExistingModelsCard() {
                 const key = rowKey(model);
                 const isOpen = expandedKey === key;
                 return (
-                  <>
+                  <Fragment key={key}>
                     <TableRow
                       className="cursor-pointer border-white/10 hover:bg-white/[0.03]"
-                      key={key}
                       onClick={() => setExpandedKey(isOpen ? null : key)}
                     >
                       <TableCell className="font-medium text-white">{model.symbol}</TableCell>
@@ -399,13 +398,13 @@ function ExistingModelsCard() {
                       </TableCell>
                     </TableRow>
                     {isOpen && (
-                      <TableRow className="border-white/10" key={`${key}-detail`}>
+                      <TableRow className="border-white/10">
                         <TableCell className="bg-white/[0.02] pb-4 pt-3" colSpan={6}>
                           <ModelDetailPanel model={model} />
                         </TableCell>
                       </TableRow>
                     )}
-                  </>
+                  </Fragment>
                 );
               })}
             </TableBody>
