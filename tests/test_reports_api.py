@@ -3,6 +3,7 @@ from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from io import StringIO
 from pathlib import Path
+from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
@@ -32,6 +33,8 @@ def build_client(tmp_path: Path) -> tuple[TestClient, object, Settings]:
         STRATEGY_FAST_PERIOD=3,
         STRATEGY_SLOW_PERIOD=5,
         NOTIFICATION_CHANNEL="none",
+        EXCHANGE_API_KEY="test-key",
+        EXCHANGE_API_SECRET="test-secret",
     )
     engine = create_engine_from_settings(settings)
     Base.metadata.create_all(bind=engine)
@@ -158,12 +161,21 @@ def test_trades_report_honors_limit_parameter(tmp_path: Path) -> None:
         teardown_client(session)
 
 
+_SYNC_PATCH = (
+    "app.application.services.market_data_sync_service"
+    ".MarketDataSyncService.sync_recent_closed_candles"
+)
+
+
 def test_backtest_summary_report_exports_csv_rows(tmp_path: Path) -> None:
+    from app.application.services.market_data_sync_service import MarketDataSyncResult
+
     client, session, settings = build_client(tmp_path)
     try:
         store_closes(settings, [10, 10, 10, 10, 10, 9, 9, 9, 20])
 
-        response = client.get("/reports/backtest-summary.csv")
+        with patch(_SYNC_PATCH, return_value=MarketDataSyncResult(0, 0, None)):
+            response = client.get("/reports/backtest-summary.csv")
 
         assert response.status_code == 200
         rows = read_csv_rows(response.text)

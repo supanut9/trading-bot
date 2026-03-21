@@ -612,7 +612,11 @@ def test_control_result_includes_leverage_fields(monkeypatch) -> None:
     from datetime import UTC, datetime, timedelta  # noqa: PLC0415
     from decimal import Decimal  # noqa: PLC0415
 
-    settings = Settings(DATABASE_URL="sqlite:///./leverage_test.db")
+    settings = Settings(
+        DATABASE_URL="sqlite:///./leverage_test.db",
+        EXCHANGE_API_KEY="test-key",
+        EXCHANGE_API_SECRET="test-secret",
+    )
 
     start = datetime(2026, 1, 1, tzinfo=UTC)
     fake_candles = [
@@ -653,6 +657,10 @@ def test_control_result_includes_leverage_fields(monkeypatch) -> None:
     monkeypatch.setattr(
         "app.application.services.operational_control_service.BacktestRunHistoryService",
         FakeBacktestRunHistoryService,
+    )
+    monkeypatch.setattr(
+        "app.application.services.market_data_sync_service.MarketDataSyncService.sync_recent_closed_candles",
+        lambda *a, **kw: None,
     )
 
     class NullSession:

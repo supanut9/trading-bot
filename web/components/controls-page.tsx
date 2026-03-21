@@ -1,41 +1,32 @@
 "use client";
 
 import type { FormEvent } from "react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AlertTriangle,
-  ArrowUpFromLine,
-  CandlestickChart,
-  Database,
   Play,
   RefreshCcw,
-  Settings2,
   ShieldAlert,
   ShieldCheck,
   XCircle,
 } from "lucide-react";
 
-import { MarketCoveragePanel } from "@/components/market-coverage-panel";
 import { OperatorShell } from "@/components/operator-shell";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   getOperatorConfig,
-  getMarketDataCoverage,
   getQualification,
   getStatus,
   runLiveCancel,
   runLiveHalt,
   runLiveReconcile,
-  runMarketSync,
   runWorkerCycle,
   type LiveCancelControlResponse,
   type LiveHaltControlResponse,
   type LiveReconcileControlResponse,
-  type MarketDataCoverageResponse,
-  type MarketSyncControlResponse,
   type OperatorConfigResponse,
   type QualificationReportResponse,
   type StatusResponse,
@@ -43,21 +34,12 @@ import {
 } from "@/lib/api";
 import { formatDecimal, formatTimestamp } from "@/lib/format";
 
-type MarketSyncFormState = {
-  symbol: string;
-  timeframe: string;
-  limit: string;
-  backfill: boolean;
-};
-
 type CancelIdentifierType = "order_id" | "client_order_id" | "exchange_order_id";
 
 type LiveCancelFormState = {
   identifierType: CancelIdentifierType;
   value: string;
 };
-
-const timeframeOptions = ["5m", "15m", "1h", "4h", "1d"];
 
 function RuntimeConfigStrip({
   operatorConfig,
@@ -110,71 +92,6 @@ function RuntimeConfigStrip({
         <p className="mt-2 text-sm text-slate-300">
           Live controls remain operator-triggered and bounded to current backend policies.
         </p>
-      </div>
-    </div>
-  );
-}
-
-function ResultPanel({ result }: { result: MarketSyncControlResponse | null }) {
-  if (!result) {
-    return (
-      <div className="flex min-h-60 flex-col items-center justify-center rounded-[1.8rem] border border-dashed border-white/10 bg-white/[0.02] px-6 text-center">
-        <ArrowUpFromLine className="h-6 w-6 text-cyan-200" />
-        <p className="mt-4 text-sm font-medium text-white">No sync run yet</p>
-        <p className="mt-2 max-w-md text-sm text-slate-400">
-          Submit a market sync to inspect fetched candles, stored rows, and the latest closed
-          candle timestamp.
-        </p>
-      </div>
-    );
-  }
-
-  const resultVariant =
-    result.status === "failed" ? "danger" : result.backfill ? "warning" : "success";
-
-  return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-start justify-between gap-3 rounded-[1.8rem] border border-white/10 bg-white/[0.03] p-5">
-        <div>
-          <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Last Result</p>
-          <h3 className="mt-2 text-2xl font-semibold tracking-tight text-white">
-            {result.symbol} {result.timeframe}
-          </h3>
-          <p className="mt-2 text-sm text-slate-300">{result.detail}</p>
-        </div>
-        <div className="flex gap-2">
-          <Badge variant={resultVariant}>{result.status}</Badge>
-          <Badge variant="neutral">{result.backfill ? "Backfill" : "Append"}</Badge>
-        </div>
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-2">
-        <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-4">
-          <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Fetched</p>
-          <p className="mt-3 text-3xl font-semibold tracking-tight text-white">
-            {result.fetched_count}
-          </p>
-          <p className="mt-2 text-sm text-slate-400">Candles returned from the exchange adapter.</p>
-        </div>
-        <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-4">
-          <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Stored</p>
-          <p className="mt-3 text-3xl font-semibold tracking-tight text-white">
-            {result.stored_count}
-          </p>
-          <p className="mt-2 text-sm text-slate-400">Rows written or upserted into candle storage.</p>
-        </div>
-      </div>
-
-      <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-4">
-        <div className="flex flex-wrap items-center gap-3">
-          <Badge variant="info">Limit {result.limit}</Badge>
-          <Badge variant="neutral">
-            Latest {result.latest_open_time ? formatTimestamp(result.latest_open_time) : "n/a"}
-          </Badge>
-          <Badge variant={result.notified ? "success" : "neutral"}>
-            {result.notified ? "Notification sent" : "No notification"}
-          </Badge>
-        </div>
       </div>
     </div>
   );
@@ -399,17 +316,10 @@ function QualificationReportPanel({
 
 export function ControlsPage() {
   const queryClient = useQueryClient();
-  const [form, setForm] = useState<MarketSyncFormState>({
-    symbol: "",
-    timeframe: "",
-    limit: "300",
-    backfill: false,
-  });
   const [cancelForm, setCancelForm] = useState<LiveCancelFormState>({
     identifierType: "order_id",
     value: "",
   });
-  const [hasHydratedDefaults, setHasHydratedDefaults] = useState(false);
 
   const operatorConfigQuery = useQuery({
     queryKey: ["operator-config"],
@@ -426,31 +336,6 @@ export function ControlsPage() {
     queryFn: getQualification,
   });
 
-  const coverageQuery = useQuery<MarketDataCoverageResponse>({
-    queryKey: [
-      "market-data-coverage",
-      "controls",
-      operatorConfigQuery.data?.strategy_name ?? "ema_crossover",
-      form.symbol,
-      form.timeframe,
-      operatorConfigQuery.data?.fast_period ?? 0,
-      operatorConfigQuery.data?.slow_period ?? 0,
-    ],
-    enabled: Boolean(
-      operatorConfigQuery.data &&
-        form.symbol.trim() &&
-        form.timeframe.trim(),
-    ),
-    queryFn: () =>
-      getMarketDataCoverage({
-        strategy_name: operatorConfigQuery.data?.strategy_name ?? "ema_crossover",
-        symbol: form.symbol.trim(),
-        timeframe: form.timeframe.trim(),
-        fast_period: operatorConfigQuery.data?.fast_period,
-        slow_period: operatorConfigQuery.data?.slow_period,
-      }),
-  });
-
   async function invalidateOperationalQueries() {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ["status"] }),
@@ -459,11 +344,6 @@ export function ControlsPage() {
       queryClient.invalidateQueries({ queryKey: ["performance"] }),
     ]);
   }
-
-  const marketSyncMutation = useMutation({
-    mutationFn: runMarketSync,
-    onSuccess: invalidateOperationalQueries,
-  });
 
   const workerCycleMutation = useMutation({
     mutationFn: runWorkerCycle,
@@ -487,45 +367,6 @@ export function ControlsPage() {
       await invalidateOperationalQueries();
     },
   });
-
-  useEffect(() => {
-    if (!operatorConfigQuery.data || hasHydratedDefaults) {
-      return;
-    }
-
-    setForm((current) => ({
-      ...current,
-      symbol: operatorConfigQuery.data.symbol,
-      timeframe: operatorConfigQuery.data.timeframe,
-    }));
-    setHasHydratedDefaults(true);
-  }, [hasHydratedDefaults, operatorConfigQuery.data]);
-
-  function updateField<Key extends keyof MarketSyncFormState>(
-    key: Key,
-    value: MarketSyncFormState[Key],
-  ) {
-    setForm((current) => ({
-      ...current,
-      [key]: value,
-    }));
-  }
-
-  function handleMarketSyncSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-
-    const normalizedLimit = Number(form.limit);
-    if (!Number.isFinite(normalizedLimit) || normalizedLimit <= 0) {
-      return;
-    }
-
-    marketSyncMutation.mutate({
-      symbol: form.symbol.trim(),
-      timeframe: form.timeframe.trim(),
-      limit: normalizedLimit,
-      backfill: form.backfill,
-    });
-  }
 
   function handleLiveCancelSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -599,14 +440,6 @@ export function ControlsPage() {
           </div>
         )}
 
-        <MarketCoveragePanel
-          coverage={coverageQuery.data}
-          description="Use the stored-range view to decide whether you should sync more candles before the next replay."
-          errorMessage={coverageQuery.error instanceof Error ? coverageQuery.error.message : null}
-          isLoading={coverageQuery.isLoading}
-          title="Market Coverage"
-        />
-
         <div className="grid gap-5 xl:grid-cols-[minmax(0,1.1fr)_minmax(380px,0.9fr)]">
           <div className="space-y-5">
             <Card>
@@ -675,127 +508,6 @@ export function ControlsPage() {
                 </div>
 
                 <WorkerCycleResultPanel result={workerCycleMutation.data ?? null} />
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <div>
-                  <CardTitle>Run Market Sync</CardTitle>
-                  <CardDescription>
-                    Choose the market slice to fetch, then store only new candles or backfill a
-                    wider history window.
-                  </CardDescription>
-                </div>
-                <div className="rounded-2xl bg-amber-300/10 p-3 text-amber-100">
-                  <CandlestickChart className="h-5 w-5" />
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-5">
-                <form className="space-y-5" onSubmit={handleMarketSyncSubmit}>
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <label className="space-y-2">
-                      <span className="text-[11px] uppercase tracking-[0.18em] text-slate-400">
-                        Symbol
-                      </span>
-                      <input
-                        className="w-full rounded-2xl border border-white/10 bg-[#09121a] px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-300/40 focus:ring-2 focus:ring-cyan-300/10"
-                        onChange={(event) => updateField("symbol", event.target.value)}
-                        placeholder="BTC/USDT"
-                        required
-                        value={form.symbol}
-                      />
-                    </label>
-
-                    <label className="space-y-2">
-                      <span className="text-[11px] uppercase tracking-[0.18em] text-slate-400">
-                        Timeframe
-                      </span>
-                      <select
-                        className="w-full rounded-2xl border border-white/10 bg-[#09121a] px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-300/40 focus:ring-2 focus:ring-cyan-300/10"
-                        onChange={(event) => updateField("timeframe", event.target.value)}
-                        value={form.timeframe}
-                      >
-                        <option disabled value="">
-                          Select timeframe
-                        </option>
-                        {timeframeOptions.map((option) => (
-                          <option key={option} value={option}>
-                            {option}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                  </div>
-
-                  <div className="grid gap-4 md:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
-                    <label className="space-y-2">
-                      <span className="text-[11px] uppercase tracking-[0.18em] text-slate-400">
-                        Candle Limit
-                      </span>
-                      <input
-                        className="w-full rounded-2xl border border-white/10 bg-[#09121a] px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-300/40 focus:ring-2 focus:ring-cyan-300/10"
-                        max={1000}
-                        min={1}
-                        onChange={(event) => updateField("limit", event.target.value)}
-                        required
-                        type="number"
-                        value={form.limit}
-                      />
-                    </label>
-
-                    <div className="rounded-[1.6rem] border border-white/10 bg-white/[0.03] p-4">
-                      <div className="flex items-start gap-3">
-                        <div className="mt-1 rounded-xl bg-white/5 p-2 text-slate-200">
-                          <Database className="h-4 w-4" />
-                        </div>
-                        <div className="flex-1">
-                          <div className="flex items-center justify-between gap-3">
-                            <div>
-                              <p className="text-sm font-medium text-white">Backfill mode</p>
-                              <p className="mt-1 text-sm text-slate-400">
-                                Append stores only newer candles. Backfill upserts the full fetched
-                                window to fill older gaps too.
-                              </p>
-                            </div>
-                            <label className="inline-flex cursor-pointer items-center gap-2">
-                              <input
-                                checked={form.backfill}
-                                className="h-4 w-4 rounded border-white/20 bg-[#09121a] text-cyan-300 focus:ring-cyan-300/30"
-                                onChange={(event) => updateField("backfill", event.target.checked)}
-                                type="checkbox"
-                              />
-                            </label>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {marketSyncMutation.error instanceof Error ? (
-                    <div className="rounded-2xl border border-rose-400/25 bg-rose-400/10 px-4 py-3 text-sm text-rose-100">
-                      {marketSyncMutation.error.message}
-                    </div>
-                  ) : null}
-
-                  <div className="flex flex-wrap items-center gap-3">
-                    <button
-                      className="inline-flex items-center gap-2 rounded-2xl bg-cyan-300 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-cyan-200 disabled:cursor-not-allowed disabled:bg-slate-600 disabled:text-slate-300"
-                      disabled={marketSyncMutation.isPending}
-                      type="submit"
-                    >
-                      {marketSyncMutation.isPending ? (
-                        <RefreshCcw className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <ArrowUpFromLine className="h-4 w-4" />
-                      )}
-                      {marketSyncMutation.isPending ? "Syncing candles" : "Run market sync"}
-                    </button>
-                    <p className="text-sm text-slate-400">
-                      This fetches candle data only. It does not place orders or run the worker.
-                    </p>
-                  </div>
-                </form>
               </CardContent>
             </Card>
 
@@ -992,68 +704,6 @@ export function ControlsPage() {
             </Card>
           </div>
 
-          <div className="space-y-5">
-            <Card>
-              <CardHeader>
-                <div>
-                  <CardTitle>Operator Guidance</CardTitle>
-                  <CardDescription>
-                    Keep the sync action predictable and separate from trading decisions.
-                  </CardDescription>
-                </div>
-                <div className="rounded-2xl bg-white/5 p-3 text-slate-200">
-                  <Settings2 className="h-5 w-5" />
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-3 text-sm text-slate-300">
-                <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-                  <p className="font-medium text-white">Append</p>
-                  <p className="mt-2">
-                    Use the default append mode for normal updates. The sync targets the newest
-                    candles and avoids re-importing an already stored range.
-                  </p>
-                </div>
-                <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-                  <p className="font-medium text-white">Backfill</p>
-                  <p className="mt-2">
-                    Use backfill when you need deeper history for replay analysis or when a market
-                    gap should be filled explicitly.
-                  </p>
-                </div>
-                <div className="rounded-2xl border border-cyan-300/15 bg-cyan-300/5 p-4">
-                  <p className="font-medium text-white">Runtime defaults stay unchanged</p>
-                  <p className="mt-2">
-                    This form overrides market inputs for the sync run only. Change operator
-                    defaults separately if you want the worker and status surfaces to switch too.
-                  </p>
-                </div>
-                <div className="rounded-2xl border border-amber-300/15 bg-amber-300/5 p-4">
-                  <p className="font-medium text-white">Live safety remains backend-owned</p>
-                  <p className="mt-2">
-                    The browser surfaces current posture and explicit controls, but duplicate-order
-                    checks, size limits, and fail-closed behavior remain in Python.
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <div>
-                  <CardTitle>Last Sync Outcome</CardTitle>
-                  <CardDescription>
-                    Result details from the most recent sync submitted from this UI session.
-                  </CardDescription>
-                </div>
-                <div className="rounded-2xl bg-cyan-300/10 p-3 text-cyan-200">
-                  <Database className="h-5 w-5" />
-                </div>
-              </CardHeader>
-              <CardContent>
-                <ResultPanel result={marketSyncMutation.data ?? null} />
-              </CardContent>
-            </Card>
-          </div>
         </div>
       </div>
     </OperatorShell>

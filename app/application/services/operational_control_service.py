@@ -589,6 +589,74 @@ class OperationalControlService:
             if record_history:
                 self._backtest_runs.record_run(source=source, result=control_result)
             return control_result
+        required_candles = self._required_candles_for_options(resolved)
+        sync_limit = required_candles + 100
+
+        if not self._settings.exchange_api_key or not self._settings.exchange_api_secret:
+            control_result = BacktestControlResult(
+                status="failed",
+                detail=(
+                    "exchange_api_not_configured: set EXCHANGE_API_KEY and "
+                    "EXCHANGE_API_SECRET to enable auto-sync"
+                ),
+                notified=False,
+                strategy_name=resolved.strategy_name,
+                exchange=resolved.exchange,
+                symbol=resolved.symbol,
+                timeframe=resolved.timeframe,
+                fast_period=resolved.fast_period,
+                slow_period=resolved.slow_period,
+                starting_equity_input=self._quantize_decimal(resolved.starting_equity)
+                or Decimal("0"),
+                candle_count=0,
+                required_candles=required_candles,
+                rules=resolved.rules,
+                trading_mode=resolved.trading_mode,
+            )
+            if audit:
+                self._audit.record_control_result(
+                    control_type="backtest",
+                    source=source,
+                    status=control_result.status,
+                    detail=control_result.detail,
+                    settings=self._settings,
+                    payload={
+                        "strategy_name": control_result.strategy_name,
+                        "exchange": control_result.exchange,
+                        "symbol": control_result.symbol,
+                        "timeframe": control_result.timeframe,
+                        "candle_count": 0,
+                        "required_candles": required_candles,
+                        "notified": False,
+                    },
+                )
+            if record_history:
+                self._backtest_runs.record_run(source=source, result=control_result)
+            return control_result
+
+        with self._session_factory() as session:
+            try:
+                MarketDataSyncService(
+                    session, build_market_data_exchange_client(self._settings)
+                ).sync_recent_closed_candles(
+                    exchange=resolved.exchange,
+                    symbol=resolved.symbol,
+                    timeframe=resolved.timeframe,
+                    limit=sync_limit,
+                    backfill=True,
+                )
+                session.commit()
+            except Exception as exc:
+                from app.core.logger import get_logger as _get_logger
+
+                _get_logger(__name__).warning(
+                    "backtest_auto_sync_failed exchange=%s symbol=%s timeframe=%s error=%s",
+                    resolved.exchange,
+                    resolved.symbol,
+                    resolved.timeframe,
+                    exc,
+                )
+
         with self._session_factory() as session:
             records = MarketDataService(session).list_historical_candles(
                 exchange=resolved.exchange,
@@ -596,7 +664,6 @@ class OperationalControlService:
                 timeframe=resolved.timeframe,
             )
             candle_count = len(records)
-            required_candles = self._required_candles_for_options(resolved)
 
             if not records:
                 backtest_result = None

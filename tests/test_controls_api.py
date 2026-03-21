@@ -31,6 +31,8 @@ def build_client(tmp_path: Path) -> tuple[TestClient, Settings]:
         STRATEGY_SLOW_PERIOD=5,
         MARKET_DATA_SYNC_ENABLED=False,
         NOTIFICATION_CHANNEL="none",
+        EXCHANGE_API_KEY="test-key",
+        EXCHANGE_API_SECRET="test-secret",
     )
     engine = create_engine_from_settings(settings)
     Base.metadata.create_all(bind=engine)
@@ -146,10 +148,17 @@ def test_worker_cycle_control_executes_and_persists_trade(tmp_path: Path) -> Non
         teardown_client()
 
 
+_SYNC_PATCH = (
+    "app.application.services.market_data_sync_service"
+    ".MarketDataSyncService.sync_recent_closed_candles"
+)
+
+
 def test_backtest_control_returns_skipped_when_no_candles_exist(tmp_path: Path) -> None:
     client, settings = build_client(tmp_path)
     try:
-        response = client.post("/controls/backtest")
+        with patch(_SYNC_PATCH, return_value=MarketDataSyncResult(0, 0, None)):
+            response = client.post("/controls/backtest")
 
         assert response.status_code == 200
         payload = response.json()
@@ -176,7 +185,8 @@ def test_backtest_control_returns_summary_for_completed_run(tmp_path: Path) -> N
     try:
         store_closes(settings, [10, 10, 10, 10, 10, 9, 9, 9, 20])
 
-        response = client.post("/controls/backtest")
+        with patch(_SYNC_PATCH, return_value=MarketDataSyncResult(0, 0, None)):
+            response = client.post("/controls/backtest")
 
         assert response.status_code == 200
         payload = response.json()
@@ -230,17 +240,18 @@ def test_backtest_control_accepts_explicit_run_options(tmp_path: Path) -> None:
         finally:
             session.close()
 
-        response = client.post(
-            "/controls/backtest",
-            json={
-                "strategy_name": "ema_crossover",
-                "symbol": "ETH/USDT",
-                "timeframe": "4h",
-                "fast_period": 3,
-                "slow_period": 5,
-                "starting_equity": "15000",
-            },
-        )
+        with patch(_SYNC_PATCH, return_value=MarketDataSyncResult(0, 0, None)):
+            response = client.post(
+                "/controls/backtest",
+                json={
+                    "strategy_name": "ema_crossover",
+                    "symbol": "ETH/USDT",
+                    "timeframe": "4h",
+                    "fast_period": 3,
+                    "slow_period": 5,
+                    "starting_equity": "15000",
+                },
+            )
 
         assert response.status_code == 200
         payload = response.json()
@@ -260,40 +271,41 @@ def test_backtest_control_accepts_rule_builder_options(tmp_path: Path) -> None:
     try:
         store_closes(settings, [10, 10, 10, 10, 10, 9, 9, 9, 20])
 
-        response = client.post(
-            "/controls/backtest",
-            json={
-                "strategy_name": "rule_builder",
-                "symbol": settings.default_symbol,
-                "timeframe": settings.default_timeframe,
-                "starting_equity": "100",
-                "rules": {
-                    "shared_filters": {"logic": "all", "conditions": []},
-                    "buy_rules": {
-                        "logic": "all",
-                        "conditions": [
-                            {
-                                "indicator": "ema_cross",
-                                "operator": "bullish",
-                                "fast_period": 3,
-                                "slow_period": 5,
-                            }
-                        ],
-                    },
-                    "sell_rules": {
-                        "logic": "all",
-                        "conditions": [
-                            {
-                                "indicator": "ema_cross",
-                                "operator": "bearish",
-                                "fast_period": 3,
-                                "slow_period": 5,
-                            }
-                        ],
+        with patch(_SYNC_PATCH, return_value=MarketDataSyncResult(0, 0, None)):
+            response = client.post(
+                "/controls/backtest",
+                json={
+                    "strategy_name": "rule_builder",
+                    "symbol": settings.default_symbol,
+                    "timeframe": settings.default_timeframe,
+                    "starting_equity": "100",
+                    "rules": {
+                        "shared_filters": {"logic": "all", "conditions": []},
+                        "buy_rules": {
+                            "logic": "all",
+                            "conditions": [
+                                {
+                                    "indicator": "ema_cross",
+                                    "operator": "bullish",
+                                    "fast_period": 3,
+                                    "slow_period": 5,
+                                }
+                            ],
+                        },
+                        "sell_rules": {
+                            "logic": "all",
+                            "conditions": [
+                                {
+                                    "indicator": "ema_cross",
+                                    "operator": "bearish",
+                                    "fast_period": 3,
+                                    "slow_period": 5,
+                                }
+                            ],
+                        },
                     },
                 },
-            },
-        )
+            )
 
         assert response.status_code == 200
         payload = response.json()
