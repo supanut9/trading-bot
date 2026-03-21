@@ -294,14 +294,52 @@ function FeatureSelector({
   );
 }
 
+function ModelDetailPanel({ model }: { model: ModelStatusItem }) {
+  const hasMeta = model.label_type !== null;
+  if (!hasMeta) {
+    return <p className="text-xs text-slate-500 italic">No metadata available (legacy model).</p>;
+  }
+  return (
+    <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-xs md:grid-cols-3">
+      <div><span className="text-slate-500">Model type</span><p className="text-white">{model.model_type}</p></div>
+      <div><span className="text-slate-500">Label type</span><p className="text-white">{model.label_type}</p></div>
+      <div><span className="text-slate-500">Horizon</span><p className="text-white">{model.label_horizon} candles</p></div>
+      <div><span className="text-slate-500">Threshold</span><p className="text-white">{model.label_threshold !== null ? `${((model.label_threshold) * 100).toFixed(2)}%` : "—"}</p></div>
+      <div><span className="text-slate-500">Buy signal</span><p className="text-white">p ≥ {model.buy_threshold}</p></div>
+      <div><span className="text-slate-500">Sell signal</span><p className="text-white">p ≤ {model.sell_threshold}</p></div>
+      <div><span className="text-slate-500">Samples</span><p className="text-white">{model.sample_count} ({model.train_count} train / {model.test_count} test)</p></div>
+      <div><span className="text-slate-500">OOS from</span><p className="text-white">#{model.oos_start_index}</p></div>
+      <div><span className="text-slate-500">Accuracy</span><p className="text-white">{model.accuracy !== null ? `${((model.accuracy ?? 0) * 100).toFixed(2)}%` : "—"}</p></div>
+      <div><span className="text-slate-500">ROC-AUC</span><p className="text-white">{model.roc_auc !== null ? (model.roc_auc ?? 0).toFixed(4) : "—"}</p></div>
+      <div className="col-span-2 md:col-span-3">
+        <span className="text-slate-500">Features ({model.feature_names?.length ?? 0})</span>
+        <p className="mt-1 flex flex-wrap gap-1">
+          {model.feature_names?.map((f) => (
+            <span className="rounded-md bg-white/[0.06] px-1.5 py-0.5 font-mono text-slate-300" key={f}>{f}</span>
+          ))}
+        </p>
+      </div>
+      <div className="col-span-2 md:col-span-3">
+        <span className="text-slate-500">File</span>
+        <p className="mt-0.5 break-all font-mono text-slate-400">{model.model_path}</p>
+      </div>
+    </div>
+  );
+}
+
 function ExistingModelsCard() {
   const queryClient = useQueryClient();
+  const [expandedKey, setExpandedKey] = useState<string | null>(null);
   const modelStatusQuery = useQuery({
     queryKey: ["model-status"],
     queryFn: getModelStatus,
   });
 
   const models: ModelStatusItem[] = modelStatusQuery.data?.models ?? [];
+
+  function rowKey(m: ModelStatusItem) {
+    return `${m.model_type}-${m.symbol}-${m.timeframe}`;
+  }
 
   return (
     <Card className="border-white/10 bg-[rgba(6,10,14,0.92)]">
@@ -330,28 +368,46 @@ function ExistingModelsCard() {
               <TableRow className="border-white/10">
                 <TableHead className="text-slate-400">Symbol</TableHead>
                 <TableHead className="text-slate-400">Timeframe</TableHead>
-                <TableHead className="text-slate-400">File</TableHead>
+                <TableHead className="text-slate-400">Type</TableHead>
+                <TableHead className="text-right text-slate-400">AUC</TableHead>
                 <TableHead className="text-right text-slate-400">Size</TableHead>
+                <TableHead className="w-6" />
               </TableRow>
             </TableHeader>
             <TableBody>
-              {models.map((model) => (
-                <TableRow
-                  className="border-white/10 hover:bg-white/[0.02]"
-                  key={`${model.symbol}-${model.timeframe}`}
-                >
-                  <TableCell className="font-medium text-white">{model.symbol}</TableCell>
-                  <TableCell className="text-slate-300">{model.timeframe}</TableCell>
-                  <TableCell className="max-w-xs truncate text-xs text-slate-400">
-                    {model.model_path}
-                  </TableCell>
-                  <TableCell className="text-right text-slate-300">
-                    {model.exists && model.file_size_kb !== null
-                      ? `${model.file_size_kb.toFixed(1)} KB`
-                      : "—"}
-                  </TableCell>
-                </TableRow>
-              ))}
+              {models.map((model) => {
+                const key = rowKey(model);
+                const isOpen = expandedKey === key;
+                return (
+                  <>
+                    <TableRow
+                      className="cursor-pointer border-white/10 hover:bg-white/[0.03]"
+                      key={key}
+                      onClick={() => setExpandedKey(isOpen ? null : key)}
+                    >
+                      <TableCell className="font-medium text-white">{model.symbol}</TableCell>
+                      <TableCell className="text-slate-300">{model.timeframe}</TableCell>
+                      <TableCell className="text-slate-400 text-xs">{model.model_type}</TableCell>
+                      <TableCell className="text-right text-slate-300">
+                        {model.roc_auc !== null ? (model.roc_auc ?? 0).toFixed(4) : "—"}
+                      </TableCell>
+                      <TableCell className="text-right text-slate-300">
+                        {model.file_size_kb !== null ? `${model.file_size_kb.toFixed(1)} KB` : "—"}
+                      </TableCell>
+                      <TableCell className="text-slate-500">
+                        {isOpen ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                      </TableCell>
+                    </TableRow>
+                    {isOpen && (
+                      <TableRow className="border-white/10" key={`${key}-detail`}>
+                        <TableCell className="bg-white/[0.02] pb-4 pt-3" colSpan={6}>
+                          <ModelDetailPanel model={model} />
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </>
+                );
+              })}
             </TableBody>
           </Table>
         )}

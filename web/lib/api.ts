@@ -721,9 +721,22 @@ export type TrainModelResponse = {
 export type ModelStatusItem = {
   symbol: string;
   timeframe: string;
+  model_type: string;
   model_path: string;
   exists: boolean;
   file_size_kb: number | null;
+  label_type: string | null;
+  label_horizon: number | null;
+  label_threshold: number | null;
+  feature_names: string[] | null;
+  buy_threshold: number | null;
+  sell_threshold: number | null;
+  sample_count: number | null;
+  train_count: number | null;
+  test_count: number | null;
+  oos_start_index: number | null;
+  accuracy: number | null;
+  roc_auc: number | null;
 };
 
 export type ModelStatusResponse = {

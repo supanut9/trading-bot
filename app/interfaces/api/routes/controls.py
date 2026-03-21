@@ -393,28 +393,63 @@ def train_model(
     status_code=status.HTTP_200_OK,
 )
 def model_status() -> ModelStatusResponse:
+    import json
     from pathlib import Path
 
     models_dir = Path("models")
     items: list[ModelStatusItem] = []
-    if models_dir.exists():
-        for path in sorted(models_dir.glob("xgboost_*.json")):
-            # Filename pattern: xgboost_btcusdt_1h.json
-            parts = path.stem.split("_")  # ["xgboost", "btcusdt", "1h"]
-            timeframe = parts[-1] if len(parts) >= 3 else "unknown"
-            raw_symbol = (
-                "_".join(parts[1:-1])
-                if len(parts) >= 3
-                else (parts[1] if len(parts) >= 2 else "unknown")
-            )
+    if not models_dir.exists():
+        return ModelStatusResponse(models=items)
+
+    # Scan all supported model file extensions
+    patterns = [("xgboost", "*.json"), ("lightgbm", "*.json"), ("random_forest", "*.pkl")]
+    seen: set[str] = set()
+    for _model_type_hint, glob_pattern in patterns:
+        for path in sorted(models_dir.glob(glob_pattern)):
+            if str(path) in seen:
+                continue
+            seen.add(str(path))
+
+            # Filename: {model_type}_{symbol}_{timeframe}.{ext}
+            parts = path.stem.split("_")
+            if len(parts) < 3:
+                continue
+            model_type = parts[0]
+            timeframe = parts[-1]
+            raw_symbol = "_".join(parts[1:-1])
+
             size_kb = round(path.stat().st_size / 1024, 1)
+
+            # Read sidecar metadata if present
+            meta: dict = {}
+            meta_path = path.with_suffix(".meta.json")
+            if meta_path.exists():
+                try:
+                    with meta_path.open() as f:
+                        meta = json.load(f)
+                except Exception:
+                    pass
+
             items.append(
                 ModelStatusItem(
-                    symbol=raw_symbol.upper(),
-                    timeframe=timeframe,
+                    symbol=meta.get("symbol", raw_symbol.upper()),
+                    timeframe=meta.get("timeframe", timeframe),
+                    model_type=meta.get("model_type", model_type),
                     model_path=str(path),
                     exists=True,
                     file_size_kb=size_kb,
+                    label_type=meta.get("label_type"),
+                    label_horizon=meta.get("label_horizon"),
+                    label_threshold=meta.get("label_threshold"),
+                    feature_names=meta.get("feature_names"),
+                    buy_threshold=meta.get("buy_threshold"),
+                    sell_threshold=meta.get("sell_threshold"),
+                    sample_count=meta.get("sample_count"),
+                    train_count=meta.get("train_count"),
+                    test_count=meta.get("test_count"),
+                    oos_start_index=meta.get("oos_start_index"),
+                    accuracy=meta.get("accuracy"),
+                    roc_auc=meta.get("roc_auc"),
                 )
             )
     return ModelStatusResponse(models=items)

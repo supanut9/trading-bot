@@ -430,9 +430,23 @@ class TrainModelResponse(BaseModel):
 class ModelStatusItem(BaseModel):
     symbol: str
     timeframe: str
+    model_type: str
     model_path: str
     exists: bool
     file_size_kb: float | None = None
+    # sidecar metadata (None if no .meta.json)
+    label_type: str | None = None
+    label_horizon: int | None = None
+    label_threshold: float | None = None
+    feature_names: list[str] | None = None
+    buy_threshold: float | None = None
+    sell_threshold: float | None = None
+    sample_count: int | None = None
+    train_count: int | None = None
+    test_count: int | None = None
+    oos_start_index: int | None = None
+    accuracy: float | None = None
+    roc_auc: float | None = None
 
 
 class ModelStatusResponse(BaseModel):
