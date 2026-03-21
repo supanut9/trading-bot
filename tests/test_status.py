@@ -36,8 +36,10 @@ def test_status_endpoint_returns_bootstrap_configuration() -> None:
     assert payload["live_max_position_quantity"] is None
     assert payload["database_status"] in {"available", "unavailable"}
     assert payload["latest_price_status"] in {"available", "unavailable"}
-    assert payload["account_balance_status"] == "disabled"
-    assert payload["account_balances"] == []
+    assert payload["account_balance_status"] == "simulated"
+    assert len(payload["account_balances"]) == 1
+    assert payload["account_balances"][0]["asset"] == "USDT"
+    assert "10000.0" in payload["account_balances"][0]["free"]
 
 
 def test_status_endpoint_returns_live_account_balances_when_enabled(
@@ -85,7 +87,7 @@ def test_status_endpoint_returns_live_account_balances_when_enabled(
 
     monkeypatch.setattr(
         "app.application.services.status_service.build_live_order_exchange_client",
-        lambda _settings: FakeClient(),
+        lambda _settings, **kwargs: FakeClient(),
     )
     monkeypatch.setattr(
         "app.application.services.status_service.build_market_data_exchange_client",

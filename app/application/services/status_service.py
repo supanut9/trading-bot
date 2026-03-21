@@ -18,7 +18,7 @@ class StatusService:
         self._settings = settings
         self._session = session
 
-    def get_status(self) -> dict[str, str | bool | list[dict[str, str]]]:
+    def get_status(self) -> dict[str, str | bool | int | list[dict[str, str]] | None]:
         database_status = self._get_database_status()
         effective_live_halt = self._effective_live_trading_halted()
         effective_operator_config = self._effective_operator_config()
@@ -37,7 +37,8 @@ class StatusService:
         account_balances: list[dict[str, str]] = []
         if self._settings.live_trading_enabled:
             try:
-                client = build_live_order_exchange_client(self._settings)
+                trading_mode = effective_operator_config.get("trading_mode")
+                client = build_live_order_exchange_client(self._settings, trading_mode=trading_mode)
                 balances = ExchangeBalanceService(
                     self._settings,
                     client=client,
@@ -53,6 +54,30 @@ class StatusService:
                 ]
             except Exception:
                 balance_status = "unavailable"
+        elif self._settings.paper_trading:
+            from sqlalchemy import func, select
+
+            from app.infrastructure.database.models.position import PositionRecord
+
+            paper_pnl = 0.0
+            if self._session is not None:
+                try:
+                    stmt = select(func.sum(PositionRecord.realized_pnl)).where(
+                        PositionRecord.mode == "paper"
+                    )
+                    paper_pnl = float(self._session.execute(stmt).scalar() or 0.0)
+                except Exception:
+                    pass
+
+            simulated_equity = self._settings.paper_account_equity + paper_pnl
+            balance_status = "simulated"
+            account_balances = [
+                {
+                    "asset": "USDT",
+                    "free": format(simulated_equity, "f"),
+                    "locked": "0.000000",
+                }
+            ]
         return {
             "app": self._settings.app_name,
             "environment": self._settings.app_env,
@@ -78,6 +103,7 @@ class StatusService:
             "fast_period": effective_operator_config["fast_period"],
             "slow_period": effective_operator_config["slow_period"],
             "operator_config_source": effective_operator_config["source"],
+            "trading_mode": effective_operator_config.get("trading_mode", "SPOT"),
             "database_url": self._settings.database_url,
             "database_status": database_status,
             "latest_price_status": latest_price_status,
@@ -117,6 +143,7 @@ class StatusService:
                 "timeframe": self._settings.default_timeframe,
                 "fast_period": self._settings.strategy_fast_period,
                 "slow_period": self._settings.strategy_slow_period,
+                "trading_mode": self._settings.trading_mode,
                 "source": "settings",
             }
         try:
@@ -130,6 +157,7 @@ class StatusService:
                 "timeframe": config.timeframe,
                 "fast_period": config.fast_period,
                 "slow_period": config.slow_period,
+                "trading_mode": config.trading_mode,
                 "source": config.source,
             }
         except SQLAlchemyError:
@@ -140,6 +168,7 @@ class StatusService:
                 "timeframe": self._settings.default_timeframe,
                 "fast_period": self._settings.strategy_fast_period,
                 "slow_period": self._settings.strategy_slow_period,
+                "trading_mode": self._settings.trading_mode,
                 "source": "settings",
             }
 
