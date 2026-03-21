@@ -87,6 +87,7 @@ export type TradeResponse = {
   price: string;
   fee_amount: string | null;
   fee_asset: string | null;
+  created_at: string;
 };
 
 export type OperatorConfigResponse = {

@@ -28,6 +28,7 @@ class StatusResponse(BaseModel):
     fast_period: int
     slow_period: int
     operator_config_source: str
+    trading_mode: str | None = None
     database_url: str
     database_status: str
     latest_price_status: str
@@ -59,6 +60,7 @@ class TradeResponse(BaseModel):
     price: Decimal
     fee_amount: Decimal | None
     fee_asset: str | None
+    created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
 
