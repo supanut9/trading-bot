@@ -403,3 +403,167 @@ def test_leverage_stored_in_result() -> None:
 
     assert result.leverage == 7
     assert result.margin_mode == "CROSS"
+
+
+# ── Stop-loss tests ──────────────────────────────────────────────────────────
+
+
+def _make_stop_candles(
+    *,
+    warmup: int = 15,
+    warmup_high: int = 102,
+    warmup_low: int = 98,
+    warmup_close: int = 100,
+    entry_close: int = 105,
+    extra: list[tuple[int, int, int]] | None = None,  # (close, high, low) tuples
+) -> list[Candle]:
+    """Build a candle sequence where entry fires on a unique close price after warm-up."""
+    start = datetime(2026, 1, 1, tzinfo=UTC)
+    candles: list[Candle] = []
+    for i in range(warmup):
+        t = start + timedelta(hours=i)
+        candles.append(
+            Candle(
+                open_time=t,
+                close_time=t + timedelta(hours=1),
+                open_price=Decimal(warmup_close),
+                high_price=Decimal(warmup_high),
+                low_price=Decimal(warmup_low),
+                close_price=Decimal(warmup_close),
+                volume=Decimal("1"),
+            )
+        )
+    # Entry candle — distinct close so strategy only fires here
+    t_entry = start + timedelta(hours=warmup)
+    candles.append(
+        Candle(
+            open_time=t_entry,
+            close_time=t_entry + timedelta(hours=1),
+            open_price=Decimal(entry_close),
+            high_price=Decimal(entry_close + 1),
+            low_price=Decimal(entry_close - 1),
+            close_price=Decimal(entry_close),
+            volume=Decimal("1"),
+        )
+    )
+    for offset, (close, high, low) in enumerate(extra or [], start=1):
+        t = start + timedelta(hours=warmup + offset)
+        candles.append(
+            Candle(
+                open_time=t,
+                close_time=t + timedelta(hours=1),
+                open_price=Decimal(close),
+                high_price=Decimal(high),
+                low_price=Decimal(low),
+                close_price=Decimal(close),
+                volume=Decimal("1"),
+            )
+        )
+    return candles
+
+
+class BuyAtPriceStrategy:
+    """Buys when close == trigger, never sells (tests stop-loss exits)."""
+
+    def __init__(self, trigger: int) -> None:
+        self.trigger = trigger
+
+    def evaluate(self, candles: list[Candle]) -> Signal | None:
+        if candles[-1].close_price == Decimal(self.trigger):
+            return Signal(action="buy", reason="entry", fast_value=None, slow_value=None)
+        return None
+
+
+def test_stop_loss_triggers_when_price_drops_below_stop() -> None:
+    """15 warm-up (ATR≈4), entry at 105, stop≈97. Drop candle low=80 → stop hit."""
+    # ATR ≈ 4 (range 98-102), stop = 105 - 2*4 = 97; drop low=80 breaches it
+    candles = _make_stop_candles(
+        warmup=15,
+        warmup_high=102,
+        warmup_low=98,
+        warmup_close=100,
+        entry_close=105,
+        extra=[(105, 106, 80)],  # drop candle: low=80 breaches stop
+    )
+    result = BacktestService(
+        strategy=BuyAtPriceStrategy(trigger=105),
+        starting_equity=Decimal("10000"),
+        stop_loss_atr_multiplier=Decimal("2"),
+        stop_loss_atr_period=14,
+        trailing_stop_enabled=False,
+    ).run(candles)
+
+    assert result.stop_loss_count == 1
+    stop_exec = next(e for e in result.executions if e.reason == "stop_loss")
+    assert stop_exec.action == "sell"
+    assert stop_exec.realized_pnl < Decimal("0")
+
+
+def test_stop_loss_not_triggered_when_low_stays_above_stop() -> None:
+    """Drop candle low=100 stays above stop≈97 — no stop exit."""
+    candles = _make_stop_candles(
+        warmup=15,
+        warmup_high=102,
+        warmup_low=98,
+        warmup_close=100,
+        entry_close=105,
+        extra=[(103, 106, 100)],  # low=100 > stop≈97
+    )
+    result = BacktestService(
+        strategy=BuyAtPriceStrategy(trigger=105),
+        starting_equity=Decimal("10000"),
+        stop_loss_atr_multiplier=Decimal("2"),
+        stop_loss_atr_period=14,
+        trailing_stop_enabled=False,
+    ).run(candles)
+
+    assert result.stop_loss_count == 0
+
+
+def test_stop_loss_disabled_when_multiplier_is_zero() -> None:
+    """multiplier=0 → no stop set; extreme price drop does not trigger exit."""
+    candles = _make_stop_candles(
+        warmup=15,
+        entry_close=105,
+        extra=[(50, 105, 50)],  # catastrophic drop
+    )
+    result = BacktestService(
+        strategy=BuyAtPriceStrategy(trigger=105),
+        starting_equity=Decimal("10000"),
+        stop_loss_atr_multiplier=Decimal("0"),
+    ).run(candles)
+
+    assert result.stop_loss_count == 0
+    assert not any(e.reason == "stop_loss" for e in result.executions)
+
+
+def test_trailing_stop_ratchets_up_and_protects_profit() -> None:
+    """Entry at 105, price rises to 125, trailing stop ratchets, then sharp drop exits."""
+    # ATR ≈ 2 (range 99-101); initial stop = 105 - 2*2 = 101
+    # After rising to 125: trailing stop = 125 - 2*~2 ≈ 121 (above entry) → profit locked
+    candles = _make_stop_candles(
+        warmup=15,
+        warmup_high=101,
+        warmup_low=99,
+        warmup_close=100,
+        entry_close=105,
+        extra=[
+            (109, 110, 108),
+            (113, 114, 112),
+            (117, 118, 116),
+            (121, 122, 120),
+            (125, 126, 124),
+            (125, 126, 95),  # sharp drop: low=95 breaches ratcheted trailing stop
+        ],
+    )
+    result = BacktestService(
+        strategy=BuyAtPriceStrategy(trigger=105),
+        starting_equity=Decimal("10000"),
+        stop_loss_atr_multiplier=Decimal("2"),
+        stop_loss_atr_period=14,
+        trailing_stop_enabled=True,
+    ).run(candles)
+
+    assert result.stop_loss_count == 1
+    stop_exec = next(e for e in result.executions if e.reason == "stop_loss")
+    assert stop_exec.realized_pnl > Decimal("0"), "trailing stop should lock in profit"

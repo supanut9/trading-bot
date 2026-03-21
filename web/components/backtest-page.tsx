@@ -871,6 +871,9 @@ function ResultPanel({
           {result.trading_mode === "FUTURES" && result.liquidation_count != null && result.liquidation_count > 0 ? (
             <Badge variant="danger">{result.liquidation_count} Liquidation{result.liquidation_count > 1 ? "s" : ""}</Badge>
           ) : null}
+          {result.stop_loss_count > 0 ? (
+            <Badge variant="warning">{result.stop_loss_count} Stop-Out{result.stop_loss_count > 1 ? "s" : ""}</Badge>
+          ) : null}
         </div>
         {result.executions.length > 0 ? (
           <Table>

@@ -142,8 +142,20 @@ class WorkerOrchestrationService:
             )
             return WorkerCycleResult(status="no_candles", detail="not enough candles")
 
-        mark_price = max(candles, key=lambda c: c.open_time).close_price
+        latest_candle = max(candles, key=lambda c: c.open_time)
+        mark_price = latest_candle.close_price
         self._mark_open_position_to_market(mark_price)
+
+        current_position = self._positions.get(
+            exchange=self._settings.exchange_name,
+            symbol=self._symbol,
+            trading_mode=self._settings.trading_mode,
+            mode=self._trading_mode,
+        )
+        stop_result = self._check_and_execute_stop_exit(current_position, mark_price)
+        if stop_result is not None:
+            return stop_result
+        self._update_trailing_stop(current_position, mark_price, candles)
 
         if self._trading_mode == "live" and self._settings.live_order_routing_mode == "limit":
             from app.application.services.smart_order_fallback_service import (
@@ -220,13 +232,6 @@ class WorkerOrchestrationService:
             )
             return WorkerCycleResult(status="no_signal", detail="strategy produced no signal")
 
-        current_position = self._positions.get(
-            exchange=self._settings.exchange_name,
-            symbol=self._symbol,
-            trading_mode=self._settings.trading_mode,
-            mode=self._trading_mode,
-        )
-        latest_candle = max(candles, key=lambda candle: candle.open_time)
         client_order_id = self._build_client_order_id(signal, latest_candle.close_time)
         if self._orders.get_by_client_order_id(client_order_id) is not None:
             logger.info(
@@ -456,6 +461,9 @@ class WorkerOrchestrationService:
                 signal_action=signal.action,
                 client_order_id=client_order_id,
             )
+        if signal.action == "buy":
+            self._set_position_stop(latest_price, candles)
+
         if self._trading_mode == "shadow":
             logger.info(
                 "worker_cycle_shadow exchange=%s symbol=%s signal=%s "
@@ -571,6 +579,170 @@ class WorkerOrchestrationService:
             execution_mode=mode,  # type: ignore
             trading_mode=self._settings.trading_mode,  # type: ignore
         )
+
+    def _check_and_execute_stop_exit(
+        self,
+        position: PositionRecord | None,
+        mark_price: Decimal,
+    ) -> WorkerCycleResult | None:
+        if position is None or position.quantity <= Decimal("0"):
+            return None
+        if position.stop_loss_price is None:
+            return None
+        if self._settings.stop_loss_atr_multiplier <= 0:
+            return None
+        triggered = (position.side == "long" and mark_price <= position.stop_loss_price) or (
+            position.side == "short" and mark_price >= position.stop_loss_price
+        )
+        if not triggered:
+            return None
+        logger.info(
+            "stop_loss_triggered exchange=%s symbol=%s side=%s stop=%s price=%s quantity=%s",
+            self._settings.exchange_name,
+            self._symbol,
+            position.side,
+            position.stop_loss_price,
+            mark_price,
+            position.quantity,
+        )
+        side = "sell" if position.side == "long" else "buy"
+        from datetime import datetime as _dt
+
+        client_order_id = (
+            f"stop-{self._trading_mode}-{self._symbol.replace('/', '-').lower()}"
+            f"-{_dt.now().strftime('%Y%m%d%H%M%S')}"
+        )
+        try:
+            self._execution.execute(
+                PaperExecutionRequest(
+                    exchange=self._settings.exchange_name,
+                    symbol=self._symbol,
+                    side=side,
+                    quantity=position.quantity,
+                    price=mark_price,
+                    mode=self._trading_mode,
+                    trading_mode=self._settings.trading_mode,
+                    client_order_id=client_order_id,
+                    submitted_reason="stop_loss_hit",
+                )
+            )
+        except Exception as exc:
+            logger.error(
+                "stop_loss_execution_failed exchange=%s symbol=%s error=%s",
+                self._settings.exchange_name,
+                self._symbol,
+                exc,
+            )
+            return None
+        return WorkerCycleResult(
+            status="stop_loss_exit",
+            detail=f"position closed by stop loss at {mark_price}",
+            signal_action=side,
+            client_order_id=client_order_id,
+            position_quantity=Decimal("0"),
+        )
+
+    def _set_position_stop(self, entry_price: Decimal, candles: list) -> None:
+        if self._settings.stop_loss_atr_multiplier <= 0:
+            return
+        atr = self._compute_atr_from_candles(candles)
+        if atr is None:
+            return
+        multiplier = Decimal(str(self._settings.stop_loss_atr_multiplier))
+        stop_price = entry_price - atr * multiplier
+        if stop_price <= Decimal("0"):
+            return
+        position = self._positions.get(
+            exchange=self._settings.exchange_name,
+            symbol=self._symbol,
+            trading_mode=self._settings.trading_mode,
+            mode=self._trading_mode,
+        )
+        if position is None or position.quantity <= Decimal("0"):
+            return
+        self._positions.upsert(
+            exchange=self._settings.exchange_name,
+            symbol=self._symbol,
+            trading_mode=self._settings.trading_mode,
+            mode=self._trading_mode,
+            side=position.side,
+            quantity=position.quantity,
+            average_entry_price=position.average_entry_price,
+            realized_pnl=position.realized_pnl,
+            unrealized_pnl=position.unrealized_pnl,
+            stop_loss_price=stop_price,
+            highest_price_since_entry=entry_price,
+        )
+        self._session.commit()
+        logger.info(
+            "stop_loss_set exchange=%s symbol=%s stop=%s atr=%s entry=%s",
+            self._settings.exchange_name,
+            self._symbol,
+            stop_price,
+            atr,
+            entry_price,
+        )
+
+    def _update_trailing_stop(
+        self, position: PositionRecord | None, mark_price: Decimal, candles: list
+    ) -> None:
+        if not self._settings.trailing_stop_enabled:
+            return
+        if position is None or position.quantity <= Decimal("0"):
+            return
+        if position.stop_loss_price is None:
+            return
+        if self._settings.stop_loss_atr_multiplier <= 0:
+            return
+        atr = self._compute_atr_from_candles(candles)
+        if atr is None:
+            return
+        multiplier = Decimal(str(self._settings.stop_loss_atr_multiplier))
+        if position.side == "long":
+            new_high = max(position.highest_price_since_entry or mark_price, mark_price)
+            new_stop = new_high - atr * multiplier
+            if new_stop <= position.stop_loss_price:
+                return
+            updated_stop = new_stop
+            updated_peak = new_high
+        else:
+            new_low = min(position.highest_price_since_entry or mark_price, mark_price)
+            new_stop = new_low + atr * multiplier
+            if new_stop >= position.stop_loss_price:
+                return
+            updated_stop = new_stop
+            updated_peak = new_low
+        self._positions.upsert(
+            exchange=self._settings.exchange_name,
+            symbol=self._symbol,
+            trading_mode=self._settings.trading_mode,
+            mode=self._trading_mode,
+            side=position.side,
+            quantity=position.quantity,
+            average_entry_price=position.average_entry_price,
+            realized_pnl=position.realized_pnl,
+            unrealized_pnl=position.unrealized_pnl,
+            stop_loss_price=updated_stop,
+            highest_price_since_entry=updated_peak,
+        )
+        self._session.commit()
+
+    def _compute_atr_from_candles(self, candles: list) -> Decimal | None:
+        from app.domain.strategies.indicators import calculate_atr
+
+        period = self._settings.stop_loss_atr_period
+        if len(candles) < period + 1:
+            return None
+        recent = sorted(candles, key=lambda c: c.open_time)[-(period + 1) :]
+        try:
+            return calculate_atr(
+                highs=[c.high_price for c in recent],
+                lows=[c.low_price for c in recent],
+                closes=[c.close_price for c in recent],
+                period=period,
+            )
+        except ValueError:
+            return None
 
     def _mark_open_position_to_market(self, mark_price: Decimal) -> None:
         position = self._positions.get(

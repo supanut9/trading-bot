@@ -263,6 +263,7 @@ class BacktestControlResponse(BaseModel):
     leverage: int | None = None
     margin_mode: str = "ISOLATED"
     liquidation_count: int = 0
+    stop_loss_count: int = 0
     executions: list["BacktestExecutionResponse"] = Field(default_factory=list)
     candles: list["BacktestCandleResponse"] = Field(default_factory=list)
 

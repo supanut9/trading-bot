@@ -45,6 +45,8 @@ class PositionRepository:
         average_entry_price: Decimal | None = None,
         realized_pnl: Decimal = Decimal("0"),
         unrealized_pnl: Decimal = Decimal("0"),
+        stop_loss_price: Decimal | None = None,
+        highest_price_since_entry: Decimal | None = None,
     ) -> PositionRecord:
         record = self.get(
             exchange=exchange,
@@ -63,6 +65,8 @@ class PositionRepository:
                 average_entry_price=average_entry_price,
                 realized_pnl=realized_pnl,
                 unrealized_pnl=unrealized_pnl,
+                stop_loss_price=stop_loss_price,
+                highest_price_since_entry=highest_price_since_entry,
             )
             self._session.add(record)
         else:
@@ -71,5 +75,7 @@ class PositionRepository:
             record.average_entry_price = average_entry_price
             record.realized_pnl = realized_pnl
             record.unrealized_pnl = unrealized_pnl
+            record.stop_loss_price = stop_loss_price
+            record.highest_price_since_entry = highest_price_since_entry
         self._session.flush()
         return record
