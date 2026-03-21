@@ -1,5 +1,6 @@
 from collections.abc import Sequence
 from dataclasses import dataclass
+from datetime import datetime
 from decimal import Decimal
 
 from app.domain.risk import PortfolioState, RiskLimits, RiskService, TradeContext
@@ -28,6 +29,7 @@ class BacktestExecution:
     fee: Decimal
     realized_pnl: Decimal
     reason: str
+    candle_open_time: datetime = datetime.min
 
 
 @dataclass(frozen=True, slots=True)
@@ -44,6 +46,7 @@ class BacktestResult:
     slippage_pct: Decimal
     fee_pct: Decimal
     executions: tuple[BacktestExecution, ...]
+    candles: tuple[Candle, ...] = ()
 
 
 class BacktestService:
@@ -146,6 +149,7 @@ class BacktestService:
                             fee=exit_fee,
                             realized_pnl=trade_pnl,
                             reason=f"close short: {signal.reason}",
+                            candle_open_time=candle.open_time,
                         )
                     )
                     position_quantity = Decimal("0")
@@ -168,6 +172,7 @@ class BacktestService:
                             fee=entry_fee,
                             realized_pnl=Decimal("0"),
                             reason=signal.reason,
+                            candle_open_time=candle.open_time,
                         )
                     )
 
@@ -201,6 +206,7 @@ class BacktestService:
                             fee=exit_fee,
                             realized_pnl=trade_pnl,
                             reason=f"close long: {signal.reason}",
+                            candle_open_time=candle.open_time,
                         )
                     )
                     position_quantity = Decimal("0")
@@ -223,6 +229,7 @@ class BacktestService:
                             fee=entry_fee,
                             realized_pnl=Decimal("0"),
                             reason=signal.reason,
+                            candle_open_time=candle.open_time,
                         )
                     )
 
@@ -264,6 +271,7 @@ class BacktestService:
                     fee=exit_fee,
                     realized_pnl=trade_pnl,
                     reason="forced close on final candle",
+                    candle_open_time=final_candle.open_time,
                 )
             )
         ending_equity = self._starting_equity + realized_pnl
@@ -287,6 +295,7 @@ class BacktestService:
             slippage_pct=self._slippage_pct,
             fee_pct=self._fee_pct,
             executions=tuple(executions),
+            candles=tuple(ordered_candles),
         )
 
     def run_walk_forward(

@@ -261,6 +261,18 @@ class BacktestControlResponse(BaseModel):
     walk_forward: WalkForwardResponse | None = None
     rules: "StrategyRuleBuilderRequest | None" = None
     executions: list["BacktestExecutionResponse"] = Field(default_factory=list)
+    candles: list["BacktestCandleResponse"] = Field(default_factory=list)
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class BacktestCandleResponse(BaseModel):
+    open_time: datetime
+    open_price: Decimal
+    high_price: Decimal
+    low_price: Decimal
+    close_price: Decimal
+    volume: Decimal
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -273,6 +285,7 @@ class BacktestExecutionResponse(BaseModel):
     fee: Decimal
     realized_pnl: Decimal
     reason: str
+    candle_open_time: datetime = datetime.min
 
     model_config = ConfigDict(from_attributes=True)
 
