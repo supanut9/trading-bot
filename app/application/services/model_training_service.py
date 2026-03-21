@@ -153,6 +153,7 @@ class ModelTrainingService:
             )
 
             Path(model_path).parent.mkdir(parents=True, exist_ok=True)
+            model._estimator_type = "classifier"  # required by xgboost>=2 sklearn wrapper
             model.save_model(model_path)
 
             # Invalidate registry cache so next inference uses the new model.
