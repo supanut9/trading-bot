@@ -184,6 +184,8 @@ export type BacktestControlRequest = {
   atr_stop_multiplier?: string;
   adx_period?: number;
   adx_threshold?: string;
+  xgb_buy_threshold?: number;
+  xgb_sell_threshold?: number;
   trading_mode?: string;
   leverage?: number | null;
   margin_mode?: string;
@@ -667,6 +669,60 @@ export function runBacktest(
 
 export function getQualification(): Promise<QualificationReportResponse> {
   return request<QualificationReportResponse>("/controls/qualification");
+}
+
+export type TrainModelRequest = {
+  symbol: string;
+  timeframe: string;
+  exchange: string;
+  n_estimators: number;
+  max_depth: number;
+  learning_rate: number;
+  split_ratio: number;
+};
+
+export type FeatureImportance = {
+  feature: string;
+  importance: number;
+};
+
+export type TrainModelResponse = {
+  status: string;
+  symbol: string;
+  timeframe: string;
+  model_path: string;
+  sample_count: number;
+  train_count: number;
+  test_count: number;
+  accuracy: number | null;
+  precision: number | null;
+  recall: number | null;
+  roc_auc: number | null;
+  feature_importances: FeatureImportance[];
+  detail: string;
+};
+
+export type ModelStatusItem = {
+  symbol: string;
+  timeframe: string;
+  model_path: string;
+  exists: boolean;
+  file_size_kb: number | null;
+};
+
+export type ModelStatusResponse = {
+  models: ModelStatusItem[];
+};
+
+export function trainModel(payload: TrainModelRequest): Promise<TrainModelResponse> {
+  return request<TrainModelResponse>("/controls/train-model", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function getModelStatus(): Promise<ModelStatusResponse> {
+  return request<ModelStatusResponse>("/controls/model-status");
 }
 
 export type LiveModeMetricsResponse = {
