@@ -671,3 +671,25 @@ class LivePerformanceReviewResponse(BaseModel):
     generated_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class IterationStepResponse(BaseModel):
+    name: str
+    status: str
+    description: str
+    evidence: str | None = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class StrategyIterationPlanResponse(BaseModel):
+    recommendation: str
+    recommendation_reasons: list[str]
+    steps: list[IterationStepResponse]
+    all_steps_clear: bool
+    generated_at: datetime
+    exchange: str
+    symbol: str
+    review_period_days: int
+
+    model_config = ConfigDict(from_attributes=True)
