@@ -370,6 +370,8 @@ class BacktestControlRequest(BaseModel):
     atr_stop_multiplier: Decimal | None = None
     adx_period: int | None = None
     adx_threshold: Decimal | None = None
+    multi_tf_timeframe: str | None = None
+    multi_tf_period: int | None = None
     trading_mode: str = "SPOT"
     leverage: int | None = None  # None = auto-fetch; ignored for SPOT
     margin_mode: str = "ISOLATED"  # "ISOLATED" or "CROSS"

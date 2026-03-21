@@ -136,6 +136,8 @@ def run_backtest(
             atr_stop_multiplier=payload.atr_stop_multiplier,
             adx_period=payload.adx_period,
             adx_threshold=payload.adx_threshold,
+            multi_tf_timeframe=payload.multi_tf_timeframe,
+            multi_tf_period=payload.multi_tf_period,
             trading_mode=payload.trading_mode,
             leverage=payload.leverage,
             margin_mode=payload.margin_mode,
