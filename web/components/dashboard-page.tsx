@@ -324,6 +324,8 @@ export function DashboardPage() {
                 symbol={statusQuery.data.symbol}
                 timeframe={statusQuery.data.timeframe}
                 trades={tradesQuery.data}
+                fast_period={statusQuery.data.fast_period}
+                slow_period={statusQuery.data.slow_period}
               />
             </CardContent>
           </Card>
