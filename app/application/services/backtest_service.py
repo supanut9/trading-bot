@@ -64,6 +64,7 @@ class BacktestResult:
     margin_mode: str = "ISOLATED"
     liquidation_count: int = 0
     liquidation_events: tuple[LiquidationEvent, ...] = ()
+    stop_loss_count: int = 0
 
 
 class BacktestService:
@@ -78,6 +79,9 @@ class BacktestService:
         trading_mode: str = "SPOT",
         leverage: int = 1,
         margin_mode: str = "ISOLATED",
+        stop_loss_atr_multiplier: Decimal = Decimal("0"),
+        stop_loss_atr_period: int = 14,
+        trailing_stop_enabled: bool = False,
     ) -> None:
         self._strategy = strategy or EmaCrossoverStrategy()
         self._risk = risk_service or RiskService(
@@ -94,6 +98,10 @@ class BacktestService:
         self._trading_mode = trading_mode.upper()
         self._leverage = leverage
         self._margin_mode = margin_mode
+        # Stop loss: multiplier=0 means disabled
+        self._stop_loss_atr_multiplier = stop_loss_atr_multiplier
+        self._stop_loss_atr_period = stop_loss_atr_period
+        self._trailing_stop_enabled = trailing_stop_enabled
 
     def run(self, candles: Sequence[Candle]) -> BacktestResult:
         ordered_candles = sorted(candles, key=lambda candle: candle.open_time)
@@ -111,6 +119,9 @@ class BacktestService:
         current_liquidation_price: Decimal | None = None
         current_position_side: str | None = None
         liquidation_events: list[LiquidationEvent] = []
+        current_stop_price: Decimal | None = None
+        highest_price_since_entry: Decimal | None = None
+        stop_loss_count: int = 0
 
         for index in range(len(ordered_candles)):
             candle = ordered_candles[index]
@@ -186,6 +197,74 @@ class BacktestService:
                 current_position_side = None
                 continue
 
+            # Stop loss check: intrabar breach via candle low (long) or high (short)
+            if (
+                position_quantity != Decimal("0")
+                and current_stop_price is not None
+                and self._stop_loss_atr_multiplier > Decimal("0")
+            ):
+                stop_breached = False
+                stop_fill_price = current_stop_price
+                stop_action = "sell"
+                stop_exit_fee = Decimal("0")
+                stop_pnl = Decimal("0")
+                if position_quantity > Decimal("0") and candle.low_price <= current_stop_price:
+                    stop_breached = True
+                    stop_fill_price = (
+                        candle.open_price
+                        if candle.open_price < current_stop_price
+                        else current_stop_price
+                    )
+                    stop_action = "sell"
+                    stop_exit_fee = stop_fill_price * position_quantity * self._fee_pct
+                    stop_pnl = (
+                        (stop_fill_price - average_entry_fill_price) * position_quantity
+                        - pending_entry_fee
+                        - stop_exit_fee
+                    )
+                elif position_quantity < Decimal("0") and candle.high_price >= current_stop_price:
+                    stop_breached = True
+                    stop_fill_price = (
+                        candle.open_price
+                        if candle.open_price > current_stop_price
+                        else current_stop_price
+                    )
+                    stop_action = "buy"
+                    stop_exit_fee = stop_fill_price * abs(position_quantity) * self._fee_pct
+                    stop_pnl = (
+                        (average_entry_fill_price - stop_fill_price) * abs(position_quantity)
+                        - pending_entry_fee
+                        - stop_exit_fee
+                    )
+                if stop_breached:
+                    realized_pnl += stop_pnl
+                    total_fees_paid += stop_exit_fee
+                    stop_loss_count += 1
+                    if stop_pnl > Decimal("0"):
+                        winning_trades += 1
+                    elif stop_pnl < Decimal("0"):
+                        losing_trades += 1
+                    executions.append(
+                        BacktestExecution(
+                            action=stop_action,
+                            price=current_stop_price,
+                            fill_price=stop_fill_price,
+                            quantity=abs(position_quantity),
+                            fee=stop_exit_fee,
+                            realized_pnl=stop_pnl,
+                            reason="stop_loss",
+                            candle_open_time=candle.open_time,
+                        )
+                    )
+                    position_quantity = Decimal("0")
+                    average_entry_fill_price = None
+                    pending_entry_fee = Decimal("0")
+                    current_liquidation_price = None
+                    current_position_side = None
+                    current_stop_price = None
+                    highest_price_since_entry = None
+                    continue
+
             marked_equity = self._mark_to_market_equity(
                 realized_pnl=realized_pnl,
                 position_quantity=position_quantity,
@@ -198,6 +277,33 @@ class BacktestService:
                 peak_equity=peak_equity,
                 current_max_drawdown_pct=max_drawdown_pct,
             )
+
+            # Update trailing stop every candle while in position
+            if (
+                self._trailing_stop_enabled
+                and position_quantity != Decimal("0")
+                and current_stop_price is not None
+                and self._stop_loss_atr_multiplier > Decimal("0")
+            ):
+                trail_atr = self._compute_atr_for_candles(ordered_candles[: index + 1])
+                if trail_atr is not None:
+                    multiplier = self._stop_loss_atr_multiplier
+                    if position_quantity > Decimal("0"):
+                        new_high = max(
+                            highest_price_since_entry or candle.close_price, candle.close_price
+                        )
+                        new_stop = new_high - trail_atr * multiplier
+                        if new_stop > current_stop_price:
+                            current_stop_price = new_stop
+                            highest_price_since_entry = new_high
+                    else:
+                        new_low = min(
+                            highest_price_since_entry or candle.close_price, candle.close_price
+                        )
+                        new_stop = new_low + trail_atr * multiplier
+                        if new_stop < current_stop_price:
+                            current_stop_price = new_stop
+                            highest_price_since_entry = new_low
 
             signal = self._strategy.evaluate(ordered_candles[: index + 1])
             if signal is None:
@@ -253,6 +359,8 @@ class BacktestService:
                     pending_entry_fee = Decimal("0")
                     current_liquidation_price = None
                     current_position_side = None
+                    current_stop_price = None
+                    highest_price_since_entry = None
 
                 # Opening a long
                 if position_quantity == Decimal("0"):
@@ -262,6 +370,14 @@ class BacktestService:
                     average_entry_fill_price = fill_price
                     pending_entry_fee = entry_fee
                     total_fees_paid += entry_fee
+                    # Set ATR-based stop loss on entry
+                    if self._stop_loss_atr_multiplier > Decimal("0"):
+                        entry_atr = self._compute_atr_for_candles(ordered_candles[: index + 1])
+                        if entry_atr is not None:
+                            current_stop_price = (
+                                fill_price - entry_atr * self._stop_loss_atr_multiplier
+                            )
+                            highest_price_since_entry = fill_price
                     # Track liquidation
                     current_liq = (
                         self._compute_liquidation_price(
@@ -327,6 +443,8 @@ class BacktestService:
                     pending_entry_fee = Decimal("0")
                     current_liquidation_price = None
                     current_position_side = None
+                    current_stop_price = None
+                    highest_price_since_entry = None
 
                 # Opening a short (FUTURES only)
                 if self._trading_mode == "FUTURES" and position_quantity == Decimal("0"):
@@ -347,6 +465,14 @@ class BacktestService:
                     )
                     current_liquidation_price = current_liq
                     current_position_side = "short" if current_liq is not None else None
+                    # Set ATR-based stop loss for short entry
+                    if self._stop_loss_atr_multiplier > Decimal("0"):
+                        entry_atr = self._compute_atr_for_candles(ordered_candles[: index + 1])
+                        if entry_atr is not None:
+                            current_stop_price = (
+                                fill_price + entry_atr * self._stop_loss_atr_multiplier
+                            )
+                            highest_price_since_entry = fill_price
                     executions.append(
                         BacktestExecution(
                             action="sell",
@@ -429,6 +555,7 @@ class BacktestService:
             margin_mode=self._margin_mode,
             liquidation_count=len(liquidation_events),
             liquidation_events=tuple(liquidation_events),
+            stop_loss_count=stop_loss_count,
         )
 
     def run_walk_forward(
@@ -464,6 +591,23 @@ class BacktestService:
             overfitting_warning=return_degradation_pct > overfitting_threshold_pct,
             overfitting_threshold_pct=overfitting_threshold_pct,
         )
+
+    def _compute_atr_for_candles(self, candles: Sequence[Candle]) -> Decimal | None:
+        from app.domain.strategies.indicators import calculate_atr
+
+        period = self._stop_loss_atr_period
+        if len(candles) < period + 1:
+            return None
+        recent = list(candles)[-(period + 1) :]
+        try:
+            return calculate_atr(
+                highs=[c.high_price for c in recent],
+                lows=[c.low_price for c in recent],
+                closes=[c.close_price for c in recent],
+                period=period,
+            )
+        except ValueError:
+            return None
 
     @staticmethod
     def _compute_liquidation_price(

@@ -213,6 +213,7 @@ export type BacktestControlResponse = {
   leverage: number | null;
   margin_mode: string;
   liquidation_count: number;
+  stop_loss_count: number;
   executions: BacktestExecutionResponse[];
   candles: BacktestCandleResponse[];
 };

@@ -23,3 +23,5 @@ class PositionRecord(TimestampMixin, Base):
     average_entry_price: Mapped[Decimal | None] = mapped_column(Numeric(20, 8))
     realized_pnl: Mapped[Decimal] = mapped_column(Numeric(20, 8), nullable=False, default=0)
     unrealized_pnl: Mapped[Decimal] = mapped_column(Numeric(20, 8), nullable=False, default=0)
+    stop_loss_price: Mapped[Decimal | None] = mapped_column(Numeric(20, 8))
+    highest_price_since_entry: Mapped[Decimal | None] = mapped_column(Numeric(20, 8))

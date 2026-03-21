@@ -38,6 +38,9 @@ class Settings(BaseSettings):
     risk_per_trade_pct: float = Field(default=0.01, alias="RISK_PER_TRADE_PCT")
     max_open_positions: int = Field(default=1, alias="MAX_OPEN_POSITIONS")
     max_daily_loss_pct: float = Field(default=0.03, alias="MAX_DAILY_LOSS_PCT")
+    stop_loss_atr_multiplier: float = Field(default=2.0, alias="STOP_LOSS_ATR_MULTIPLIER")
+    stop_loss_atr_period: int = Field(default=14, alias="STOP_LOSS_ATR_PERIOD")
+    trailing_stop_enabled: bool = Field(default=True, alias="TRAILING_STOP_ENABLED")
     live_trading_halted: bool = Field(default=False, alias="LIVE_TRADING_HALTED")
     live_max_order_notional: Decimal | None = Field(
         default=None,

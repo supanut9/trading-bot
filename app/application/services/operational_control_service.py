@@ -245,6 +245,7 @@ class BacktestControlResult:
     leverage: int = 1
     margin_mode: str = "ISOLATED"
     liquidation_count: int = 0
+    stop_loss_count: int = 0
     trading_mode: str = "SPOT"
 
 
@@ -697,6 +698,7 @@ class OperationalControlService:
             leverage=resolved_leverage,
             margin_mode=resolved.margin_mode,
             liquidation_count=backtest_result.liquidation_count,
+            stop_loss_count=backtest_result.stop_loss_count,
             trading_mode=resolved.trading_mode,
             executions=tuple(
                 BacktestExecutionResult(
@@ -1189,6 +1191,9 @@ class OperationalControlService:
             trading_mode=options.trading_mode,
             leverage=options.leverage or 1,
             margin_mode=options.margin_mode,
+            stop_loss_atr_multiplier=Decimal(str(self._settings.stop_loss_atr_multiplier)),
+            stop_loss_atr_period=self._settings.stop_loss_atr_period,
+            trailing_stop_enabled=self._settings.trailing_stop_enabled,
         ).run(
             [
                 Candle(
@@ -1241,6 +1246,9 @@ class OperationalControlService:
             trading_mode=options.trading_mode,
             leverage=options.leverage or 1,
             margin_mode=options.margin_mode,
+            stop_loss_atr_multiplier=Decimal(str(self._settings.stop_loss_atr_multiplier)),
+            stop_loss_atr_period=self._settings.stop_loss_atr_period,
+            trailing_stop_enabled=self._settings.trailing_stop_enabled,
         ).run_walk_forward(
             candles,
             split_ratio=options.walk_forward_split_ratio or Decimal("0.7"),
