@@ -23,6 +23,7 @@ class PaperExecutionRequest:
     price: Decimal
     order_type: str = "market"
     mode: str = "paper"
+    trading_mode: str = "SPOT"
     client_order_id: str | None = None
     submitted_reason: str | None = None
 
@@ -64,6 +65,7 @@ class PaperExecutionService:
         current_position = self._positions.get(
             exchange=request.exchange,
             symbol=request.symbol,
+            trading_mode=request.trading_mode,
             mode=request.mode,
         )
         self._validate_request_against_position(
@@ -77,6 +79,7 @@ class PaperExecutionService:
             side=request.side,
             order_type=request.order_type,
             status="filled",
+            trading_mode=request.trading_mode,
             mode=request.mode,
             quantity=request.quantity,
             price=request.price,
@@ -93,6 +96,7 @@ class PaperExecutionService:
         trade = self._trades.create(
             exchange=request.exchange,
             symbol=request.symbol,
+            trading_mode=request.trading_mode,
             side=request.side,
             quantity=request.quantity,
             price=request.price,
@@ -139,6 +143,7 @@ class PaperExecutionService:
             position = self._positions.upsert(
                 exchange=request.exchange,
                 symbol=request.symbol,
+                trading_mode=request.trading_mode,
                 mode=request.mode,
                 side="long",
                 quantity=new_quantity,
@@ -159,6 +164,7 @@ class PaperExecutionService:
         position = self._positions.upsert(
             exchange=request.exchange,
             symbol=request.symbol,
+            trading_mode=request.trading_mode,
             mode=request.mode,
             side="long",
             quantity=new_quantity,

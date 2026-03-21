@@ -9,7 +9,7 @@ from app.infrastructure.database.base import Base, TimestampMixin
 class OrderRecord(TimestampMixin, Base):
     __tablename__ = "orders"
     __table_args__ = (
-        Index("ix_orders_lookup", "exchange", "symbol", "status"),
+        Index("ix_orders_lookup", "exchange", "symbol", "trading_mode", "status"),
         Index("ix_orders_client_order_id", "client_order_id"),
         UniqueConstraint("client_order_id"),
     )
@@ -20,6 +20,7 @@ class OrderRecord(TimestampMixin, Base):
     side: Mapped[str] = mapped_column(String(10), nullable=False)
     order_type: Mapped[str] = mapped_column(String(20), nullable=False)
     status: Mapped[str] = mapped_column(String(20), nullable=False)
+    trading_mode: Mapped[str] = mapped_column(String(20), nullable=False, default="SPOT")
     mode: Mapped[str] = mapped_column(String(20), nullable=False, default="paper")
     client_order_id: Mapped[str | None] = mapped_column(String(100))
     exchange_order_id: Mapped[str | None] = mapped_column(String(100))

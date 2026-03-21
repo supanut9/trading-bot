@@ -905,3 +905,18 @@ Operators need a way to verify that live order signing, parameters, and exchange
 ### Consequence
 
 The `LiveExecutionService` now honors the `live_order_validate_only` setting. When enabled, live orders are submitted to the test endpoint, and their status is immediately transitioned to `canceled` (terminal) in the local database to avoid unnecessary reconciliation attempts for orders that do not exist on the exchange.
+
+## 2026-03-20
+
+### Decision
+
+- Persisted `trading_mode` in the operator configuration database and UI.
+- Unified backtesting and runtime configuration by incorporating `trading_mode` into `BacktestService`, allowing accurate simulation of both spot and futures environments.
+
+### Reason
+
+The system already supported `trading_mode` as a startup environment variable, but as the operator UI becomes the primary surface for managing runtime defaults (symbol, timeframe, periods), the trading mode also needs to be durable and modifiable without a process restart. This allows operators to switch between spot and futures paper trading seamlessly.
+
+### Consequence
+
+The `OperatorConfigRecord` now includes a `trading_mode` column, and the `OperatorRuntimeConfigService` resolves the effective mode from persisted records before falling back to application settings. The operator UI in `web/components/runtime-page.tsx` now includes a selection for this mode, and all related API schemas and test suites have been updated to support it.

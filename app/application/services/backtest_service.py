@@ -55,6 +55,7 @@ class BacktestService:
         starting_equity: Decimal = Decimal("10000"),
         slippage_pct: Decimal = Decimal("0"),
         fee_pct: Decimal = Decimal("0"),
+        trading_mode: str = "SPOT",
     ) -> None:
         self._strategy = strategy or EmaCrossoverStrategy()
         self._risk = risk_service or RiskService(
@@ -68,6 +69,7 @@ class BacktestService:
         self._starting_equity = starting_equity
         self._slippage_pct = slippage_pct
         self._fee_pct = fee_pct
+        self._trading_mode = trading_mode.upper()
 
     def run(self, candles: Sequence[Candle]) -> BacktestResult:
         ordered_candles = sorted(candles, key=lambda candle: candle.open_time)
@@ -266,7 +268,8 @@ class BacktestService:
             weekly_realized_loss_pct=Decimal("0"),
             concurrent_exposure_pct=Decimal("0"),
             consecutive_losses=0,
-            trading_mode="paper",
+            execution_mode="paper",
+            trading_mode=self._trading_mode,
         )
 
     def _mark_to_market_equity(

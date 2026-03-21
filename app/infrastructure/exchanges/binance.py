@@ -20,6 +20,7 @@ from app.infrastructure.exchanges.base import (
     ExchangeOrderSubmission,
     ExchangeSymbolRules,
     ExchangeTickerPrice,
+    FuturesOrderExchangeClient,
     LiveOrderExchangeClient,
     MarketDataExchangeClient,
 )
@@ -32,9 +33,11 @@ class BinanceMarketDataClient(MarketDataExchangeClient):
         self,
         *,
         base_url: str = "https://api.binance.com",
+        trading_mode: str = "SPOT",
         timeout_seconds: int = 10,
     ) -> None:
         self._base_url = base_url.rstrip("/")
+        self._trading_mode = trading_mode
         self._timeout_seconds = timeout_seconds
 
     def fetch_closed_candles(
@@ -52,7 +55,8 @@ class BinanceMarketDataClient(MarketDataExchangeClient):
                 "limit": request_limit,
             }
         )
-        url = f"{self._base_url}/api/v3/klines?{query}"
+        base_path = "/fapi/v1" if self._trading_mode == "FUTURES" else "/api/v3"
+        url = f"{self._base_url}{base_path}/klines?{query}"
         try:
             with urlopen(url, timeout=self._timeout_seconds) as response:
                 payload = json.load(response)
@@ -84,7 +88,8 @@ class BinanceMarketDataClient(MarketDataExchangeClient):
 
     def fetch_latest_price(self, *, symbol: str) -> ExchangeTickerPrice:
         query = urlencode({"symbol": symbol.replace("/", "")})
-        url = f"{self._base_url}/api/v3/ticker/price?{query}"
+        base_path = "/fapi/v1" if self._trading_mode == "FUTURES" else "/api/v3"
+        url = f"{self._base_url}{base_path}/ticker/price?{query}"
         try:
             with urlopen(url, timeout=self._timeout_seconds) as response:
                 payload = json.load(response)
@@ -350,3 +355,172 @@ class BinanceSpotOrderClient(LiveOrderExchangeClient):
             parameters["price"] = format(request.price, "f")
             parameters["timeInForce"] = "GTC"
         return urlencode(parameters)
+
+
+class BinanceFuturesOrderClient(BinanceSpotOrderClient, FuturesOrderExchangeClient):
+    def __init__(
+        self,
+        *,
+        api_key: str,
+        api_secret: str,
+        base_url: str = "https://fapi.binance.com",
+        timeout_seconds: int = 10,
+        recv_window_ms: int = 5000,
+    ) -> None:
+        super().__init__(
+            api_key=api_key,
+            api_secret=api_secret,
+            base_url=base_url,
+            timeout_seconds=timeout_seconds,
+            recv_window_ms=recv_window_ms,
+        )
+
+    def submit_order(self, request: ExchangeOrderRequest) -> ExchangeOrderSubmission:
+        if request.validate_only:
+            return ExchangeOrderSubmission(
+                status="validated",
+                client_order_id=request.client_order_id,
+                exchange_order_id=None,
+                response_payload={"detail": "futures validation-only bypass"},
+            )
+
+        endpoint = "/fapi/v1/order"
+        parameters: dict[str, str | int | None] = {
+            "symbol": request.symbol.replace("/", ""),
+            "side": request.side.upper(),
+            "type": request.order_type.upper(),
+            "quantity": format(request.quantity, "f"),
+            "newClientOrderId": request.client_order_id,
+        }
+        if request.order_type.upper() == "LIMIT":
+            if request.price is None:
+                raise ValueError("price is required for limit orders")
+            parameters["price"] = format(request.price, "f")
+            parameters["timeInForce"] = "GTC"
+
+        parsed = self._signed_request(
+            method="POST",
+            endpoint=endpoint,
+            parameters=parameters,
+            error_action="submit Binance futures order",
+        )
+
+        exchange_order_id = parsed.get("orderId")
+        return ExchangeOrderSubmission(
+            status="submitted",
+            client_order_id=request.client_order_id,
+            exchange_order_id=str(exchange_order_id) if exchange_order_id is not None else None,
+            response_payload=parsed,
+        )
+
+    def fetch_account_balances(self) -> Sequence[ExchangeAssetBalance]:
+        parsed = self._signed_request(
+            method="GET",
+            endpoint="/fapi/v2/account",
+            parameters={},
+            error_action="fetch Binance futures account balances",
+        )
+        assets = parsed.get("assets", [])
+        balances: list[ExchangeAssetBalance] = []
+        for item in assets:
+            balances.append(
+                ExchangeAssetBalance(
+                    asset=str(item.get("asset", "")).upper(),
+                    free=Decimal(str(item.get("walletBalance", "0"))),
+                    locked=Decimal("0"),
+                )
+            )
+        return balances
+
+    def cancel_order(
+        self,
+        *,
+        symbol: str,
+        client_order_id: str | None = None,
+        exchange_order_id: str | None = None,
+    ) -> ExchangeOrderCancellation:
+        parsed = self._signed_request(
+            method="DELETE",
+            endpoint="/fapi/v1/order",
+            parameters={
+                "symbol": symbol.replace("/", ""),
+                "origClientOrderId": client_order_id,
+                "orderId": exchange_order_id,
+            },
+            error_action="cancel Binance futures order",
+        )
+        return ExchangeOrderCancellation(
+            status=str(parsed.get("status", "")).lower(),
+            client_order_id=client_order_id,
+            exchange_order_id=exchange_order_id,
+            response_payload=parsed,
+        )
+
+    def fetch_order_status(
+        self,
+        *,
+        symbol: str,
+        client_order_id: str | None = None,
+        exchange_order_id: str | None = None,
+    ) -> ExchangeOrderStatus:
+        parsed = self._signed_request(
+            method="GET",
+            endpoint="/fapi/v1/order",
+            parameters={
+                "symbol": symbol.replace("/", ""),
+                "origClientOrderId": client_order_id,
+                "orderId": exchange_order_id,
+            },
+            error_action="fetch Binance futures order status",
+        )
+        executed_quantity = Decimal(str(parsed.get("executedQty", "0")))
+        average_fill_price = Decimal(str(parsed.get("avgPrice", "0")))
+        return ExchangeOrderStatus(
+            status=str(parsed.get("status", "")).lower(),
+            client_order_id=client_order_id,
+            exchange_order_id=exchange_order_id,
+            executed_quantity=executed_quantity,
+            average_fill_price=average_fill_price if average_fill_price > 0 else None,
+            response_payload=parsed,
+        )
+
+    def set_leverage(self, *, symbol: str, leverage: int) -> dict[str, object]:
+        return self._signed_request(
+            method="POST",
+            endpoint="/fapi/v1/leverage",
+            parameters={
+                "symbol": symbol.replace("/", ""),
+                "leverage": leverage,
+            },
+            error_action="set Binance leverage",
+        )
+
+    def set_margin_mode(self, *, symbol: str, margin_mode: str) -> dict[str, object]:
+        return self._signed_request(
+            method="POST",
+            endpoint="/fapi/v1/marginType",
+            parameters={
+                "symbol": symbol.replace("/", ""),
+                "marginType": margin_mode.upper(),
+            },
+            error_action="set Binance margin mode",
+        )
+
+    def fetch_position_risk(self, *, symbol: str) -> dict[str, object]:
+        return self._signed_request(
+            method="GET",
+            endpoint="/fapi/v2/positionRisk",
+            parameters={"symbol": symbol.replace("/", "")},
+            error_action="fetch Binance position risk",
+        )
+
+    def fetch_mark_price(self, *, symbol: str) -> Decimal:
+        parsed = self._signed_request(
+            method="GET",
+            endpoint="/fapi/v1/premiumIndex",
+            parameters={"symbol": symbol.replace("/", "")},
+            error_action="fetch Binance mark price",
+        )
+        if isinstance(parsed, dict):
+            return Decimal(str(parsed.get("markPrice", "0")))
+        return Decimal("0")

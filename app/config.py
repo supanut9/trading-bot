@@ -19,6 +19,7 @@ class Settings(BaseSettings):
     paper_trading: bool = Field(default=True, alias="PAPER_TRADING")
     live_trading_enabled: bool = Field(default=False, alias="LIVE_TRADING_ENABLED")
     exchange_name: str = Field(default="binance", alias="EXCHANGE_NAME")
+    trading_mode: Literal["SPOT", "FUTURES"] = Field(default="SPOT", alias="TRADING_MODE")
     exchange_api_base_url: str = Field(
         default="https://api.binance.com",
         alias="EXCHANGE_API_BASE_URL",

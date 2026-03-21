@@ -228,6 +228,7 @@ class BacktestControlResponse(BaseModel):
     exchange: str
     symbol: str
     timeframe: str
+    trading_mode: str = "SPOT"
     fast_period: int | None = None
     slow_period: int | None = None
     starting_equity_input: Decimal
@@ -339,6 +340,7 @@ class BacktestControlRequest(BaseModel):
     atr_period: int | None = None
     atr_breakout_multiplier: Decimal | None = None
     atr_stop_multiplier: Decimal | None = None
+    trading_mode: str = "SPOT"
 
 
 class StrategyRuleConditionRequest(BaseModel):
@@ -370,6 +372,7 @@ class OperatorConfigResponse(BaseModel):
     timeframe: str
     fast_period: int
     slow_period: int
+    trading_mode: str
     source: str
     changed: bool = False
     notified: bool = False
@@ -383,6 +386,7 @@ class OperatorConfigRequest(BaseModel):
     timeframe: str
     fast_period: int
     slow_period: int
+    trading_mode: str = "SPOT"
 
 
 class MarketSyncControlResponse(BaseModel):

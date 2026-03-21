@@ -9,14 +9,15 @@ from app.infrastructure.database.base import Base, TimestampMixin
 class PositionRecord(TimestampMixin, Base):
     __tablename__ = "positions"
     __table_args__ = (
-        UniqueConstraint("exchange", "symbol", "mode"),
-        Index("ix_positions_lookup", "exchange", "symbol", "mode"),
+        UniqueConstraint("exchange", "symbol", "trading_mode", "mode"),
+        Index("ix_positions_lookup", "exchange", "symbol", "trading_mode", "mode"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     exchange: Mapped[str] = mapped_column(String(50), nullable=False)
     symbol: Mapped[str] = mapped_column(String(50), nullable=False)
     side: Mapped[str] = mapped_column(String(10), nullable=False, default="long")
+    trading_mode: Mapped[str] = mapped_column(String(20), nullable=False, default="SPOT")
     mode: Mapped[str] = mapped_column(String(20), nullable=False, default="paper")
     quantity: Mapped[Decimal] = mapped_column(Numeric(20, 8), nullable=False, default=0)
     average_entry_price: Mapped[Decimal | None] = mapped_column(Numeric(20, 8))

@@ -15,11 +15,13 @@ class PositionRepository:
         *,
         exchange: str,
         symbol: str,
+        trading_mode: str = "SPOT",
         mode: str,
     ) -> PositionRecord | None:
         statement: Select[tuple[PositionRecord]] = select(PositionRecord).where(
             PositionRecord.exchange == exchange,
             PositionRecord.symbol == symbol,
+            PositionRecord.trading_mode == trading_mode,
             PositionRecord.mode == mode,
         )
         return self._session.execute(statement).scalar_one_or_none()
@@ -36,6 +38,7 @@ class PositionRepository:
         *,
         exchange: str,
         symbol: str,
+        trading_mode: str = "SPOT",
         mode: str,
         side: str,
         quantity: Decimal,
@@ -43,11 +46,17 @@ class PositionRepository:
         realized_pnl: Decimal = Decimal("0"),
         unrealized_pnl: Decimal = Decimal("0"),
     ) -> PositionRecord:
-        record = self.get(exchange=exchange, symbol=symbol, mode=mode)
+        record = self.get(
+            exchange=exchange,
+            symbol=symbol,
+            trading_mode=trading_mode,
+            mode=mode,
+        )
         if record is None:
             record = PositionRecord(
                 exchange=exchange,
                 symbol=symbol,
+                trading_mode=trading_mode,
                 mode=mode,
                 side=side,
                 quantity=quantity,

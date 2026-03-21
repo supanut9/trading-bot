@@ -25,6 +25,7 @@ class OrderRepository:
         order_type: str,
         status: str,
         mode: str,
+        trading_mode: str = "SPOT",
         quantity: Decimal,
         price: Decimal | None = None,
         signal_price: Decimal | None = None,
@@ -40,6 +41,7 @@ class OrderRepository:
             side=side,
             order_type=order_type,
             status=status,
+            trading_mode=trading_mode,
             mode=mode,
             quantity=quantity,
             price=price,
@@ -104,6 +106,7 @@ class OrderRepository:
         exchange: str,
         symbol: str,
         side: str,
+        trading_mode: str = "SPOT",
     ) -> bool:
         statement: Select[tuple[OrderRecord]] = (
             select(OrderRecord)
@@ -111,6 +114,7 @@ class OrderRepository:
                 OrderRecord.exchange == exchange,
                 OrderRecord.symbol == symbol,
                 OrderRecord.side == side,
+                OrderRecord.trading_mode == trading_mode,
                 OrderRecord.mode == "live",
                 OrderRecord.status.in_(ACTIVE_LIVE_ORDER_STATUSES),
             )

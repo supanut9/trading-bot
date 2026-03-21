@@ -47,6 +47,7 @@ class ExchangeOrderRequest:
     order_type: str = "MARKET"
     validate_only: bool = True
     client_order_id: str | None = None
+    trading_mode: str = "SPOT"  # "SPOT", "FUTURES"
 
 
 @dataclass(frozen=True, slots=True)
@@ -131,3 +132,13 @@ class LiveOrderExchangeClient(Protocol):
         client_order_id: str | None = None,
         exchange_order_id: str | None = None,
     ) -> ExchangeOrderStatus: ...
+
+
+class FuturesOrderExchangeClient(LiveOrderExchangeClient, Protocol):
+    def set_leverage(self, *, symbol: str, leverage: int) -> dict[str, object]: ...
+
+    def set_margin_mode(self, *, symbol: str, margin_mode: str) -> dict[str, object]: ...
+
+    def fetch_position_risk(self, *, symbol: str) -> dict[str, object]: ...
+
+    def fetch_mark_price(self, *, symbol: str) -> Decimal: ...

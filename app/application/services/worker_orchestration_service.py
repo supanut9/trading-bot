@@ -229,6 +229,7 @@ class WorkerOrchestrationService:
         current_position = self._positions.get(
             exchange=self._settings.exchange_name,
             symbol=self._symbol,
+            trading_mode=self._settings.trading_mode,
             mode=self._trading_mode,
         )
         latest_candle = max(candles, key=lambda candle: candle.open_time)
@@ -354,6 +355,7 @@ class WorkerOrchestrationService:
                     quantity=quantity,
                     price=latest_price,
                     mode=self._trading_mode,
+                    trading_mode=self._settings.trading_mode,
                     client_order_id=client_order_id,
                     submitted_reason=signal.reason,
                 )
@@ -572,7 +574,8 @@ class WorkerOrchestrationService:
             weekly_realized_loss_pct=weekly_realized_loss_pct,
             concurrent_exposure_pct=concurrent_exposure_pct,
             consecutive_losses=consecutive_losses,
-            trading_mode=mode,
+            execution_mode=mode,  # type: ignore
+            trading_mode=self._settings.trading_mode,  # type: ignore
         )
 
     @staticmethod
@@ -583,7 +586,7 @@ class WorkerOrchestrationService:
         symbol_token = self._symbol.replace("/", "-").lower()
         candle_token = close_time.strftime("%Y%m%d%H%M%S")
         return (
-            f"{self._trading_mode}-{self._settings.exchange_name}-"
+            f"{self._trading_mode}-{self._settings.trading_mode}-{self._settings.exchange_name}-"
             f"{symbol_token}-{self._timeframe}-{signal.action}-{candle_token}"
         )
 

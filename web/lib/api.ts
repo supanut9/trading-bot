@@ -14,6 +14,7 @@ export type StatusResponse = {
   timeframe: string;
   fast_period: number;
   slow_period: number;
+  trading_mode: string;
   operator_config_source: string;
   database_url: string;
   database_status: string;
@@ -97,6 +98,7 @@ export type OperatorConfigResponse = {
   timeframe: string;
   fast_period: number;
   slow_period: number;
+  trading_mode: string;
   source: string;
   changed: boolean;
   notified: boolean;
@@ -166,6 +168,7 @@ export type BacktestControlRequest = {
   atr_period?: number;
   atr_breakout_multiplier?: string;
   atr_stop_multiplier?: string;
+  trading_mode?: string;
 };
 
 export type BacktestControlResponse = {
@@ -176,6 +179,7 @@ export type BacktestControlResponse = {
   exchange: string;
   symbol: string;
   timeframe: string;
+  trading_mode: string;
   fast_period: number | null;
   slow_period: number | null;
   starting_equity_input: string;
@@ -203,6 +207,7 @@ export type BacktestRunResponse = {
   exchange: string;
   symbol: string;
   timeframe: string;
+  trading_mode: string;
   fast_period: number | null;
   slow_period: number | null;
   starting_equity_input: string;
@@ -230,6 +235,7 @@ export type OperatorConfigRequest = {
   timeframe: string;
   fast_period: number;
   slow_period: number;
+  trading_mode: string;
 };
 
 export type MarketSyncControlRequest = {
