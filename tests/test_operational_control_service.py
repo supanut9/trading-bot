@@ -3,6 +3,7 @@ from datetime import UTC, datetime
 
 from app.application.services.market_data_sync_service import MarketDataSyncResult
 from app.application.services.operational_control_service import (
+    BacktestRunOptions,
     LiveCancelControlResult,
     LiveReconcileControlResult,
     MarketSyncControlResult,
@@ -496,3 +497,214 @@ def test_live_halt_rejects_resume_when_strategy_not_qualified(monkeypatch) -> No
     assert result.detail == "cannot resume live trading: strategy not qualified"
     assert len(audit.entries) == 1
     assert audit.entries[0]["payload"]["reason"] == "strategy_not_qualified"
+
+
+# ---------------------------------------------------------------------------
+# Leverage resolution tests
+# ---------------------------------------------------------------------------
+
+
+def _make_service_for_leverage(settings: Settings) -> OperationalControlService:
+    """Build an OperationalControlService with no-op session/notifications/audit."""
+
+    class NullSession:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            pass
+
+    class NullNotifications:
+        def notify_worker_cycle(self, *args, **kwargs):
+            return False
+
+        def notify_market_sync(self, *args, **kwargs):
+            return False
+
+        def notify_backtest_completed(self, *args, **kwargs):
+            return False
+
+        def notify_backtest_skipped(self, *args, **kwargs):
+            return False
+
+    class NullAudit:
+        def record_control_result(self, **kwargs):
+            pass
+
+    return OperationalControlService(
+        settings,
+        session_factory=lambda: NullSession(),
+        notifications=NullNotifications(),
+        audit=NullAudit(),
+    )
+
+
+def test_resolve_leverage_1_for_spot() -> None:
+    settings = Settings(DATABASE_URL="sqlite:///./leverage_test.db")
+    service = _make_service_for_leverage(settings)
+
+    result = service._resolve_leverage(
+        requested_leverage=50,
+        symbol="BTCUSDT",
+        trading_mode="SPOT",
+    )
+
+    assert result == 1
+
+
+def test_resolve_leverage_manual_passthrough() -> None:
+    settings = Settings(DATABASE_URL="sqlite:///./leverage_test.db")
+    service = _make_service_for_leverage(settings)
+
+    result = service._resolve_leverage(
+        requested_leverage=10,
+        symbol="BTCUSDT",
+        trading_mode="FUTURES",
+    )
+
+    assert result == 10
+
+
+def test_resolve_leverage_auto_fallback(monkeypatch) -> None:
+    """When exchange raises, auto-resolve falls back to 1."""
+    settings = Settings(DATABASE_URL="sqlite:///./leverage_test.db")
+    service = _make_service_for_leverage(settings)
+
+    monkeypatch.setattr(
+        "app.application.services.operational_control_service.build_live_order_exchange_client",
+        lambda _settings, **_kwargs: (_ for _ in ()).throw(RuntimeError("no API keys")),
+    )
+
+    result = service._resolve_leverage(
+        requested_leverage=None,
+        symbol="BTCUSDT",
+        trading_mode="FUTURES",
+    )
+
+    assert result == 1
+
+
+def test_resolve_leverage_auto_from_exchange(monkeypatch) -> None:
+    """When exchange returns leverage=20, auto-resolve returns 20."""
+    settings = Settings(DATABASE_URL="sqlite:///./leverage_test.db")
+    service = _make_service_for_leverage(settings)
+
+    class FakeClient:
+        def fetch_position_risk(self, *, symbol: str):
+            return [{"leverage": "20", "symbol": symbol}]
+
+    monkeypatch.setattr(
+        "app.application.services.operational_control_service.build_live_order_exchange_client",
+        lambda _settings, **_kwargs: FakeClient(),
+    )
+
+    result = service._resolve_leverage(
+        requested_leverage=None,
+        symbol="BTCUSDT",
+        trading_mode="FUTURES",
+    )
+
+    assert result == 20
+
+
+def test_control_result_includes_leverage_fields(monkeypatch) -> None:
+    """run_backtest result includes leverage, margin_mode, and liquidation_count."""
+    from datetime import UTC, datetime, timedelta  # noqa: PLC0415
+    from decimal import Decimal  # noqa: PLC0415
+
+    settings = Settings(DATABASE_URL="sqlite:///./leverage_test.db")
+
+    start = datetime(2026, 1, 1, tzinfo=UTC)
+    fake_candles = [
+        type(
+            "CandleRecord",
+            (),
+            {
+                "open_time": start + timedelta(hours=i),
+                "close_time": start + timedelta(hours=i + 1),
+                "open_price": Decimal("100"),
+                "high_price": Decimal("100"),
+                "low_price": Decimal("100"),
+                "close_price": Decimal("100"),
+                "volume": Decimal("1"),
+            },
+        )()
+        for i in range(60)
+    ]
+
+    class FakeMarketDataService:
+        def __init__(self, _session):
+            pass
+
+        def list_historical_candles(self, **kwargs):
+            return fake_candles
+
+    class FakeBacktestRunHistoryService:
+        def __init__(self, **kwargs):
+            pass
+
+        def record_run(self, **kwargs):
+            pass
+
+    monkeypatch.setattr(
+        "app.application.services.operational_control_service.MarketDataService",
+        FakeMarketDataService,
+    )
+    monkeypatch.setattr(
+        "app.application.services.operational_control_service.BacktestRunHistoryService",
+        FakeBacktestRunHistoryService,
+    )
+
+    class NullSession:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            pass
+
+    class NullNotifications:
+        def notify_worker_cycle(self, *a, **kw):
+            return False
+
+        def notify_market_sync(self, *a, **kw):
+            return False
+
+        def notify_backtest_completed(self, *a, **kw):
+            return False
+
+        def notify_backtest_skipped(self, *a, **kw):
+            return False
+
+    class NullAudit:
+        def record_control_result(self, **kwargs):
+            pass
+
+    service = OperationalControlService(
+        settings,
+        session_factory=lambda: NullSession(),
+        notifications=NullNotifications(),
+        audit=NullAudit(),
+    )
+
+    result = service.run_backtest(
+        options=BacktestRunOptions(
+            strategy_name="ema_crossover",
+            exchange="binance",
+            symbol="BTCUSDT",
+            timeframe="1h",
+            fast_period=5,
+            slow_period=10,
+            starting_equity=Decimal("10000"),
+            trading_mode="FUTURES",
+            leverage=15,
+            margin_mode="CROSS",
+        ),
+        notify=False,
+        audit=False,
+        record_history=False,
+    )
+
+    assert result.leverage == 15
+    assert result.margin_mode == "CROSS"
+    assert result.liquidation_count == 0
+    assert result.trading_mode == "FUTURES"

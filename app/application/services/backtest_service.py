@@ -7,6 +7,17 @@ from app.domain.risk import PortfolioState, RiskLimits, RiskService, TradeContex
 from app.domain.strategies.base import Candle, Strategy
 from app.domain.strategies.ema_crossover import EmaCrossoverStrategy
 
+MAINTENANCE_MARGIN_RATE = Decimal("0.004")
+
+
+@dataclass(frozen=True, slots=True)
+class LiquidationEvent:
+    candle_open_time: datetime
+    position_side: str  # "long" or "short"
+    entry_price: Decimal
+    liquidation_price: Decimal
+    breach_price: Decimal  # candle low (long) or high (short) that crossed
+
 
 @dataclass(frozen=True, slots=True)
 class WalkForwardResult:
@@ -30,6 +41,8 @@ class BacktestExecution:
     realized_pnl: Decimal
     reason: str
     candle_open_time: datetime = datetime.min
+    liquidation_price: Decimal | None = None
+    was_liquidated: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -47,6 +60,10 @@ class BacktestResult:
     fee_pct: Decimal
     executions: tuple[BacktestExecution, ...]
     candles: tuple[Candle, ...] = ()
+    leverage: int = 1
+    margin_mode: str = "ISOLATED"
+    liquidation_count: int = 0
+    liquidation_events: tuple[LiquidationEvent, ...] = ()
 
 
 class BacktestService:
@@ -59,6 +76,8 @@ class BacktestService:
         slippage_pct: Decimal = Decimal("0"),
         fee_pct: Decimal = Decimal("0"),
         trading_mode: str = "SPOT",
+        leverage: int = 1,
+        margin_mode: str = "ISOLATED",
     ) -> None:
         self._strategy = strategy or EmaCrossoverStrategy()
         self._risk = risk_service or RiskService(
@@ -73,6 +92,8 @@ class BacktestService:
         self._slippage_pct = slippage_pct
         self._fee_pct = fee_pct
         self._trading_mode = trading_mode.upper()
+        self._leverage = leverage
+        self._margin_mode = margin_mode
 
     def run(self, candles: Sequence[Candle]) -> BacktestResult:
         ordered_candles = sorted(candles, key=lambda candle: candle.open_time)
@@ -87,9 +108,84 @@ class BacktestService:
         position_quantity = Decimal("0")
         average_entry_fill_price: Decimal | None = None
         pending_entry_fee = Decimal("0")
+        current_liquidation_price: Decimal | None = None
+        current_position_side: str | None = None
+        liquidation_events: list[LiquidationEvent] = []
 
         for index in range(len(ordered_candles)):
             candle = ordered_candles[index]
+
+            # Liquidation check (before strategy signal)
+            if (
+                self._leverage > 1
+                and self._trading_mode == "FUTURES"
+                and self._margin_mode == "ISOLATED"
+                and position_quantity != Decimal("0")
+                and current_liquidation_price is not None
+                and current_position_side is not None
+                and self._check_liquidation(
+                    candle=candle,
+                    position_side=current_position_side,
+                    liquidation_price=current_liquidation_price,
+                    margin_mode=self._margin_mode,
+                )
+            ):
+                liq_price = current_liquidation_price
+                if position_quantity > Decimal("0"):  # long
+                    exit_fee = liq_price * position_quantity * self._fee_pct
+                    trade_pnl = (
+                        (liq_price - average_entry_fill_price) * position_quantity
+                        - pending_entry_fee
+                        - exit_fee
+                    )
+                    liq_action = "sell"
+                else:  # short
+                    exit_fee = liq_price * abs(position_quantity) * self._fee_pct
+                    trade_pnl = (
+                        (average_entry_fill_price - liq_price) * abs(position_quantity)
+                        - pending_entry_fee
+                        - exit_fee
+                    )
+                    liq_action = "buy"
+                realized_pnl += trade_pnl
+                total_fees_paid += exit_fee
+                if trade_pnl > Decimal("0"):
+                    winning_trades += 1
+                elif trade_pnl < Decimal("0"):
+                    losing_trades += 1
+                breach_price = (
+                    candle.low_price if current_position_side == "long" else candle.high_price
+                )
+                liquidation_events.append(
+                    LiquidationEvent(
+                        candle_open_time=candle.open_time,
+                        position_side=current_position_side,
+                        entry_price=average_entry_fill_price,
+                        liquidation_price=liq_price,
+                        breach_price=breach_price,
+                    )
+                )
+                executions.append(
+                    BacktestExecution(
+                        action=liq_action,
+                        price=liq_price,
+                        fill_price=liq_price,
+                        quantity=abs(position_quantity),
+                        fee=exit_fee,
+                        realized_pnl=trade_pnl,
+                        reason="liquidated",
+                        candle_open_time=candle.open_time,
+                        liquidation_price=liq_price,
+                        was_liquidated=True,
+                    )
+                )
+                position_quantity = Decimal("0")
+                average_entry_fill_price = None
+                pending_entry_fee = Decimal("0")
+                current_liquidation_price = None
+                current_position_side = None
+                continue
+
             marked_equity = self._mark_to_market_equity(
                 realized_pnl=realized_pnl,
                 position_quantity=position_quantity,
@@ -155,14 +251,29 @@ class BacktestService:
                     position_quantity = Decimal("0")
                     average_entry_fill_price = None
                     pending_entry_fee = Decimal("0")
+                    current_liquidation_price = None
+                    current_position_side = None
 
                 # Opening a long
                 if position_quantity == Decimal("0"):
-                    entry_fee = fill_price * decision.quantity * self._fee_pct
-                    position_quantity = decision.quantity
+                    entry_quantity = decision.quantity * Decimal(self._leverage)
+                    entry_fee = fill_price * entry_quantity * self._fee_pct
+                    position_quantity = entry_quantity
                     average_entry_fill_price = fill_price
                     pending_entry_fee = entry_fee
                     total_fees_paid += entry_fee
+                    # Track liquidation
+                    current_liq = (
+                        self._compute_liquidation_price(
+                            side="long",
+                            entry_price=fill_price,
+                            leverage=self._leverage,
+                        )
+                        if self._trading_mode == "FUTURES" and self._leverage > 1
+                        else None
+                    )
+                    current_liquidation_price = current_liq
+                    current_position_side = "long" if current_liq is not None else None
                     executions.append(
                         BacktestExecution(
                             action="buy",
@@ -173,6 +284,8 @@ class BacktestService:
                             realized_pnl=Decimal("0"),
                             reason=signal.reason,
                             candle_open_time=candle.open_time,
+                            liquidation_price=current_liq,
+                            was_liquidated=False,
                         )
                     )
 
@@ -212,14 +325,28 @@ class BacktestService:
                     position_quantity = Decimal("0")
                     average_entry_fill_price = None
                     pending_entry_fee = Decimal("0")
+                    current_liquidation_price = None
+                    current_position_side = None
 
                 # Opening a short (FUTURES only)
                 if self._trading_mode == "FUTURES" and position_quantity == Decimal("0"):
-                    entry_fee = fill_price * decision.quantity * self._fee_pct
-                    position_quantity = -decision.quantity  # Negative for shorts
+                    entry_quantity = decision.quantity * Decimal(self._leverage)
+                    entry_fee = fill_price * entry_quantity * self._fee_pct
+                    position_quantity = -entry_quantity  # Negative for shorts
                     average_entry_fill_price = fill_price
                     pending_entry_fee = entry_fee
                     total_fees_paid += entry_fee
+                    current_liq = (
+                        self._compute_liquidation_price(
+                            side="short",
+                            entry_price=fill_price,
+                            leverage=self._leverage,
+                        )
+                        if self._leverage > 1
+                        else None
+                    )
+                    current_liquidation_price = current_liq
+                    current_position_side = "short" if current_liq is not None else None
                     executions.append(
                         BacktestExecution(
                             action="sell",
@@ -230,6 +357,8 @@ class BacktestService:
                             realized_pnl=Decimal("0"),
                             reason=signal.reason,
                             candle_open_time=candle.open_time,
+                            liquidation_price=current_liq,
+                            was_liquidated=False,
                         )
                     )
 
@@ -296,6 +425,10 @@ class BacktestService:
             fee_pct=self._fee_pct,
             executions=tuple(executions),
             candles=tuple(ordered_candles),
+            leverage=self._leverage,
+            margin_mode=self._margin_mode,
+            liquidation_count=len(liquidation_events),
+            liquidation_events=tuple(liquidation_events),
         )
 
     def run_walk_forward(
@@ -331,6 +464,36 @@ class BacktestService:
             overfitting_warning=return_degradation_pct > overfitting_threshold_pct,
             overfitting_threshold_pct=overfitting_threshold_pct,
         )
+
+    @staticmethod
+    def _compute_liquidation_price(
+        *,
+        side: str,
+        entry_price: Decimal,
+        leverage: int,
+    ) -> Decimal:
+        if side == "long":
+            return entry_price * (
+                Decimal("1") - Decimal("1") / Decimal(leverage) + MAINTENANCE_MARGIN_RATE
+            )
+        # short
+        return entry_price * (
+            Decimal("1") + Decimal("1") / Decimal(leverage) - MAINTENANCE_MARGIN_RATE
+        )
+
+    @staticmethod
+    def _check_liquidation(
+        *,
+        candle: "Candle",
+        position_side: str,
+        liquidation_price: Decimal,
+        margin_mode: str,
+    ) -> bool:
+        if margin_mode == "CROSS":
+            return False
+        if position_side == "long":
+            return candle.low_price <= liquidation_price
+        return candle.high_price >= liquidation_price
 
     def _build_portfolio_state(
         self,

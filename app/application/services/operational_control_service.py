@@ -102,6 +102,8 @@ class BacktestRunOptions:
     atr_breakout_multiplier: Decimal | None = None
     atr_stop_multiplier: Decimal | None = None
     trading_mode: str = "SPOT"
+    leverage: int | None = None  # None = auto-fetch for FUTURES
+    margin_mode: str = "ISOLATED"
 
 
 def required_candles_for_backtest_options(options: BacktestRunOptions) -> int:
@@ -165,6 +167,8 @@ class BacktestExecutionResult:
     realized_pnl: Decimal
     reason: str
     candle_open_time: datetime = datetime.min
+    liquidation_price: Decimal | None = None
+    was_liquidated: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -238,6 +242,10 @@ class BacktestControlResult:
     rules: RuleBuilderStrategyConfig | None = None
     executions: tuple[BacktestExecutionResult, ...] = ()
     candles: tuple[BacktestCandleResult, ...] = ()
+    leverage: int = 1
+    margin_mode: str = "ISOLATED"
+    liquidation_count: int = 0
+    trading_mode: str = "SPOT"
 
 
 @dataclass(frozen=True, slots=True)
@@ -522,8 +530,15 @@ class OperationalControlService:
         record_history: bool = True,
     ) -> BacktestControlResult:
         defaults = self._get_effective_operator_config()
+        resolved_leverage = 1
         try:
             resolved = self._resolve_backtest_options(options, defaults=defaults)
+            resolved_leverage = self._resolve_leverage(
+                requested_leverage=resolved.leverage,
+                symbol=resolved.symbol,
+                trading_mode=resolved.trading_mode,
+            )
+            resolved = replace(resolved, leverage=resolved_leverage)
         except ValueError as exc:
             preview = self._preview_backtest_options(options, defaults=defaults)
             control_result = BacktestControlResult(
@@ -541,6 +556,7 @@ class OperationalControlService:
                 candle_count=0,
                 required_candles=self._required_candles_for_options(preview),
                 rules=preview.rules,
+                trading_mode=preview.trading_mode,
             )
             if audit:
                 self._audit.record_control_result(
@@ -619,6 +635,7 @@ class OperationalControlService:
                 candle_count=candle_count,
                 required_candles=required_candles,
                 rules=resolved.rules,
+                trading_mode=resolved.trading_mode,
             )
             if audit:
                 self._audit.record_control_result(
@@ -677,6 +694,10 @@ class OperationalControlService:
             fee_pct=self._quantize_decimal(backtest_result.fee_pct),
             walk_forward=self._build_walk_forward_control_result(walk_forward_result),
             rules=resolved.rules,
+            leverage=resolved_leverage,
+            margin_mode=resolved.margin_mode,
+            liquidation_count=backtest_result.liquidation_count,
+            trading_mode=resolved.trading_mode,
             executions=tuple(
                 BacktestExecutionResult(
                     action=execution.action,
@@ -687,6 +708,8 @@ class OperationalControlService:
                     realized_pnl=self._quantize_decimal(execution.realized_pnl) or Decimal("0"),
                     reason=execution.reason,
                     candle_open_time=execution.candle_open_time,
+                    liquidation_price=self._quantize_decimal(execution.liquidation_price),
+                    was_liquidated=execution.was_liquidated,
                 )
                 for execution in backtest_result.executions
             ),
@@ -1164,6 +1187,8 @@ class OperationalControlService:
             slippage_pct=slippage_pct,
             fee_pct=fee_pct,
             trading_mode=options.trading_mode,
+            leverage=options.leverage or 1,
+            margin_mode=options.margin_mode,
         ).run(
             [
                 Candle(
@@ -1214,6 +1239,8 @@ class OperationalControlService:
             slippage_pct=slippage_pct,
             fee_pct=fee_pct,
             trading_mode=options.trading_mode,
+            leverage=options.leverage or 1,
+            margin_mode=options.margin_mode,
         ).run_walk_forward(
             candles,
             split_ratio=options.walk_forward_split_ratio or Decimal("0.7"),
@@ -1288,6 +1315,9 @@ class OperationalControlService:
                 rsi_overbought=active.rsi_overbought,
                 rsi_oversold=active.rsi_oversold,
                 volume_ma_period=active.volume_ma_period,
+                trading_mode=active.trading_mode,
+                leverage=active.leverage,
+                margin_mode=active.margin_mode,
             )
         if strategy_name == BACKTEST_STRATEGY_RULE_BUILDER:
             rules = active.rules or self._default_rule_builder_config(defaults)
@@ -1302,6 +1332,9 @@ class OperationalControlService:
                 fee_pct=active.fee_pct,
                 walk_forward_split_ratio=active.walk_forward_split_ratio,
                 rules=rules,
+                trading_mode=active.trading_mode,
+                leverage=active.leverage,
+                margin_mode=active.margin_mode,
             )
         # New strategies: resolve with their own param fields
         base_opts = BacktestRunOptions(
@@ -1329,6 +1362,9 @@ class OperationalControlService:
             atr_period=active.atr_period,
             atr_breakout_multiplier=active.atr_breakout_multiplier,
             atr_stop_multiplier=active.atr_stop_multiplier,
+            trading_mode=active.trading_mode,
+            leverage=active.leverage,
+            margin_mode=active.margin_mode,
         )
         if strategy_name in _ALL_BACKTEST_STRATEGIES:
             return base_opts
@@ -1452,6 +1488,33 @@ class OperationalControlService:
                 paper_trading_only=not self._settings.live_trading_enabled,
             )
         )
+
+    def _resolve_leverage(
+        self,
+        *,
+        requested_leverage: int | None,
+        symbol: str,
+        trading_mode: str,
+    ) -> int:
+        if trading_mode.upper() != "FUTURES":
+            return 1
+        if requested_leverage is not None:
+            if not 1 <= requested_leverage <= 125:
+                raise ValueError("leverage must be between 1 and 125")
+            return requested_leverage
+        # None = auto: fetch from exchange
+        try:
+            client = build_live_order_exchange_client(self._settings, trading_mode="FUTURES")
+            risk = client.fetch_position_risk(symbol=symbol)
+            if isinstance(risk, list):
+                for item in risk:
+                    if isinstance(item, dict) and "leverage" in item:
+                        return int(item["leverage"])
+            elif isinstance(risk, dict) and "leverage" in risk:
+                return int(risk["leverage"])
+        except Exception:
+            pass
+        return 1
 
     def _get_effective_operator_config(self) -> OperatorRuntimeConfig:
         with self._session_factory() as session:
