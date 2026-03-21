@@ -26,8 +26,6 @@ def test_backtest_cli_logs_not_enough_candles_and_exits(
         DATABASE_URL=f"sqlite:///{tmp_path / 'backtest_cli.db'}",
         STRATEGY_FAST_PERIOD=3,
         STRATEGY_SLOW_PERIOD=5,
-        EXCHANGE_API_KEY="test-key",
-        EXCHANGE_API_SECRET="test-secret",
     )
     engine = create_engine_from_settings(settings)
     Base.metadata.create_all(bind=engine)

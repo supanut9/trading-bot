@@ -31,8 +31,6 @@ def build_client(tmp_path: Path) -> tuple[TestClient, Settings]:
         STRATEGY_SLOW_PERIOD=5,
         MARKET_DATA_SYNC_ENABLED=False,
         NOTIFICATION_CHANNEL="none",
-        EXCHANGE_API_KEY="test-key",
-        EXCHANGE_API_SECRET="test-secret",
     )
     engine = create_engine_from_settings(settings)
     Base.metadata.create_all(bind=engine)
