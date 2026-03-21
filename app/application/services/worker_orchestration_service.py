@@ -841,6 +841,10 @@ class WorkerOrchestrationService:
                 if settings.strategy_volume_filter_enabled
                 else None
             ),
+            adx_period=(
+                settings.strategy_adx_period if settings.strategy_adx_filter_enabled else None
+            ),
+            adx_threshold=Decimal(str(settings.strategy_adx_threshold)),
         )
 
     def _get_market_sync(self) -> MarketDataSyncService:

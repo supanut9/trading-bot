@@ -258,6 +258,8 @@ class BacktestControlResponse(BaseModel):
     atr_period: int | None = None
     atr_breakout_multiplier: Decimal | None = None
     atr_stop_multiplier: Decimal | None = None
+    adx_period: int | None = None
+    adx_threshold: Decimal | None = None
     walk_forward: WalkForwardResponse | None = None
     rules: "StrategyRuleBuilderRequest | None" = None
     leverage: int | None = None
@@ -330,6 +332,8 @@ class BacktestRunResponse(BaseModel):
     atr_period: int | None = None
     atr_breakout_multiplier: Decimal | None = None
     atr_stop_multiplier: Decimal | None = None
+    adx_period: int | None = None
+    adx_threshold: Decimal | None = None
     leverage: int | None = None
     margin_mode: str | None = None
     liquidation_count: int | None = None
@@ -364,6 +368,8 @@ class BacktestControlRequest(BaseModel):
     atr_period: int | None = None
     atr_breakout_multiplier: Decimal | None = None
     atr_stop_multiplier: Decimal | None = None
+    adx_period: int | None = None
+    adx_threshold: Decimal | None = None
     trading_mode: str = "SPOT"
     leverage: int | None = None  # None = auto-fetch; ignored for SPOT
     margin_mode: str = "ISOLATED"  # "ISOLATED" or "CROSS"
