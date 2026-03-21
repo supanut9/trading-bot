@@ -160,6 +160,8 @@ def run_backtest(
                 if payload.xgb_sell_threshold is not None
                 else None
             ),
+            oos_only=payload.oos_only,
+            model_type=payload.model_type,
         ),
         source="api.control",
     )
@@ -345,20 +347,33 @@ def train_model(
                 symbol=payload.symbol,
                 timeframe=payload.timeframe,
                 exchange=payload.exchange,
+                model_type=payload.model_type,
+                label_type=payload.label_type,
+                label_horizon=payload.label_horizon,
+                label_threshold=payload.label_threshold,
+                feature_names=payload.feature_names,
                 n_estimators=payload.n_estimators,
                 max_depth=payload.max_depth,
                 learning_rate=payload.learning_rate,
                 split_ratio=payload.split_ratio,
+                buy_threshold=payload.buy_threshold,
+                sell_threshold=payload.sell_threshold,
             )
         )
     return TrainModelResponse(
         status=result.status,
         symbol=result.symbol,
         timeframe=result.timeframe,
+        model_type=result.model_type,
         model_path=result.model_path,
+        label_type=result.label_type,
+        label_horizon=result.label_horizon,
+        label_threshold=result.label_threshold,
+        feature_names=result.feature_names,
         sample_count=result.sample_count,
         train_count=result.train_count,
         test_count=result.test_count,
+        oos_start_index=result.oos_start_index,
         accuracy=result.accuracy,
         precision=result.precision,
         recall=result.recall,
