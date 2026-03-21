@@ -147,8 +147,7 @@ def test_worker_cycle_control_executes_and_persists_trade(tmp_path: Path) -> Non
 
 
 _SYNC_PATCH = (
-    "app.application.services.market_data_sync_service"
-    ".MarketDataSyncService.sync_recent_closed_candles"
+    "app.application.services.market_data_sync_service.MarketDataSyncService.sync_candles_paginated"
 )
 
 

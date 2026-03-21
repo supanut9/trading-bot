@@ -160,8 +160,7 @@ def test_trades_report_honors_limit_parameter(tmp_path: Path) -> None:
 
 
 _SYNC_PATCH = (
-    "app.application.services.market_data_sync_service"
-    ".MarketDataSyncService.sync_recent_closed_candles"
+    "app.application.services.market_data_sync_service.MarketDataSyncService.sync_candles_paginated"
 )
 
 

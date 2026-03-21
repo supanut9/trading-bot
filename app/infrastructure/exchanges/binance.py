@@ -46,15 +46,17 @@ class BinanceMarketDataClient(MarketDataExchangeClient):
         symbol: str,
         timeframe: str,
         limit: int,
+        end_time: datetime | None = None,
     ) -> Sequence[ExchangeCandle]:
         request_limit = max(1, min(limit + 1, 1000))
-        query = urlencode(
-            {
-                "symbol": symbol.replace("/", ""),
-                "interval": timeframe,
-                "limit": request_limit,
-            }
-        )
+        params: dict[str, object] = {
+            "symbol": symbol.replace("/", ""),
+            "interval": timeframe,
+            "limit": request_limit,
+        }
+        if end_time is not None:
+            params["endTime"] = int(end_time.timestamp() * 1000) - 1
+        query = urlencode(params)
         base_path = "/fapi/v1" if self._trading_mode == "FUTURES" else "/api/v3"
         url = f"{self._base_url}{base_path}/klines?{query}"
         try:
