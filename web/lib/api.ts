@@ -129,6 +129,8 @@ export type BacktestExecutionResponse = {
   realized_pnl: string;
   reason: string;
   candle_open_time: string;
+  liquidation_price: string | null;
+  was_liquidated: boolean;
 };
 
 export type BacktestCandleResponse = {
@@ -181,6 +183,8 @@ export type BacktestControlRequest = {
   atr_breakout_multiplier?: string;
   atr_stop_multiplier?: string;
   trading_mode?: string;
+  leverage?: number | null;
+  margin_mode?: string;
 };
 
 export type BacktestControlResponse = {
@@ -206,6 +210,9 @@ export type BacktestControlResponse = {
   winning_trades: number | null;
   losing_trades: number | null;
   rules: StrategyRuleBuilderRequest | null;
+  leverage: number | null;
+  margin_mode: string;
+  liquidation_count: number;
   executions: BacktestExecutionResponse[];
   candles: BacktestCandleResponse[];
 };
@@ -234,6 +241,9 @@ export type BacktestRunResponse = {
   total_trades: number | null;
   winning_trades: number | null;
   losing_trades: number | null;
+  leverage: number | null;
+  margin_mode: string | null;
+  liquidation_count: number | null;
   rules: StrategyRuleBuilderRequest | null;
 };
 

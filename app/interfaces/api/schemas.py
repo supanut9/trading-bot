@@ -260,6 +260,9 @@ class BacktestControlResponse(BaseModel):
     atr_stop_multiplier: Decimal | None = None
     walk_forward: WalkForwardResponse | None = None
     rules: "StrategyRuleBuilderRequest | None" = None
+    leverage: int | None = None
+    margin_mode: str = "ISOLATED"
+    liquidation_count: int = 0
     executions: list["BacktestExecutionResponse"] = Field(default_factory=list)
     candles: list["BacktestCandleResponse"] = Field(default_factory=list)
 
@@ -286,6 +289,8 @@ class BacktestExecutionResponse(BaseModel):
     realized_pnl: Decimal
     reason: str
     candle_open_time: datetime = datetime.min
+    liquidation_price: Decimal | None = None
+    was_liquidated: bool = False
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -324,6 +329,9 @@ class BacktestRunResponse(BaseModel):
     atr_period: int | None = None
     atr_breakout_multiplier: Decimal | None = None
     atr_stop_multiplier: Decimal | None = None
+    leverage: int | None = None
+    margin_mode: str | None = None
+    liquidation_count: int | None = None
     rules: "StrategyRuleBuilderRequest | None" = None
 
 
@@ -356,6 +364,8 @@ class BacktestControlRequest(BaseModel):
     atr_breakout_multiplier: Decimal | None = None
     atr_stop_multiplier: Decimal | None = None
     trading_mode: str = "SPOT"
+    leverage: int | None = None  # None = auto-fetch; ignored for SPOT
+    margin_mode: str = "ISOLATED"  # "ISOLATED" or "CROSS"
 
 
 class StrategyRuleConditionRequest(BaseModel):

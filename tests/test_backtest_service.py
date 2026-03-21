@@ -25,6 +25,22 @@ def build_candles(closes: list[int]) -> list[Candle]:
     return candles
 
 
+def build_candle(
+    *, close: int, low: int | None = None, high: int | None = None, index: int = 0
+) -> Candle:
+    open_time = datetime(2026, 1, 1, tzinfo=UTC) + timedelta(hours=index)
+    price = Decimal(close)
+    return Candle(
+        open_time=open_time,
+        close_time=open_time + timedelta(hours=1),
+        open_price=price,
+        high_price=Decimal(high) if high is not None else price,
+        low_price=Decimal(low) if low is not None else price,
+        close_price=price,
+        volume=Decimal("1"),
+    )
+
+
 class StubStrategy:
     def evaluate(self, candles: list[Candle]) -> Signal | None:
         latest_close = candles[-1].close_price
@@ -219,3 +235,171 @@ def test_walk_forward_no_warning_when_oos_matches_in_sample() -> None:
     # Both windows have the same profitable pattern; degradation should be near 0.
     assert result.return_degradation_pct < Decimal("35")
     assert result.overfitting_warning is False
+
+
+# ---------------------------------------------------------------------------
+# Leverage support tests
+# ---------------------------------------------------------------------------
+
+
+class BuyAtCloseStrategy:
+    """Buys when close equals the trigger price; never sells."""
+
+    def __init__(self, trigger: int) -> None:
+        self._trigger = Decimal(trigger)
+
+    def evaluate(self, candles: list[Candle]) -> Signal | None:
+        if candles[-1].close_price == self._trigger:
+            return Signal(
+                action="buy",
+                reason="test buy",
+                fast_value=Decimal("1"),
+                slow_value=Decimal("0"),
+            )
+        return None
+
+
+class SellAtCloseStrategy:
+    """Sells (short) when close equals the trigger price; never buys back."""
+
+    def __init__(self, trigger: int) -> None:
+        self._trigger = Decimal(trigger)
+
+    def evaluate(self, candles: list[Candle]) -> Signal | None:
+        if candles[-1].close_price == self._trigger:
+            return Signal(
+                action="sell",
+                reason="test sell",
+                fast_value=Decimal("0"),
+                slow_value=Decimal("1"),
+            )
+        return None
+
+
+def test_leverage_amplifies_pnl() -> None:
+    # Buy at 20, forced-close at 30 (last candle).
+    candles = build_candles([10, 20, 25, 30])
+
+    result_1x = BacktestService(
+        strategy=StubStrategy(),
+        starting_equity=Decimal("10000"),
+        trading_mode="FUTURES",
+        leverage=1,
+    ).run(candles)
+
+    result_5x = BacktestService(
+        strategy=StubStrategy(),
+        starting_equity=Decimal("10000"),
+        trading_mode="FUTURES",
+        leverage=5,
+    ).run(candles)
+
+    assert result_1x.realized_pnl > Decimal("0")
+    assert result_5x.realized_pnl == result_1x.realized_pnl * 5
+
+
+def test_leverage_1_is_identity() -> None:
+    candles = build_candles([10, 20, 25, 30])
+
+    result_default = BacktestService(
+        strategy=StubStrategy(),
+        starting_equity=Decimal("10000"),
+        trading_mode="FUTURES",
+    ).run(candles)
+
+    result_explicit_1 = BacktestService(
+        strategy=StubStrategy(),
+        starting_equity=Decimal("10000"),
+        trading_mode="FUTURES",
+        leverage=1,
+    ).run(candles)
+
+    assert result_default.realized_pnl == result_explicit_1.realized_pnl
+    assert result_default.executions[0].quantity == result_explicit_1.executions[0].quantity
+
+
+def test_long_liquidated_when_low_crosses_liq_price() -> None:
+    # Long at 100, leverage=10. Liq price = 100 * (1 - 0.1 + 0.004) = 90.4.
+    # A candle with low=89 should trigger liquidation.
+    entry_candle = build_candle(close=100, index=0)
+    liq_candle = build_candle(close=91, low=89, index=1)
+
+    result = BacktestService(
+        strategy=BuyAtCloseStrategy(trigger=100),
+        starting_equity=Decimal("10000"),
+        trading_mode="FUTURES",
+        leverage=10,
+        margin_mode="ISOLATED",
+    ).run([entry_candle, liq_candle])
+
+    assert result.liquidation_count == 1
+    assert len(result.liquidation_events) == 1
+    liquidated_exec = next(e for e in result.executions if e.was_liquidated)
+    assert liquidated_exec.was_liquidated is True
+    assert liquidated_exec.reason == "liquidated"
+
+
+def test_short_liquidated_when_high_crosses_liq_price() -> None:
+    # Short at 100, leverage=10. Liq price = 100 * (1 + 0.1 - 0.004) = 109.6.
+    # A candle with high=111 should trigger liquidation.
+    entry_candle = build_candle(close=100, index=0)
+    liq_candle = build_candle(close=108, high=111, index=1)
+
+    result = BacktestService(
+        strategy=SellAtCloseStrategy(trigger=100),
+        starting_equity=Decimal("10000"),
+        trading_mode="FUTURES",
+        leverage=10,
+        margin_mode="ISOLATED",
+    ).run([entry_candle, liq_candle])
+
+    assert result.liquidation_count == 1
+    liq_exec = next(e for e in result.executions if e.was_liquidated)
+    assert liq_exec.was_liquidated is True
+
+
+def test_no_liquidation_when_price_stays_safe() -> None:
+    # Long at 100, leverage=10. Liq price = 90.4.
+    # Candle with low=91 is above liq price — no liquidation.
+    entry_candle = build_candle(close=100, index=0)
+    safe_candle = build_candle(close=95, low=91, index=1)
+
+    result = BacktestService(
+        strategy=BuyAtCloseStrategy(trigger=100),
+        starting_equity=Decimal("10000"),
+        trading_mode="FUTURES",
+        leverage=10,
+        margin_mode="ISOLATED",
+    ).run([entry_candle, safe_candle])
+
+    assert result.liquidation_count == 0
+    assert all(not e.was_liquidated for e in result.executions)
+
+
+def test_cross_margin_never_liquidates() -> None:
+    # Same setup as long-liquidation test but CROSS mode — no liquidation.
+    entry_candle = build_candle(close=100, index=0)
+    liq_candle = build_candle(close=91, low=89, index=1)
+
+    result = BacktestService(
+        strategy=BuyAtCloseStrategy(trigger=100),
+        starting_equity=Decimal("10000"),
+        trading_mode="FUTURES",
+        leverage=10,
+        margin_mode="CROSS",
+    ).run([entry_candle, liq_candle])
+
+    assert result.liquidation_count == 0
+
+
+def test_leverage_stored_in_result() -> None:
+    result = BacktestService(
+        strategy=StubStrategy(),
+        starting_equity=Decimal("10000"),
+        trading_mode="FUTURES",
+        leverage=7,
+        margin_mode="CROSS",
+    ).run(build_candles([10, 20, 25, 30]))
+
+    assert result.leverage == 7
+    assert result.margin_mode == "CROSS"

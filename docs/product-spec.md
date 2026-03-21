@@ -49,34 +49,18 @@ Project completion boundary:
 
 Next implementation queue:
 
-Strategy quality (must come before live work):
+Iteration and strategy improvement (current focus):
 
-1. `feature/realistic-backtest-cost-modeling`
-2. `feature/walk-forward-validation`
-3. `feature/signal-quality-improvements`
+1. `feature/live-performance-review-loop` — compare live vs walk-forward OOS to detect edge decay (in progress)
+2. `feature/strategy-iteration-workflow` — re-validate and re-promote when live results fall short (planned)
 
-Live readiness:
+Profitability improvements (what separates this bot from better real-world bots):
 
-4. `feature/futures-leverage-support`
-5. `feature/exchange-rule-enforcement`
-6. `feature/shadow-strategy-runtime`
-7. `feature/strategy-qualification-gates`
-
-Live execution infrastructure:
-
-8. `feature/live-risk-hard-gates`
-9. `feature/smart-order-execution`
-10. `feature/validate-only-live-orders`
-11. `feature/live-ledger-reconciliation-hardening`
-12. `feature/live-futures-execution-hardening`
-
-Live deployment and iteration:
-
-13. `feature/production-secrets-and-ops-hardening`
-14. `feature/canary-live-rollout`
-15. `feature/live-incident-auto-halt`
-16. `feature/live-performance-review-loop`
-17. `feature/strategy-iteration-workflow`
+3. `feature/trade-exit-stop-loss` — ATR hard stop + trailing stop; highest-impact PnL protection
+4. `feature/regime-detection` — ADX filter to avoid false signals in ranging markets
+5. `feature/volatility-adjusted-sizing` — normalize position size to market volatility via ATR
+6. `feature/multi-symbol-trading` — trade multiple pairs for more edge opportunities per cycle
+7. `feature/multi-timeframe-confirmation` — higher timeframe trend alignment to improve win rate
 
 ## Initial Market And Strategy
 

@@ -142,6 +142,9 @@ class WorkerOrchestrationService:
             )
             return WorkerCycleResult(status="no_candles", detail="not enough candles")
 
+        mark_price = max(candles, key=lambda c: c.open_time).close_price
+        self._mark_open_position_to_market(mark_price)
+
         if self._trading_mode == "live" and self._settings.live_order_routing_mode == "limit":
             from app.application.services.smart_order_fallback_service import (
                 SmartOrderFallbackService,
@@ -568,6 +571,36 @@ class WorkerOrchestrationService:
             execution_mode=mode,  # type: ignore
             trading_mode=self._settings.trading_mode,  # type: ignore
         )
+
+    def _mark_open_position_to_market(self, mark_price: Decimal) -> None:
+        position = self._positions.get(
+            exchange=self._settings.exchange_name,
+            symbol=self._symbol,
+            trading_mode=self._settings.trading_mode,
+            mode=self._trading_mode,
+        )
+        if (
+            position is None
+            or position.quantity <= Decimal("0")
+            or position.average_entry_price is None
+        ):
+            return
+        if position.side == "long":
+            unrealized_pnl = (mark_price - position.average_entry_price) * position.quantity
+        else:
+            unrealized_pnl = (position.average_entry_price - mark_price) * position.quantity
+        self._positions.upsert(
+            exchange=self._settings.exchange_name,
+            symbol=self._symbol,
+            trading_mode=self._settings.trading_mode,
+            mode=self._trading_mode,
+            side=position.side,
+            quantity=position.quantity,
+            average_entry_price=position.average_entry_price,
+            realized_pnl=position.realized_pnl,
+            unrealized_pnl=unrealized_pnl,
+        )
+        self._session.commit()
 
     @staticmethod
     def _has_open_quantity(position: PositionRecord | None) -> bool:

@@ -66,6 +66,8 @@ type BacktestFormState = {
   atr_breakout_multiplier: string;
   atr_stop_multiplier: string;
   trading_mode: string;
+  leverage: string;           // "" = auto
+  margin_mode: string;
 };
 
 type RuleBuilderPresetKey = BacktestFormState["preset_key"];
@@ -785,9 +787,15 @@ function ResultPanel({
           </h3>
           <p className="mt-2 text-sm text-slate-300">{result.detail}</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Badge variant={metricVariant(result.status)}>{result.status}</Badge>
-          <Badge variant="neutral">{result.strategy_name}</Badge>
+          <Badge
+            className="max-w-[14rem] overflow-hidden truncate"
+            title={result.strategy_name}
+            variant="neutral"
+          >
+            {result.strategy_name.replaceAll("_", " ")}
+          </Badge>
         </div>
       </div>
 
@@ -854,28 +862,64 @@ function ResultPanel({
           <Badge variant={result.notified ? "success" : "neutral"}>
             {result.notified ? "Notification sent" : "No notification"}
           </Badge>
+          {result.trading_mode === "FUTURES" && result.leverage != null ? (
+            <Badge variant="info">Leverage {result.leverage}x</Badge>
+          ) : null}
+          {result.trading_mode === "FUTURES" && result.margin_mode ? (
+            <Badge variant="neutral">{result.margin_mode}</Badge>
+          ) : null}
+          {result.trading_mode === "FUTURES" && result.liquidation_count != null && result.liquidation_count > 0 ? (
+            <Badge variant="danger">{result.liquidation_count} Liquidation{result.liquidation_count > 1 ? "s" : ""}</Badge>
+          ) : null}
         </div>
         {result.executions.length > 0 ? (
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead>Type</TableHead>
                 <TableHead>Action</TableHead>
                 <TableHead>Price</TableHead>
                 <TableHead>Quantity</TableHead>
                 <TableHead>Realized PnL</TableHead>
                 <TableHead>Reason</TableHead>
+                <TableHead>Liq. Price</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {result.executions.map((execution, index) => (
-                <TableRow key={`${execution.action}-${index}`}>
+              {result.executions.map((execution, index) => {
+                const pnl = Number(execution.realized_pnl);
+                const isEntry = execution.realized_pnl === "0" && !execution.was_liquidated;
+                const rowClass = execution.was_liquidated ? "bg-rose-950/30" : "";
+                return (
+                <TableRow key={`${execution.action}-${index}`} className={rowClass}>
+                  <TableCell>
+                    {execution.was_liquidated ? (
+                      <Badge variant="danger">Liquidated</Badge>
+                    ) : isEntry ? (
+                      <span className="text-slate-500 text-xs">Entry</span>
+                    ) : (
+                      <Badge variant="neutral">Close</Badge>
+                    )}
+                  </TableCell>
                   <TableCell className="uppercase">{execution.action}</TableCell>
                   <TableCell>{formatDecimal(execution.price, { maximumFractionDigits: 4 })}</TableCell>
                   <TableCell>{formatDecimal(execution.quantity, { maximumFractionDigits: 6 })}</TableCell>
-                  <TableCell>{formatSignedDecimal(execution.realized_pnl)}</TableCell>
+                  <TableCell className={pnl > 0 ? "text-emerald-400" : pnl < 0 ? "text-rose-400" : "text-slate-500"}>
+                    {formatSignedDecimal(execution.realized_pnl)}
+                  </TableCell>
                   <TableCell>{execution.reason}</TableCell>
+                  <TableCell>
+                    {execution.liquidation_price ? (
+                      <span className={`text-xs ${execution.was_liquidated ? "text-rose-400 font-medium" : "text-slate-400"}`}>
+                        {formatDecimal(execution.liquidation_price, { maximumFractionDigits: 4 })}
+                      </span>
+                    ) : (
+                      <span className="text-slate-500">—</span>
+                    )}
+                  </TableCell>
                 </TableRow>
-              ))}
+                );
+              })}
             </TableBody>
           </Table>
         ) : (
@@ -931,7 +975,13 @@ function RecentRunsPanel({
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <Badge variant={metricVariant(run.status)}>{run.status}</Badge>
-                  <Badge variant="neutral">{run.strategy_name}</Badge>
+                  <Badge
+                    className="max-w-[14rem] overflow-hidden truncate"
+                    title={run.strategy_name}
+                    variant="neutral"
+                  >
+                    {run.strategy_name.replaceAll("_", " ")}
+                  </Badge>
                 </div>
               </div>
               <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-slate-400">
@@ -976,6 +1026,8 @@ export function BacktestPage() {
     atr_breakout_multiplier: "0.5",
     atr_stop_multiplier: "2.0",
     trading_mode: "SPOT",
+    leverage: "",
+    margin_mode: "ISOLATED",
   });
   const [hasHydratedDefaults, setHasHydratedDefaults] = useState(false);
 
@@ -1098,6 +1150,8 @@ export function BacktestPage() {
         atr_breakout_multiplier: "0.5",
         atr_stop_multiplier: "2.0",
         trading_mode: run.trading_mode ?? "SPOT",
+        leverage: "",
+        margin_mode: "ISOLATED",
       });
       return;
     }
@@ -1122,7 +1176,13 @@ export function BacktestPage() {
       symbol: form.symbol.trim(),
       timeframe: form.timeframe.trim(),
       starting_equity: Number(form.starting_equity),
+      trading_mode: form.trading_mode,
     };
+
+    if (form.trading_mode === "FUTURES") {
+      payload.leverage = form.leverage === "" ? null : Number(form.leverage);
+      payload.margin_mode = form.margin_mode;
+    }
 
     if (form.strategy_name === "ema_crossover") {
       payload.fast_period = Number(form.fast_period);
@@ -1297,6 +1357,38 @@ export function BacktestPage() {
                     </select>
                   </label>
                 </div>
+
+                {form.trading_mode === "FUTURES" && (
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <label className="space-y-2">
+                      <span className="text-[11px] uppercase tracking-[0.18em] text-slate-400">
+                        Leverage
+                      </span>
+                      <input
+                        className="w-full rounded-2xl border border-white/10 bg-[#09121a] px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-300/40 focus:ring-2 focus:ring-cyan-300/10"
+                        min={1}
+                        max={125}
+                        onChange={(event) => updateField("leverage", event.target.value)}
+                        placeholder="Auto (fetch from exchange)"
+                        type="number"
+                        value={form.leverage}
+                      />
+                    </label>
+                    <label className="space-y-2">
+                      <span className="text-[11px] uppercase tracking-[0.18em] text-slate-400">
+                        Margin Mode
+                      </span>
+                      <select
+                        className="w-full rounded-2xl border border-white/10 bg-[#09121a] px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-300/40 focus:ring-2 focus:ring-cyan-300/10"
+                        onChange={(event) => updateField("margin_mode", event.target.value)}
+                        value={form.margin_mode}
+                      >
+                        <option value="ISOLATED">ISOLATED</option>
+                        <option value="CROSS">CROSS</option>
+                      </select>
+                    </label>
+                  </div>
+                )}
 
                 {(form.strategy_name === "ema_crossover" ||
                   form.strategy_name === "macd_crossover" ||
