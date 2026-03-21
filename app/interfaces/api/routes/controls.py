@@ -352,6 +352,7 @@ def train_model(
                 label_horizon=payload.label_horizon,
                 label_threshold=payload.label_threshold,
                 feature_names=payload.feature_names,
+                candle_limit=payload.candle_limit,
                 n_estimators=payload.n_estimators,
                 max_depth=payload.max_depth,
                 learning_rate=payload.learning_rate,

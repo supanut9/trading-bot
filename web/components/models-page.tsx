@@ -56,6 +56,7 @@ type TrainFormState = {
   label_type: string;
   label_horizon: string;
   label_threshold: string;
+  candle_limit: string;
   n_estimators: string;
   max_depth: string;
   learning_rate: string;
@@ -368,6 +369,7 @@ export function ModelsPage() {
     label_type: "forward_return",
     label_horizon: "5",
     label_threshold: "0.003",
+    candle_limit: "10000",
     n_estimators: "200",
     max_depth: "4",
     learning_rate: "0.1",
@@ -402,6 +404,7 @@ export function ModelsPage() {
       label_horizon: Number(form.label_horizon),
       label_threshold: Number(form.label_threshold),
       feature_names: form.feature_names,
+      candle_limit: Number(form.candle_limit),
       n_estimators: Number(form.n_estimators),
       max_depth: Number(form.max_depth),
       learning_rate: Number(form.learning_rate),
@@ -559,6 +562,22 @@ export function ModelsPage() {
                 {form.feature_names.length === 0 && (
                   <p className="text-xs text-rose-400">Select at least one feature.</p>
                 )}
+
+                {/* Candle limit */}
+                <label className="space-y-2">
+                  <span className={LABEL_CLS}>Candle Limit</span>
+                  <input
+                    className={INPUT_CLS}
+                    max={50000}
+                    min={100}
+                    onChange={(e) => updateField("candle_limit", e.target.value)}
+                    required
+                    step={100}
+                    type="number"
+                    value={form.candle_limit}
+                  />
+                  <p className="text-xs text-slate-500">Max candles to use for training (100 – 50,000)</p>
+                </label>
 
                 {/* Hyperparameters */}
                 <div className="grid gap-4 md:grid-cols-2">

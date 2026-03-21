@@ -391,6 +391,7 @@ class TrainModelRequest(BaseModel):
     label_horizon: int = Field(default=5, ge=1, le=50)
     label_threshold: float = Field(default=0.003, ge=0.0, le=0.1)
     feature_names: list[str] | None = None
+    candle_limit: int = Field(default=10000, ge=100, le=50000)
     n_estimators: int = Field(default=200, ge=10, le=2000)
     max_depth: int = Field(default=4, ge=1, le=20)
     learning_rate: float = Field(default=0.1, gt=0.0, le=1.0)

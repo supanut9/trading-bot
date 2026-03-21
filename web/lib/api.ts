@@ -682,6 +682,7 @@ export type TrainModelRequest = {
   label_horizon: number;
   label_threshold: number;
   feature_names: string[];
+  candle_limit: number;
   n_estimators: number;
   max_depth: number;
   learning_rate: number;

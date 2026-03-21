@@ -30,6 +30,7 @@ class TrainModelRequest:
     label_horizon: int = 5  # how many candles forward
     label_threshold: float = 0.003  # min % move to count as signal (0.3%)
     feature_names: list[str] | None = None  # None = DEFAULT_FEATURE_NAMES
+    candle_limit: int = 10000  # max candles to fetch for training
     n_estimators: int = 200
     max_depth: int = 4
     learning_rate: float = 0.1
@@ -106,7 +107,7 @@ class ModelTrainingService:
             exchange=request.exchange,
             symbol=request.symbol,
             timeframe=request.timeframe,
-            limit=10000,
+            limit=request.candle_limit,
         )
 
         if not records:
