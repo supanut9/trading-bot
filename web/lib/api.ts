@@ -548,6 +548,7 @@ export function getMarketDataCoverage(params?: {
   fast_period?: number;
   slow_period?: number;
   rules?: StrategyRuleBuilderRequest;
+  trading_mode?: string;
 }): Promise<MarketDataCoverageResponse> {
   const searchParams = new URLSearchParams();
   if (params?.strategy_name) {
@@ -570,6 +571,9 @@ export function getMarketDataCoverage(params?: {
   }
   if (params?.rules) {
     searchParams.set("rules_json", JSON.stringify(params.rules));
+  }
+  if (params?.trading_mode) {
+    searchParams.set("trading_mode", params.trading_mode);
   }
   const suffix = searchParams.toString();
   return request<MarketDataCoverageResponse>(
