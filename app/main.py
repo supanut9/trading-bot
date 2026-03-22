@@ -12,6 +12,7 @@ from app.core.logger import (
     correlation_context,
     get_logger,
 )
+from app.infrastructure.database.init_db import init_database
 from app.interfaces.api.routes.controls import router as controls_router
 from app.interfaces.api.routes.health import router as health_router
 from app.interfaces.api.routes.market_data import router as market_data_router
@@ -28,6 +29,8 @@ logger = get_logger(__name__)
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     logger.info("runtime_starting component=api")
+    tables = init_database(settings)
+    logger.info("api_database_initialized tables=%s", ",".join(tables))
     context = validate_runtime_startup(settings, "api")
     logger.info(
         "runtime_ready component=%s app=%s env=%s mode=%s exchange=%s symbol=%s "

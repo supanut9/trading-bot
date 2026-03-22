@@ -769,60 +769,66 @@ class OperationalControlService:
                     for r in htf_records
                 ]
 
-        with self._session_factory() as session:
-            records = MarketDataService(session).list_historical_candles(
-                exchange=resolved.exchange,
-                symbol=resolved.symbol,
-                timeframe=resolved.timeframe,
-            )
-            candle_count = len(records)
-
-            # OOS-only: skip the training portion of candles
-            if resolved.oos_only and records:
-                try:
-                    mt = resolved.model_type or "xgboost"
-                    mp = resolved.xgb_model_path or default_model_path(
-                        symbol=resolved.symbol,
-                        timeframe=resolved.timeframe,
-                        model_type=mt,
-                    )
-                    loaded_meta = load_model(mp)
-                    oos_start = loaded_meta.metadata.oos_start_index
-                    if oos_start > 0 and oos_start < len(records):
-                        records = records[oos_start:]
-                        candle_count = len(records)
-                except Exception:
-                    pass  # if model not found, run on all candles
-
-            if not records:
-                backtest_result = None
-                walk_forward_result = None
-                status = "skipped"
-                detail = "no_candles"
-            elif candle_count < required_candles:
-                backtest_result = None
-                walk_forward_result = None
-                status = "skipped"
-                detail = "not_enough_candles"
-            else:
-                backtest_result = self._run_backtest_from_records(
-                    records,
-                    options=resolved,
-                    htf_candles=htf_candles,
-                    htf_period=effective_htf_period,
+        try:
+            with self._session_factory() as session:
+                records = MarketDataService(session).list_historical_candles(
+                    exchange=resolved.exchange,
+                    symbol=resolved.symbol,
+                    timeframe=resolved.timeframe,
                 )
-                walk_forward_result = (
-                    self._run_walk_forward_from_records(
+                candle_count = len(records)
+
+                # OOS-only: skip the training portion of candles
+                if resolved.oos_only and records:
+                    try:
+                        mt = resolved.model_type or "xgboost"
+                        mp = resolved.xgb_model_path or default_model_path(
+                            symbol=resolved.symbol,
+                            timeframe=resolved.timeframe,
+                            model_type=mt,
+                        )
+                        loaded_meta = load_model(mp)
+                        oos_start = loaded_meta.metadata.oos_start_index
+                        if oos_start > 0 and oos_start < len(records):
+                            records = records[oos_start:]
+                            candle_count = len(records)
+                    except Exception:
+                        pass  # if model not found, run on all candles
+
+                if not records:
+                    backtest_result = None
+                    walk_forward_result = None
+                    status = "skipped"
+                    detail = "no_candles"
+                elif candle_count < required_candles:
+                    backtest_result = None
+                    walk_forward_result = None
+                    status = "skipped"
+                    detail = "not_enough_candles"
+                else:
+                    backtest_result = self._run_backtest_from_records(
                         records,
                         options=resolved,
                         htf_candles=htf_candles,
                         htf_period=effective_htf_period,
                     )
-                    if resolved.walk_forward_split_ratio is not None
-                    else None
-                )
-                status = "completed"
-                detail = "backtest completed"
+                    walk_forward_result = (
+                        self._run_walk_forward_from_records(
+                            records,
+                            options=resolved,
+                            htf_candles=htf_candles,
+                            htf_period=effective_htf_period,
+                        )
+                        if resolved.walk_forward_split_ratio is not None
+                        else None
+                    )
+                    status = "completed"
+                    detail = "backtest completed"
+        except FileNotFoundError as exc:
+            backtest_result = None
+            walk_forward_result = None
+            status = "failed"
+            detail = str(exc)
 
         if backtest_result is None:
             notified = False

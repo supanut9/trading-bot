@@ -2,10 +2,12 @@
 
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
+from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
 
+from app.application.services.model_registry import clear_cache, load_model
 from app.domain.strategies.base import Candle
 from app.domain.strategies.ml_signal import MLSignalStrategy
 from app.domain.strategies.xgboost_signal import XGBoostSignalStrategy
@@ -217,3 +219,35 @@ def test_ml_unsorted_candles_produce_same_result() -> None:
     assert (r1 is None) == (r2 is None)
     if r1 and r2:
         assert r1.action == r2.action
+
+
+def test_load_model_falls_back_for_legacy_xgboost_without_metadata(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    model_path = tmp_path / "xgboost_btcusdt_1d.json"
+    model_path.write_text("{}")
+
+    loaded_paths: list[str] = []
+
+    class FakeXGBClassifier:
+        _estimator_type = "classifier"
+
+        def load_model(self, path: str) -> None:
+            loaded_paths.append(path)
+
+    class FakeXGBModule:
+        XGBClassifier = FakeXGBClassifier
+
+    monkeypatch.setattr(
+        "app.application.services.model_registry.importlib.import_module",
+        lambda name: FakeXGBModule() if name == "xgboost" else None,
+    )
+    clear_cache()
+
+    loaded = load_model(str(model_path))
+
+    assert loaded.metadata.model_type == "xgboost"
+    assert loaded.metadata.symbol == "BTC/USDT"
+    assert loaded.metadata.timeframe == "1d"
+    assert loaded.metadata.buy_threshold == 0.60
+    assert loaded_paths == [str(model_path)]
