@@ -533,6 +533,7 @@ class LiveReconcileControlResponse(BaseModel):
     reconciled_count: int
     filled_count: int
     review_required_count: int
+    recovery_summary: str = "-"
     notified: bool
 
     model_config = ConfigDict(from_attributes=True)
@@ -601,6 +602,7 @@ class RecoveryOrderResponse(BaseModel):
     price: Decimal | None
     updated_at: datetime
     requires_operator_review: bool
+    recovery_state: str
     next_action: str
 
 

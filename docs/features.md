@@ -1378,7 +1378,7 @@ Main outputs:
 
 Status:
 
-- planned
+- in progress
 
 Scope:
 
@@ -1668,6 +1668,7 @@ Main outputs:
 - unified recovery-state classification for unresolved live orders
 - startup and scheduled reconciliation that produce one operator-readable recovery outcome
 - explicit review-required queue for drift, partial-fill, and missing-local-state cases
+- recovery queue rows that distinguish waiting, stale, partial-fill, and manual-review cases without requiring raw status interpretation
 - safer idempotency rules for replays and restarts when exchange state is uncertain
 - runbook and reporting updates for recovery actions and expected operator decisions
 

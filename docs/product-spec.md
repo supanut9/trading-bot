@@ -107,6 +107,7 @@ Profitability improvements (what separates this bot from better real-world bots)
 - detect stale open live orders locally and surface them for operator review without automatic cancellation
 - expose a compact recovery report for unresolved live orders and recent reconciliation or cancel context
 - render a recovery queue and recovery timeline inside the reporting surface so operators can inspect unresolved live state without correlating raw audit rows manually
+- classify unresolved live orders into operator-readable recovery states such as awaiting, partial-fill, stale, or manual-review-required
 - render recovery timeline context from audit payloads so operators can see reconcile counts and cancel identifiers inline
 - allow operators to filter recovery queue and timeline views by status, review state, event type, and search terms
 - emit optional live-operations alerts for failed startup sync, failed scheduled reconciliation, and stale live orders

@@ -9,6 +9,11 @@ from app.application.services.live_order_state import (
     UNRESOLVED_LIVE_ORDER_STATUSES,
     requires_operator_review,
 )
+from app.application.services.live_recovery_state import (
+    classify_recovery_state,
+    next_action_for_recovery_state,
+)
+from app.config import Settings
 from app.infrastructure.database.models.order import OrderRecord
 from app.infrastructure.database.repositories.order_repository import OrderRepository
 
@@ -16,6 +21,7 @@ from app.infrastructure.database.repositories.order_repository import OrderRepos
 @dataclass(frozen=True, slots=True)
 class RecoveryOrderView:
     order: OrderRecord
+    recovery_state: str
     requires_operator_review: bool
     next_action: str
 
@@ -48,9 +54,10 @@ class LiveOrderRecoveryReportService:
     _recovery_event_types = {"live_reconcile", "live_cancel"}
     _recovery_sources = {"job.startup_state_sync", "job.live_reconcile", "api.control"}
 
-    def __init__(self, session: Session) -> None:
+    def __init__(self, session: Session, settings: Settings) -> None:
         self._orders = OrderRepository(session)
         self._audit = AuditService(session=session)
+        self._settings = settings
 
     def build_report(
         self,
@@ -67,8 +74,9 @@ class LiveOrderRecoveryReportService:
         unresolved_orders = [
             RecoveryOrderView(
                 order=order,
+                recovery_state=self._recovery_state(order),
                 requires_operator_review=requires_operator_review(order.status),
-                next_action=self._next_action(order.status),
+                next_action=next_action_for_recovery_state(self._recovery_state(order)),
             )
             for order in unresolved_records
         ]
@@ -116,6 +124,7 @@ class LiveOrderRecoveryReportService:
                     order.order.status,
                     order.order.client_order_id or "",
                     order.order.exchange_order_id or "",
+                    order.recovery_state,
                     order.next_action,
                 ]
             ).lower()
@@ -192,13 +201,12 @@ class LiveOrderRecoveryReportService:
             return "-"
         return " ".join(values)
 
-    @staticmethod
-    def _next_action(status: str) -> str:
-        if status == "review_required":
-            return "inspect_exchange_state"
-        if status in {"submitting", "submitted", "open", "partially_filled"}:
-            return "reconcile_or_cancel"
-        return "none"
+    def _recovery_state(self, order: OrderRecord) -> str:
+        return classify_recovery_state(
+            status=order.status,
+            updated_at=order.updated_at,
+            stale_threshold_minutes=self._settings.stale_live_order_threshold_minutes,
+        )
 
     @staticmethod
     def latest_event_summary(

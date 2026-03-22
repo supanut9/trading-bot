@@ -185,6 +185,7 @@ Live fill reconciliation:
 - only remote `filled` orders create local trades and update live positions
 - open and partial exchange states are normalized into canonical local statuses such as `open` and `partially_filled`
 - detail-incomplete or unknown exchange responses are persisted as `review_required` so operators can see uncertain state explicitly
+- reconcile outcomes now also emit a compact `recovery_summary` so startup sync, scheduled reconcile, and manual reconcile runs describe the recovery slice in one operator-readable line
 - repeated reconciliation is idempotent for already-reconciled orders because only recent open live orders are considered
 - `LIVE_RECONCILE_SCHEDULE_ENABLED=true` and `LIVE_RECONCILE_SCHEDULE_INTERVAL_SECONDS` enable the same workflow as a recurring worker job in live mode
 - `STARTUP_STATE_SYNC_ENABLED=true` runs the same reconciliation workflow once during live worker startup before any new execution is attempted
@@ -213,10 +214,16 @@ Live order recovery report:
 
 - `GET /reports` now includes a compact recovery summary over unresolved live orders and recent recovery events
 - the Next.js `/reports` route now consumes `GET /reports/recovery` for recovery queue, stale-order, and timeline visibility
-- `GET /reports` also includes a recovery queue with `review_required` and `next_action` columns plus a recovery timeline of recent live reconcile and live cancel events
+- `GET /reports` also includes a recovery queue with `recovery_state`, `review_required`, and `next_action` columns plus a recovery timeline of recent live reconcile and live cancel events
 - the recovery timeline now includes a context column derived from audit payloads such as reconcile counts or cancel identifiers
 - `/reports` now supports recovery filters for order status, review-required state, event type, and free-text search
-- `GET /reports/live-recovery.csv` exports unresolved live orders with the latest recovery-event context, `requires_operator_review`, and `next_action`
+- `GET /reports/live-recovery.csv` exports unresolved live orders with the latest recovery-event context, `requires_operator_review`, `recovery_state`, and `next_action`
+- recovery-state meanings:
+- `awaiting_exchange`: recent open order, usually rerun reconcile before acting
+- `partial_fill_in_flight`: exchange has executed part of the order, rerun reconcile and avoid speculative cancel decisions
+- `stale_open_order`: open order has aged past the stale threshold, reconcile or cancel after confirming exchange state
+- `stale_partial_fill`: partial fill has aged past the stale threshold, reconcile first and cancel only when the remaining open quantity is understood
+- `manual_review_required`: exchange response drift or missing fill detail, inspect exchange state before trusting local recovery state
 - recovery reporting is read-only and is intended to shorten operator review during live incident handling
 
 Runtime log correlation:

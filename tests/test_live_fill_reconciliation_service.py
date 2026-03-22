@@ -13,6 +13,10 @@ from app.infrastructure.database.session import create_engine_from_settings, cre
 from app.infrastructure.exchanges.base import ExchangeOrderStatus
 
 
+def build_settings(tmp_path: Path) -> Settings:
+    return Settings(DATABASE_URL=f"sqlite:///{tmp_path / 'live_reconcile.db'}")
+
+
 class FilledOrderClient:
     def __init__(self, *, side: str = "buy") -> None:
         self.side = side
@@ -55,7 +59,7 @@ class OpenOrderClient:
 
 
 def build_session(tmp_path: Path) -> object:
-    settings = Settings(DATABASE_URL=f"sqlite:///{tmp_path / 'live_reconcile.db'}")
+    settings = build_settings(tmp_path)
     engine = create_engine_from_settings(settings)
     Base.metadata.create_all(bind=engine)
     return create_session_factory(settings)()
@@ -80,6 +84,7 @@ def test_reconciles_filled_live_buy_into_trade_and_position(tmp_path: Path) -> N
 
         results = LiveFillReconciliationService(
             session,
+            build_settings(tmp_path),
             client=FilledOrderClient(),
         ).reconcile_recent_live_orders()
 
@@ -113,7 +118,11 @@ def test_reconciliation_is_idempotent_for_already_reconciled_fill(tmp_path: Path
             client_order_id="live-buy-1",
             exchange_order_id="123",
         )
-        service = LiveFillReconciliationService(session, client=FilledOrderClient())
+        service = LiveFillReconciliationService(
+            session,
+            build_settings(tmp_path),
+            client=FilledOrderClient(),
+        )
         first = service.reconcile_recent_live_orders()
         second = service.reconcile_recent_live_orders()
 
@@ -146,6 +155,7 @@ def test_leaves_open_live_order_without_trade_creation(tmp_path: Path) -> None:
 
         results = LiveFillReconciliationService(
             session,
+            build_settings(tmp_path),
             client=OpenOrderClient(),
         ).reconcile_recent_live_orders()
 
@@ -199,6 +209,7 @@ def test_marks_order_review_required_when_exchange_fill_details_are_missing(
 
         results = LiveFillReconciliationService(
             session,
+            build_settings(tmp_path),
             client=FilledWithoutDetailsClient(),
         ).reconcile_recent_live_orders()
 
@@ -248,7 +259,11 @@ def test_reconciles_incremental_partial_fills(tmp_path: Path) -> None:
 
         # Step 1: 4 BTC filled at 50,000
         client = PartialFillClient([("partially_filled", Decimal("4.0"), Decimal("50000"))])
-        service = LiveFillReconciliationService(session, client=client)
+        service = LiveFillReconciliationService(
+            session,
+            build_settings(tmp_path),
+            client=client,
+        )
         results1 = service.reconcile_recent_live_orders()
 
         assert results1[0].status == "partially_filled"
@@ -303,7 +318,11 @@ def test_reconciles_partial_fill_before_cancellation(tmp_path: Path) -> None:
 
         # Exchange says Canceled, but 2.0 were filled at 50,000
         client = PartialFillClient([("canceled", Decimal("2.0"), Decimal("50000"))])
-        service = LiveFillReconciliationService(session, client=client)
+        service = LiveFillReconciliationService(
+            session,
+            build_settings(tmp_path),
+            client=client,
+        )
         results = service.reconcile_recent_live_orders()
 
         assert results[0].status == "canceled"

@@ -9,6 +9,8 @@ from app.application.services.live_order_state import (
     resolve_reconcile_state,
     transition_live_order,
 )
+from app.application.services.live_recovery_state import classify_recovery_state
+from app.config import Settings
 from app.infrastructure.database.models.order import OrderRecord
 from app.infrastructure.database.repositories.order_repository import OrderRepository
 from app.infrastructure.database.repositories.position_repository import PositionRepository
@@ -25,12 +27,20 @@ class LiveFillReconciliationResult:
     detail: str
     trade_created: bool
     requires_operator_review: bool
+    recovery_state: str
     position_quantity: Decimal | None = None
 
 
 class LiveFillReconciliationService:
-    def __init__(self, session: Session, *, client: LiveOrderExchangeClient) -> None:
+    def __init__(
+        self,
+        session: Session,
+        settings: Settings,
+        *,
+        client: LiveOrderExchangeClient,
+    ) -> None:
         self._session = session
+        self._settings = settings
         self._client = client
         self._orders = OrderRepository(session)
         self._trades = TradeRepository(session)
@@ -131,6 +141,11 @@ class LiveFillReconciliationService:
             detail=resolution.detail,
             trade_created=trade_created,
             requires_operator_review=requires_operator_review(order.status),
+            recovery_state=classify_recovery_state(
+                status=order.status,
+                updated_at=order.updated_at,
+                stale_threshold_minutes=self._settings.stale_live_order_threshold_minutes,
+            ),
             position_quantity=position.quantity if position is not None else None,
         )
 

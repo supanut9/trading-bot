@@ -214,6 +214,7 @@ def get_recovery_dashboard(
                 price=order.order.price,
                 updated_at=order.order.updated_at,
                 requires_operator_review=order.requires_operator_review,
+                recovery_state=order.recovery_state,
                 next_action=order.next_action,
             )
             for order in dashboard.recovery_orders

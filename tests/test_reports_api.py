@@ -412,6 +412,7 @@ def test_live_recovery_csv_export_filters_rows(tmp_path: Path) -> None:
         assert len(rows) == 1
         assert rows[0]["client_order_id"] == "filtered-order"
         assert rows[0]["requires_operator_review"] == "true"
+        assert rows[0]["recovery_state"] == "manual_review_required"
     finally:
         teardown_client(session)
 
@@ -479,6 +480,7 @@ def test_recovery_dashboard_returns_filtered_recovery_data(tmp_path: Path) -> No
         assert payload["filters"]["search"] == "filtered-order"
         assert payload["unresolved_orders"][0]["client_order_id"] == "filtered-order"
         assert payload["unresolved_orders"][0]["requires_operator_review"] is True
+        assert payload["unresolved_orders"][0]["recovery_state"] == "manual_review_required"
         assert payload["recovery_events"][0]["event_type"] == "live_cancel"
         assert "client_order_id=filtered-order" in payload["recovery_events"][0]["context"]
     finally:

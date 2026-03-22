@@ -921,6 +921,20 @@ The worker already computes aggregate portfolio exposure before calling `RiskSer
 
 Live entry can now be blocked on total exposure, per-symbol exposure, per-symbol concentration, and live concurrent-position limits. These caps are surfaced through `/status` so operators can inspect the configured portfolio envelope before enabling live mode, and hard violations continue to fail closed by auto-halting live execution.
 
+## 2026-03-22
+
+### Decision
+
+Add one shared recovery-state classification for unresolved live orders and reuse it in reporting plus reconcile summaries.
+
+### Reason
+
+Recovery status had become readable only if an operator already knew how to interpret raw order statuses, stale-order age, and `review_required` cases together. That is not good enough during restart or incident handling. A single recovery-state vocabulary makes the queue, CSV export, and reconcile output describe the same situation with less inference.
+
+### Consequence
+
+Recovery reporting now classifies unresolved live orders into states such as `awaiting_exchange`, `partial_fill_in_flight`, `stale_open_order`, `stale_partial_fill`, and `manual_review_required`. `live_reconcile` control results also include a compact `recovery_summary`, so startup sync and scheduled reconcile logs can summarize the slice they just processed without forcing operators to correlate raw counts manually.
+
 ## 2026-03-21
 
 ### Decision
