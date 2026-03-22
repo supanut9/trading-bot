@@ -216,6 +216,12 @@ export type BacktestControlResponse = {
   winning_trades: number | null;
   losing_trades: number | null;
   rules: StrategyRuleBuilderRequest | null;
+  bb_period: number | null;
+  bb_std_dev: string | null;
+  breakout_period: number | null;
+  atr_period: number | null;
+  atr_breakout_multiplier: string | null;
+  atr_stop_multiplier: string | null;
   adx_period: number | null;
   adx_threshold: string | null;
   leverage: number | null;
@@ -342,7 +348,7 @@ export type QualificationGateResponse = {
   name: string;
   passed: boolean;
   reason: string;
-  evidence: Record<string, any> | null;
+  evidence: Record<string, unknown> | null;
 };
 
 export type QualificationReportResponse = {

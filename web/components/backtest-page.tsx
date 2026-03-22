@@ -1,7 +1,7 @@
 "use client";
 
 import type { FormEvent } from "react";
-import { useEffect, useState } from "react";
+import { startTransition, useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AreaChart,
@@ -691,80 +691,6 @@ function SummaryStrip({
   );
 }
 
-function ExecutionCurve({ result }: { result: BacktestControlResponse }) {
-  if (!result.starting_equity || result.executions.length === 0) {
-    return (
-      <div className="flex min-h-56 items-center justify-center rounded-[1.8rem] border border-dashed border-white/10 bg-white/[0.02] px-6 text-center text-sm text-slate-400">
-        Run a backtest with at least one execution to render the realized-equity path.
-      </div>
-    );
-  }
-
-  let equity = Number(result.starting_equity);
-  const points = [
-    {
-      label: "start",
-      equity,
-    },
-  ];
-
-  for (const execution of result.executions) {
-    equity += Number(execution.realized_pnl);
-    points.push({
-      label: execution.action,
-      equity,
-    });
-  }
-
-  const minValue = Math.min(...points.map((point) => point.equity));
-  const maxValue = Math.max(...points.map((point) => point.equity));
-  const safeMin = minValue === maxValue ? minValue - 1 : minValue;
-  const safeMax = minValue === maxValue ? maxValue + 1 : maxValue;
-  const path = points
-    .map((point, index) => {
-      const x = (index / Math.max(points.length - 1, 1)) * 100;
-      const normalized = (point.equity - safeMin) / (safeMax - safeMin);
-      const y = 100 - normalized * 100;
-      return `${index === 0 ? "M" : "L"} ${x} ${y}`;
-    })
-    .join(" ");
-
-  return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <p className="text-3xl font-semibold tracking-tight text-white">
-            {formatSignedDecimal(result.realized_pnl)}
-          </p>
-          <p className="mt-1 text-sm text-slate-400">Realized PnL across replay executions.</p>
-        </div>
-        <div className="flex gap-2">
-          <Badge variant="info">Executions {result.executions.length}</Badge>
-          <Badge variant="neutral">Start {formatDecimal(result.starting_equity)}</Badge>
-          <Badge variant="neutral">End {formatDecimal(result.ending_equity)}</Badge>
-        </div>
-      </div>
-
-      <div className="rounded-[1.8rem] border border-white/10 bg-[linear-gradient(180deg,rgba(34,211,238,0.08),rgba(8,12,17,0.2))] p-4">
-        <svg
-          aria-label="Backtest realized equity curve"
-          className="h-60 w-full"
-          preserveAspectRatio="none"
-          viewBox="0 0 100 100"
-        >
-          <defs>
-            <linearGradient id="backtest-curve" x1="0" x2="1" y1="0" y2="1">
-              <stop offset="0%" stopColor="#fcd34d" />
-              <stop offset="100%" stopColor="#34d399" />
-            </linearGradient>
-          </defs>
-          <path d={path} fill="none" stroke="url(#backtest-curve)" strokeWidth="2.5" />
-        </svg>
-      </div>
-    </div>
-  );
-}
-
 function ResultPanel({
   result,
 }: {
@@ -1093,20 +1019,22 @@ export function BacktestPage() {
       return;
     }
 
-    setForm((current) => ({
-      ...current,
-      symbol: operatorConfigQuery.data.symbol,
-      timeframe: operatorConfigQuery.data.timeframe,
-      trading_mode: operatorConfigQuery.data.trading_mode,
-      fast_period: String(operatorConfigQuery.data.fast_period),
-      slow_period: String(operatorConfigQuery.data.slow_period),
-      rules: buildPresetRules(
-        current.preset_key,
-        String(operatorConfigQuery.data.fast_period),
-        String(operatorConfigQuery.data.slow_period),
-      ),
-    }));
-    setHasHydratedDefaults(true);
+    startTransition(() => {
+      setForm((current) => ({
+        ...current,
+        symbol: operatorConfigQuery.data.symbol,
+        timeframe: operatorConfigQuery.data.timeframe,
+        trading_mode: operatorConfigQuery.data.trading_mode,
+        fast_period: String(operatorConfigQuery.data.fast_period),
+        slow_period: String(operatorConfigQuery.data.slow_period),
+        rules: buildPresetRules(
+          current.preset_key,
+          String(operatorConfigQuery.data.fast_period),
+          String(operatorConfigQuery.data.slow_period),
+        ),
+      }));
+      setHasHydratedDefaults(true);
+    });
   }, [hasHydratedDefaults, operatorConfigQuery.data]);
 
   function updateField<Key extends keyof BacktestFormState>(
