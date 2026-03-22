@@ -1033,3 +1033,17 @@ Slippage and fees alone still assume instantaneous fills at the signal candle wi
 ### Consequence
 
 Backtest controls now accept `spread_pct` and `signal_latency_bars`, replay execution applies those assumptions to fill prices, and stored backtest runs expose an `assumption_summary` so operators can see the exact friction model behind a reported result.
+
+## 2026-03-22
+
+### Decision
+
+Add request-level UTC weekday and hour session constraints to backtest execution.
+
+### Reason
+
+Some replay windows look tradable only because the simulator allows entries and exits at every candle regardless of market session or operator-approved availability. Restricting execution to explicit UTC windows closes part of that realism gap without coupling strategy logic to exchange session rules.
+
+### Consequence
+
+Backtest controls and reports now accept and persist `allowed_weekdays_utc` and `allowed_hours_utc`, and replay execution skips signal handling outside those windows while still forcing any remaining open position closed on the final candle.

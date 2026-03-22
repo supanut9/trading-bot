@@ -165,6 +165,8 @@ def get_backtest_runs(
                 spread_pct=run.spread_pct,
                 signal_latency_bars=run.signal_latency_bars or 0,
                 assumption_summary=run.assumption_summary,
+                allowed_weekdays_utc=list(run.allowed_weekdays_utc),
+                allowed_hours_utc=list(run.allowed_hours_utc),
                 rules=(
                     StrategyRuleBuilderRequest.model_validate(run.rules_payload)
                     if run.rules_payload is not None

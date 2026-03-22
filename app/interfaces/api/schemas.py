@@ -258,6 +258,8 @@ class BacktestControlResponse(BaseModel):
     spread_pct: Decimal | None = None
     signal_latency_bars: int = 0
     assumption_summary: str = ""
+    allowed_weekdays_utc: list[int] = Field(default_factory=list)
+    allowed_hours_utc: list[int] = Field(default_factory=list)
     rsi_period: int | None = None
     rsi_overbought: Decimal | None = None
     rsi_oversold: Decimal | None = None
@@ -353,6 +355,8 @@ class BacktestRunResponse(BaseModel):
     spread_pct: Decimal | None = None
     signal_latency_bars: int = 0
     assumption_summary: str = ""
+    allowed_weekdays_utc: list[int] = Field(default_factory=list)
+    allowed_hours_utc: list[int] = Field(default_factory=list)
     rules: "StrategyRuleBuilderRequest | None" = None
 
 
@@ -373,6 +377,8 @@ class BacktestControlRequest(BaseModel):
     fee_pct: Decimal | None = None
     spread_pct: Decimal | None = None
     signal_latency_bars: int | None = None
+    allowed_weekdays_utc: list[int] | None = None
+    allowed_hours_utc: list[int] | None = None
     walk_forward_split_ratio: Decimal | None = None
     rules: "StrategyRuleBuilderRequest | None" = None
     rsi_period: int | None = None

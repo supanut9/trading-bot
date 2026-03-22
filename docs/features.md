@@ -1714,7 +1714,7 @@ Main outputs:
 - configurable spread and latency assumptions in replay execution
 - persisted spread and latency assumptions in backtest run history and reports
 - explicit assumption summary included in backtest API and reporting output
-- optional session or market-availability constraints for backtests
+- optional UTC weekday and hour constraints for backtests
 - partial-fill and missed-fill assumptions for limit-style execution paths
 - benchmark comparison in replay reports for cost-adjusted return context
 - explicit “assumption summary” included in backtest output so operators know what realism model was applied

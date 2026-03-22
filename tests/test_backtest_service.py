@@ -282,6 +282,22 @@ def test_backtest_spread_and_latency_reduce_pnl() -> None:
     assert "signal_latency_bars=1" in result_with_extra_friction.assumption_summary
 
 
+def test_backtest_session_constraints_limit_trading_hours() -> None:
+    service = BacktestService(
+        strategy=StubStrategy(),
+        starting_equity=Decimal("10000"),
+        allowed_hours_utc=(2,),
+    )
+
+    result = service.run(build_candles([10, 12, 20, 30]))
+
+    assert result.total_trades == 2
+    assert result.executions[0].reason == "stub entry"
+    assert result.executions[-1].reason == "forced close on final candle"
+    assert result.allowed_hours_utc == (2,)
+    assert "allowed_hours_utc=[2]" in result.assumption_summary
+
+
 def test_walk_forward_returns_in_sample_and_oos_results() -> None:
     service = BacktestService(strategy=StubStrategy(), starting_equity=Decimal("10000"))
     # 4 candles: split 0.5 → 2 in-sample, 2 OOS

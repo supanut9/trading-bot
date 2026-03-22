@@ -39,6 +39,8 @@ class BacktestRunRecord(TimestampMixin, Base):
     fee_pct: Mapped[Decimal | None] = mapped_column(Numeric(10, 8))
     spread_pct: Mapped[Decimal | None] = mapped_column(Numeric(10, 8))
     signal_latency_bars: Mapped[int | None]
+    allowed_weekdays_utc: Mapped[str | None] = mapped_column(Text)
+    allowed_hours_utc: Mapped[str | None] = mapped_column(Text)
     walk_forward_split_ratio: Mapped[Decimal | None] = mapped_column(Numeric(5, 4))
     walk_forward_in_sample_candles: Mapped[int | None]
     walk_forward_oos_candles: Mapped[int | None]

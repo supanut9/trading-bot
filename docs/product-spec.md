@@ -128,6 +128,7 @@ Profitability improvements (what separates this bot from better real-world bots)
 - allow operators to edit backtest-only rule-builder groups and conditions inside the backtest page while reusing the existing control API
 - persist recent backtest runs with summary metrics and allow the backtest page to hydrate its form from a stored run
 - expose spread, latency, and assumption-summary backtest realism settings through the control and reporting surfaces
+- allow backtests to restrict simulated execution to explicit UTC weekdays and hours
 - provide read-only Next.js recovery reporting with stale-order visibility, unresolved live-order queue, recent recovery events, and filtered export links
 - persist paper-runtime operator defaults for symbol, timeframe, trading mode (SPOT/FUTURES), and EMA periods so operator actions do not depend only on startup env
 - render a compact reporting summary over the latest worker outcome, PnL, trade count, positions, and stale live state
