@@ -935,6 +935,20 @@ Recovery status had become readable only if an operator already knew how to inte
 
 Recovery reporting now classifies unresolved live orders into states such as `awaiting_exchange`, `partial_fill_in_flight`, `stale_open_order`, `stale_partial_fill`, and `manual_review_required`. `live_reconcile` control results also include a compact `recovery_summary`, so startup sync and scheduled reconcile logs can summarize the slice they just processed without forcing operators to correlate raw counts manually.
 
+## 2026-03-22
+
+### Decision
+
+Persist one operator-controlled runtime promotion stage and gate forward promotion on existing readiness, qualification, and canary signals.
+
+### Reason
+
+The rollout model already existed in fragments across execution mode flags, qualification gates, canary exposure, and the runbook, but there was no durable source of truth for where the runtime had been promoted to. That made the promotion path hard to audit and easy to infer incorrectly.
+
+### Consequence
+
+The API now exposes `GET /controls/runtime-promotion` and `POST /controls/runtime-promotion`, `/status` includes `runtime_promotion_stage` and `runtime_promotion_blockers`, and forward stage changes fail closed when prerequisites are not satisfied. This first slice records operator-approved rollout stage without automatically mutating `execution_mode`.
+
 ## 2026-03-21
 
 ### Decision

@@ -19,6 +19,8 @@ class StatusResponse(BaseModel):
     live_trading_enabled: bool
     live_trading_halted: bool
     live_safety_status: str
+    runtime_promotion_stage: str
+    runtime_promotion_blockers: list[str] = Field(default_factory=list)
     live_readiness_status: str | None = None
     live_readiness_blocking_reasons: list[str] = Field(default_factory=list)
     live_max_order_notional: Decimal | None = None
@@ -713,6 +715,20 @@ class LiveReadinessControlResponse(BaseModel):
     ready: bool
     checks: list[LiveReadinessCheckResponse] = Field(default_factory=list)
     blocking_reasons: list[str] = Field(default_factory=list)
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class RuntimePromotionControlRequest(BaseModel):
+    stage: Literal["paper", "shadow", "qualified", "canary", "live"]
+
+
+class RuntimePromotionControlResponse(BaseModel):
+    status: str
+    detail: str
+    stage: str
+    changed: bool
+    blockers: list[str] = Field(default_factory=list)
 
     model_config = ConfigDict(from_attributes=True)
 

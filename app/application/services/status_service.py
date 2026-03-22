@@ -6,6 +6,7 @@ from app.application.services.exchange_balance_service import ExchangeBalanceSer
 from app.application.services.live_operator_control_service import LiveOperatorControlService
 from app.application.services.live_readiness_service import LiveReadinessService
 from app.application.services.operator_runtime_config_service import OperatorRuntimeConfigService
+from app.application.services.runtime_promotion_service import RuntimePromotionService
 from app.config import Settings
 from app.infrastructure.database.session import create_engine_from_settings
 from app.infrastructure.exchanges.factory import (
@@ -24,6 +25,7 @@ class StatusService:
         effective_live_halt = self._effective_live_trading_halted()
         effective_operator_config = self._effective_operator_config()
         live_readiness = self._live_readiness_report()
+        runtime_promotion = self._runtime_promotion_state()
         latest_price_status = "unavailable"
         latest_price: str | None = None
         try:
@@ -88,6 +90,8 @@ class StatusService:
             "live_trading_enabled": self._settings.live_trading_enabled,
             "live_trading_halted": effective_live_halt,
             "live_safety_status": self._live_safety_status(effective_live_halt),
+            "runtime_promotion_stage": runtime_promotion["stage"],
+            "runtime_promotion_blockers": runtime_promotion["blockers"],
             "live_readiness_status": live_readiness["status"],
             "live_readiness_blocking_reasons": live_readiness["blocking_reasons"],
             "live_max_order_notional": (
@@ -204,6 +208,16 @@ class StatusService:
         except SQLAlchemyError:
             self._session.rollback()
             return {"status": None, "blocking_reasons": []}
+
+    def _runtime_promotion_state(self) -> dict[str, str | list[str]]:
+        if self._session is None:
+            return {"stage": "paper", "blockers": []}
+        try:
+            state = RuntimePromotionService(self._session, self._settings).get_state()
+            return {"stage": state.stage, "blockers": list(state.blockers)}
+        except SQLAlchemyError:
+            self._session.rollback()
+            return {"stage": "paper", "blockers": []}
 
     def _get_database_status(self) -> str:
         try:
