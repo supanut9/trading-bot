@@ -2,15 +2,25 @@
 
 ## Project Objective
 
-Build a paper-trading-first trading bot with backtesting, safe execution, and clear observability.
+Operate a paper-trading-first trading platform with deterministic backtesting, operator-facing controls, reporting, deployment hardening, and guarded live-readiness groundwork.
+
+## Current Phase
+
+- monorepo with Python backend plus Next.js operator UI
+- production target remains paper trading
+- live capabilities exist only as controlled groundwork and must stay disabled by default until the runbook checklist is satisfied operationally
+- current feature queue and bounded delivery plan live in `docs/features.md`
 
 ## Stack
 
 - Python 3.12
 - FastAPI
 - SQLAlchemy
+- Pydantic settings
 - PostgreSQL via Docker for local development
-- SQLite as an allowed fallback for lightweight bootstrap tasks
+- SQLite only as a lightweight local fallback where explicitly appropriate
+- Next.js in `web/`
+- TanStack Query, Tailwind, shadcn/ui for the operator UI
 - pytest
 
 ## Architecture Rules
@@ -19,44 +29,57 @@ Build a paper-trading-first trading bot with backtesting, safe execution, and cl
 - Do not call exchange APIs from strategy modules.
 - Separate domain, application, infrastructure, and interface concerns.
 - Keep paper trading as the default mode.
+- Keep the Next.js UI thin: it may call FastAPI APIs, but it must not own trading logic.
+- Route all runtime actions through application services, not directly from API routes or UI code.
+- Keep execution mode derived from configuration and persisted operator controls, not ad hoc request flags.
+- Treat shadow and live flows as safety-sensitive infrastructure paths, not strategy-layer concerns.
 - Do not introduce microservices for v1.
 
 ## Coding Rules
 
 - Add type hints to new Python code.
+- Keep new frontend code typed as well.
 - Prefer small single-purpose modules.
 - Keep side effects in infrastructure and application layers.
 - Never hardcode secrets.
 - Use environment variables for configuration.
 - Add concise docstrings only where behavior is not obvious from the code.
+- Preserve structured logging and correlation identifiers for runtime, control, and notification flows.
+- Keep API handlers thin; validation and orchestration belong in schemas and services.
 
 ## Validation Rules
 
 - Add or update tests for strategy and risk changes.
+- Add or update frontend tests when operator workflows or report rendering changes materially.
 - Run `make format` before finishing implementation work.
-- Run `make test` before finishing implementation work.
 - Run `make lint` before finishing implementation work.
+- Run `make test` before finishing implementation work.
+- Run `make pr-check` before finishing PR preparation when metadata or delivery state changed.
 - Keep Git hooks installed locally with `make install-hooks`.
 - For execution-related changes, include failure handling and structured logging.
+- For live, shadow, worker, startup, reconciliation, and notification changes, validate the affected control/reporting path as well as the service itself.
 
 ## Documentation Rules
 
 - Update `docs/product-spec.md` when system behavior changes.
 - Update `docs/decisions.md` when architecture or workflow decisions change.
 - Update `docs/runbook.md` when startup or operational procedures change.
+- Update `docs/features.md` when adding, splitting, or completing a bounded feature.
+- Update `docs/roadmap.md` when roadmap sequencing changes.
 - Follow `docs/testing.md` when adding or changing tests.
 - Add a dedicated strategy document under `docs/strategies/` before implementing a new strategy.
 
 ## Delivery Workflow
 
 - Before making implementation changes, break the work down by feature first.
-- Define the current feature boundary before coding, even if the full project breakdown is still evolving.
+- Define the current feature boundary in `docs/features.md` before coding when the work is not already mapped there.
 - Prefer one feature branch per bounded unit of work using the pattern `feature/<name>`.
 - Keep commits small and logically grouped inside the current feature.
 - After implementation, follow the cycle: branch, implement, validate, push, PR, review, resolve, merge.
 - Do not continue stacking unrelated work into the current feature once its boundary is exceeded.
 - Small harmless docs or workflow-note updates may stay with the current feature branch.
 - Do not let runtime behavior, architecture, schema, or other material code changes hitchhike on an unrelated feature branch.
+- Treat backend runtime work and operator UI work as one feature only when they deliver the same bounded operator outcome.
 
 ## Main Branch Policy
 
@@ -89,9 +112,13 @@ Build a paper-trading-first trading bot with backtesting, safe execution, and cl
 ## Safety Rules
 
 - Live trading must remain disabled unless explicitly enabled by configuration.
+- Paper trading is the required default posture.
+- Shadow trading and live trading must never both be enabled at the same time.
 - Duplicate-order protection is required before any real execution work.
 - Max-loss and position-size controls must exist before live execution is considered.
-- Failing safely is preferred over attempting recovery with uncertain state.
+- Exchange symbol rules and quantity snapping must be enforced before any real order submission.
+- Qualification and live-readiness gates must not be bypassed in promotion or operator workflows.
+- Failing safely is preferred over attempting recovery with uncertain exchange state.
 
 ## Execution Policy
 
@@ -100,7 +127,7 @@ Proceed without asking for additional permission when the action stays within th
 Default-allowed actions:
 
 - read, create, edit, move, and delete files inside this repository
-- run local development commands such as format, lint, test, API, worker, and backtest commands
+- run local development commands such as format, lint, test, API, web, worker, backtest, smoke-check, and local Docker commands
 - install project dependencies required for development or verification
 - install and run repository Git hooks
 - create branches, stage files, commit changes, inspect git history, and prepare releases
@@ -126,12 +153,22 @@ Practical rule:
 ## Commands
 
 - Install: `make install`
+- Install web: `make install-web`
 - Install hooks: `make install-hooks`
+- Init DB: `make init-db`
 - DB up: `make db-up`
 - DB down: `make db-down`
 - DB logs: `make db-logs`
 - Format: `make format`
 - Lint: `make lint`
 - Test: `make test`
+- PR check: `make pr-check`
 - Run API: `make run-api`
+- Run web: `make run-web`
 - Run worker: `make run-worker`
+- Run backtest: `make run-backtest`
+- Docker build: `make docker-build`
+- Docker run API: `make docker-run-api`
+- Docker run worker: `make docker-run-worker`
+- Smoke check API: `make smoke-check-api`
+- Smoke check worker: `make smoke-check-worker`
