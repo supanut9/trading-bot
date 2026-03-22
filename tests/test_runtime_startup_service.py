@@ -19,6 +19,8 @@ def test_build_runtime_startup_context_includes_runtime_summary() -> None:
     assert context.environment == "local"
     assert context.execution_mode == "paper"
     assert context.database_scheme == "sqlite"
+    assert context.live_readiness_status is None
+    assert context.live_readiness_blocking_reasons == ()
 
 
 def test_validate_runtime_settings_rejects_sqlite_outside_local() -> None:
@@ -85,6 +87,52 @@ def test_validate_runtime_startup_checks_database_connectivity(monkeypatch) -> N
     context = validate_runtime_startup(settings, "backtest")
 
     assert context.component == "backtest"
+
+
+def test_validate_runtime_startup_includes_live_readiness_report(monkeypatch) -> None:
+    settings = Settings(
+        DATABASE_URL="sqlite:///./runtime_startup_test.db",
+        PAPER_TRADING=False,
+        LIVE_TRADING_ENABLED=True,
+        EXCHANGE_API_KEY="key",
+        EXCHANGE_API_SECRET="secret",
+    )
+
+    monkeypatch.setattr(
+        "app.application.services.runtime_startup_service.ensure_database_connectivity",
+        lambda _settings: None,
+    )
+    monkeypatch.setattr(
+        "app.application.services.runtime_startup_service._log_redacted_settings",
+        lambda _settings: None,
+    )
+
+    from unittest.mock import MagicMock
+
+    monkeypatch.setattr("app.application.services.audit_service.AuditService", MagicMock())
+    monkeypatch.setattr("app.infrastructure.database.session.create_session_factory", MagicMock())
+
+    class FakeLiveReadinessService:
+        def __init__(self, _session, _settings) -> None:
+            pass
+
+        def build_report(self):
+            return type(
+                "Report",
+                (),
+                {"status": "blocked", "blocking_reasons": ["missing live max order notional"]},
+            )()
+
+    monkeypatch.setattr(
+        "app.application.services.runtime_startup_service.LiveReadinessService",
+        FakeLiveReadinessService,
+    )
+
+    context = validate_runtime_startup(settings, "worker")
+
+    assert context.component == "worker"
+    assert context.live_readiness_status == "blocked"
+    assert context.live_readiness_blocking_reasons == ("missing live max order notional",)
 
 
 def test_validate_runtime_startup_raises_on_invalid_settings(monkeypatch) -> None:

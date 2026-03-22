@@ -25,6 +25,7 @@ from app.interfaces.api.schemas import (
     LiveCancelControlResponse,
     LiveHaltControlRequest,
     LiveHaltControlResponse,
+    LiveReadinessControlResponse,
     LiveReconcileControlResponse,
     MarketSyncControlRequest,
     MarketSyncControlResponse,
@@ -234,6 +235,22 @@ def run_live_halt(
         source="api.control",
     )
     return LiveHaltControlResponse.model_validate(result)
+
+
+@router.get(
+    "/live-readiness",
+    response_model=LiveReadinessControlResponse,
+    status_code=status.HTTP_200_OK,
+)
+def get_live_readiness(
+    settings: Settings = settings_dependency,
+    session_factory: sessionmaker[Session] = session_factory_dependency,
+) -> LiveReadinessControlResponse:
+    result = OperationalControlService(
+        settings,
+        session_factory=session_factory,
+    ).get_live_readiness()
+    return LiveReadinessControlResponse.model_validate(result)
 
 
 @router.post(

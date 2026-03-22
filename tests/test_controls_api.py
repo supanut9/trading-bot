@@ -264,6 +264,52 @@ def test_backtest_control_accepts_explicit_run_options(tmp_path: Path) -> None:
         teardown_client()
 
 
+def test_live_readiness_control_returns_report(monkeypatch, tmp_path: Path) -> None:
+    client, settings = build_client(tmp_path)
+    try:
+
+        class FakeLiveReadinessService:
+            def __init__(self, _session, _settings) -> None:
+                pass
+
+            def build_report(self):
+                from app.application.services.live_readiness_service import (
+                    LiveReadinessCheck,
+                    LiveReadinessReport,
+                )
+
+                return LiveReadinessReport(
+                    status="blocked",
+                    ready=False,
+                    checks=[
+                        LiveReadinessCheck(
+                            name="qualification",
+                            passed=False,
+                            severity="blocking",
+                            detail="strategy qualification gates are not all passing",
+                        )
+                    ],
+                    blocking_reasons=["strategy qualification gates are not all passing"],
+                )
+
+        monkeypatch.setattr(
+            "app.application.services.operational_control_service.LiveReadinessService",
+            FakeLiveReadinessService,
+        )
+
+        response = client.get("/controls/live-readiness")
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["status"] == "completed"
+        assert payload["detail"] == "live readiness evaluated"
+        assert payload["ready"] is False
+        assert payload["blocking_reasons"] == ["strategy qualification gates are not all passing"]
+        assert payload["checks"][0]["name"] == "qualification"
+    finally:
+        teardown_client()
+
+
 def test_backtest_control_accepts_rule_builder_options(tmp_path: Path) -> None:
     client, settings = build_client(tmp_path)
     try:

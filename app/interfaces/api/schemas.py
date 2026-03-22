@@ -19,6 +19,8 @@ class StatusResponse(BaseModel):
     live_trading_enabled: bool
     live_trading_halted: bool
     live_safety_status: str
+    live_readiness_status: str | None = None
+    live_readiness_blocking_reasons: list[str] = Field(default_factory=list)
     live_max_order_notional: Decimal | None = None
     live_max_position_quantity: Decimal | None = None
     exchange: str
@@ -686,6 +688,25 @@ class SymbolRulesControlResponse(BaseModel):
     tick_size: Decimal | None = None
     fetched_at: str | None = None
     source: str | None = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class LiveReadinessCheckResponse(BaseModel):
+    name: str
+    passed: bool
+    severity: str
+    detail: str
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class LiveReadinessControlResponse(BaseModel):
+    status: str
+    detail: str
+    ready: bool
+    checks: list[LiveReadinessCheckResponse] = Field(default_factory=list)
+    blocking_reasons: list[str] = Field(default_factory=list)
 
     model_config = ConfigDict(from_attributes=True)
 

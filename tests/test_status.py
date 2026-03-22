@@ -52,6 +52,8 @@ def test_status_endpoint_returns_bootstrap_configuration(tmp_path: Path) -> None
     assert payload["live_trading_enabled"] is False
     assert payload["live_trading_halted"] is False
     assert payload["live_safety_status"] == "disabled"
+    assert payload["live_readiness_status"] == "blocked"
+    assert payload["live_readiness_blocking_reasons"]
     assert payload["live_max_order_notional"] is None
     assert payload["live_max_position_quantity"] is None
     assert payload["database_status"] in {"available", "unavailable"}
@@ -105,6 +107,13 @@ def test_status_endpoint_returns_live_account_balances_when_enabled(
 
             return ExchangeTickerPrice(symbol=symbol, price=Decimal("104321.55"))
 
+    class FakeLiveReadinessService:
+        def __init__(self, _session, _settings) -> None:
+            pass
+
+        def build_report(self):
+            return type("Report", (), {"status": "ready", "blocking_reasons": []})()
+
     monkeypatch.setattr(
         "app.application.services.status_service.build_live_order_exchange_client",
         lambda _settings, **kwargs: FakeClient(),
@@ -112,6 +121,10 @@ def test_status_endpoint_returns_live_account_balances_when_enabled(
     monkeypatch.setattr(
         "app.application.services.status_service.build_market_data_exchange_client",
         lambda _settings: FakeMarketDataClient(),
+    )
+    monkeypatch.setattr(
+        "app.application.services.status_service.LiveReadinessService",
+        FakeLiveReadinessService,
     )
 
     engine = create_engine_from_settings(settings)
@@ -140,6 +153,8 @@ def test_status_endpoint_returns_live_account_balances_when_enabled(
     assert payload["execution_mode"] == "live"
     assert payload["live_trading_halted"] is True
     assert payload["live_safety_status"] == "halted"
+    assert payload["live_readiness_status"] == "ready"
+    assert payload["live_readiness_blocking_reasons"] == []
     assert payload["live_max_order_notional"] == "250"
     assert payload["live_max_position_quantity"] == "0.02000000"
     assert payload["latest_price_status"] == "available"

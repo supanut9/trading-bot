@@ -3,8 +3,9 @@ from typing import Literal
 
 from sqlalchemy import text
 
+from app.application.services.live_readiness_service import LiveReadinessService
 from app.config import Settings
-from app.infrastructure.database.session import create_engine_from_settings
+from app.infrastructure.database.session import create_engine_from_settings, create_session_factory
 
 RuntimeComponent = Literal["api", "worker", "backtest"]
 
@@ -20,6 +21,8 @@ class RuntimeStartupContext:
     timeframe: str
     database_scheme: str
     log_level: str
+    live_readiness_status: str | None = None
+    live_readiness_blocking_reasons: tuple[str, ...] = ()
 
 
 def build_runtime_startup_context(
@@ -98,7 +101,6 @@ def validate_runtime_startup(
 
     # Record startup in audit log
     from app.application.services.audit_service import AuditService
-    from app.infrastructure.database.session import create_session_factory
 
     session = create_session_factory(settings)()
     try:
@@ -112,4 +114,26 @@ def validate_runtime_startup(
     finally:
         session.close()
 
-    return build_runtime_startup_context(settings, component)
+    context = build_runtime_startup_context(settings, component)
+    if not settings.live_trading_enabled:
+        return context
+
+    session = create_session_factory(settings)()
+    try:
+        report = LiveReadinessService(session, settings).build_report()
+    finally:
+        session.close()
+
+    return RuntimeStartupContext(
+        component=context.component,
+        app=context.app,
+        environment=context.environment,
+        execution_mode=context.execution_mode,
+        exchange=context.exchange,
+        symbol=context.symbol,
+        timeframe=context.timeframe,
+        database_scheme=context.database_scheme,
+        log_level=context.log_level,
+        live_readiness_status=report.status,
+        live_readiness_blocking_reasons=tuple(report.blocking_reasons),
+    )
