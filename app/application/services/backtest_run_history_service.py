@@ -44,6 +44,8 @@ class BacktestRunView:
     assumption_summary: str
     allowed_weekdays_utc: tuple[int, ...]
     allowed_hours_utc: tuple[int, ...]
+    max_volume_fill_pct: Decimal | None
+    allow_partial_fills: bool
     rules_payload: dict[str, Any] | None
 
 
@@ -97,6 +99,8 @@ class BacktestRunHistoryService:
                 allowed_hours_utc=self._serialize_int_tuple(
                     getattr(result, "allowed_hours_utc", None)
                 ),
+                max_volume_fill_pct=getattr(result, "max_volume_fill_pct", None),
+                allow_partial_fills=getattr(result, "allow_partial_fills", False),
                 walk_forward_split_ratio=wf.split_ratio
                 if (wf := getattr(result, "walk_forward", None))
                 else None,
@@ -161,6 +165,8 @@ class BacktestRunHistoryService:
             getattr(record, "allowed_weekdays_utc", None)
         )
         allowed_hours_utc = cls._deserialize_int_tuple(getattr(record, "allowed_hours_utc", None))
+        max_volume_fill_pct = getattr(record, "max_volume_fill_pct", None)
+        allow_partial_fills = bool(getattr(record, "allow_partial_fills", False))
         return BacktestRunView(
             id=record.id,
             created_at=record.created_at,
@@ -194,9 +200,13 @@ class BacktestRunHistoryService:
                 f"spread_pct={getattr(record, 'spread_pct', None) or Decimal('0')}, "
                 f"signal_latency_bars={getattr(record, 'signal_latency_bars', None) or 0}, "
                 f"allowed_weekdays_utc={list(allowed_weekdays_utc)}, "
-                f"allowed_hours_utc={list(allowed_hours_utc)}"
+                f"allowed_hours_utc={list(allowed_hours_utc)}, "
+                f"max_volume_fill_pct={max_volume_fill_pct}, "
+                f"allow_partial_fills={allow_partial_fills}"
             ),
             allowed_weekdays_utc=allowed_weekdays_utc,
             allowed_hours_utc=allowed_hours_utc,
+            max_volume_fill_pct=max_volume_fill_pct,
+            allow_partial_fills=allow_partial_fills,
             rules_payload=rules_payload,
         )

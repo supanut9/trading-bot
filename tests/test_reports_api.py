@@ -225,6 +225,8 @@ def test_backtest_runs_dashboard_returns_recent_runs(tmp_path: Path) -> None:
         assert "signal_latency_bars=0" in payload["runs"][0]["assumption_summary"]
         assert payload["runs"][0]["allowed_weekdays_utc"] == []
         assert payload["runs"][0]["allowed_hours_utc"] == []
+        assert payload["runs"][0]["max_volume_fill_pct"] is None
+        assert payload["runs"][0]["allow_partial_fills"] is False
     finally:
         teardown_client(session)
 
@@ -265,6 +267,8 @@ def test_backtest_runs_csv_export_filters_limit(tmp_path: Path) -> None:
                 ),
                 allowed_weekdays_utc=(1, 3),
                 allowed_hours_utc=(8, 12),
+                max_volume_fill_pct=Decimal("0.25"),
+                allow_partial_fills=True,
             ),
         )
         history.record_run(

@@ -202,6 +202,8 @@ def test_backtest_control_returns_summary_for_completed_run(tmp_path: Path) -> N
         assert "signal_latency_bars=0" in payload["assumption_summary"]
         assert payload["allowed_weekdays_utc"] == []
         assert payload["allowed_hours_utc"] == []
+        assert payload["max_volume_fill_pct"] is None
+        assert payload["allow_partial_fills"] is False
         assert payload["strategy_name"] == "ema_crossover"
         assert payload["symbol"] == settings.default_symbol
         assert payload["timeframe"] == settings.default_timeframe
@@ -257,6 +259,8 @@ def test_backtest_control_accepts_explicit_run_options(tmp_path: Path) -> None:
                     "signal_latency_bars": 1,
                     "allowed_weekdays_utc": [3],
                     "allowed_hours_utc": [8, 12],
+                    "max_volume_fill_pct": "0.25",
+                    "allow_partial_fills": True,
                 },
             )
 
@@ -271,6 +275,8 @@ def test_backtest_control_accepts_explicit_run_options(tmp_path: Path) -> None:
         assert payload["signal_latency_bars"] == 1
         assert payload["allowed_weekdays_utc"] == [3]
         assert payload["allowed_hours_utc"] == [8, 12]
+        assert payload["max_volume_fill_pct"] == "0.25000000"
+        assert payload["allow_partial_fills"] is True
         assert payload["starting_equity_input"] == "15000.00000000"
         assert payload["starting_equity"] == "15000.00000000"
     finally:

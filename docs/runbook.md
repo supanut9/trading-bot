@@ -114,6 +114,7 @@ Manual controls:
 - bounded backtest runs now persist one summary history row for later review and backtest form hydration
 - backtest controls now accept `spread_pct` and `signal_latency_bars` in addition to slippage and fee assumptions
 - backtest controls also accept `allowed_weekdays_utc` and `allowed_hours_utc` to restrict replay execution windows without changing stored candle data
+- backtest controls also accept `max_volume_fill_pct` and `allow_partial_fills` to model deterministic missed or partial fills from limited candle participation
 - `GET /market-data/coverage` returns stored candle range, replay minimum, freshness status, and readiness guidance for the selected market slice and replay shape
 - live worker execution now rejects a new same-side live submission when an unresolved live order already exists for that market
 - `POST /controls/live-halt` persists the live-entry halt state used by status and worker execution

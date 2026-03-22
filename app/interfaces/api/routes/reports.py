@@ -167,6 +167,8 @@ def get_backtest_runs(
                 assumption_summary=run.assumption_summary,
                 allowed_weekdays_utc=list(run.allowed_weekdays_utc),
                 allowed_hours_utc=list(run.allowed_hours_utc),
+                max_volume_fill_pct=run.max_volume_fill_pct,
+                allow_partial_fills=run.allow_partial_fills,
                 rules=(
                     StrategyRuleBuilderRequest.model_validate(run.rules_payload)
                     if run.rules_payload is not None

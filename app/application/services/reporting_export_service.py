@@ -174,6 +174,8 @@ class ReportingExportService:
                 "assumption_summary",
                 "allowed_weekdays_utc",
                 "allowed_hours_utc",
+                "max_volume_fill_pct",
+                "allow_partial_fills",
                 "rules_json",
             ]
         )
@@ -209,6 +211,8 @@ class ReportingExportService:
                     run.assumption_summary,
                     list(run.allowed_weekdays_utc),
                     list(run.allowed_hours_utc),
+                    run.max_volume_fill_pct,
+                    run.allow_partial_fills,
                     run.rules_payload,
                 ]
             )

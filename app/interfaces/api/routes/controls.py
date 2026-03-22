@@ -140,6 +140,8 @@ def run_backtest(
             allowed_hours_utc=tuple(payload.allowed_hours_utc)
             if payload.allowed_hours_utc is not None
             else None,
+            max_volume_fill_pct=payload.max_volume_fill_pct,
+            allow_partial_fills=payload.allow_partial_fills,
             walk_forward_split_ratio=payload.walk_forward_split_ratio,
             rules=to_rule_builder_config(payload.rules),
             rsi_period=payload.rsi_period,
