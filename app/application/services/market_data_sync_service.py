@@ -112,9 +112,15 @@ class MarketDataSyncService:
         symbol: str,
         timeframe: str,
         total_limit: int,
-        page_size: int = 1000,
+        page_size: int = 999,
     ) -> MarketDataSyncResult:
-        """Fetch up to total_limit candles by paginating backwards in time."""
+        """Fetch up to total_limit candles by paginating backwards in time.
+
+        page_size is 999 (not 1000) because fetch_closed_candles requests limit+1
+        from Binance to filter the open candle, but Binance caps at 1000 total,
+        so each page reliably returns 999 closed candles. Using 999 prevents the
+        loop from breaking early due to len(candles) < batch_size.
+        """
         all_candles: list[ExchangeCandle] = []
         end_time = None
         remaining = total_limit

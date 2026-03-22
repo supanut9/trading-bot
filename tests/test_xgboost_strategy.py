@@ -1,4 +1,4 @@
-"""Unit tests for XGBoostSignalStrategy."""
+"""Unit tests for XGBoostSignalStrategy and MLSignalStrategy."""
 
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
@@ -7,6 +7,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from app.domain.strategies.base import Candle
+from app.domain.strategies.ml_signal import MLSignalStrategy
 from app.domain.strategies.xgboost_signal import XGBoostSignalStrategy
 
 
@@ -36,6 +37,24 @@ def _mock_model(up_prob: float) -> MagicMock:
     model = MagicMock()
     model.predict_proba.return_value = [[1 - up_prob, up_prob]]
     return model
+
+
+# ── XGBoostSignalStrategy (legacy) ───────────────────────────────────────────
+
+
+def test_xgboost_raises_when_model_is_none() -> None:
+    with pytest.raises(ValueError, match="pre-loaded model"):
+        XGBoostSignalStrategy(model=None)
+
+
+def test_xgboost_raises_when_buy_threshold_too_low() -> None:
+    with pytest.raises(ValueError):
+        XGBoostSignalStrategy(model=_mock_model(0.6), buy_threshold=Decimal("0.5"))
+
+
+def test_xgboost_raises_when_sell_threshold_too_high() -> None:
+    with pytest.raises(ValueError):
+        XGBoostSignalStrategy(model=_mock_model(0.4), sell_threshold=Decimal("0.5"))
 
 
 def test_raises_when_model_is_none() -> None:
@@ -106,6 +125,95 @@ def test_unsorted_candles_produce_same_result() -> None:
     r1 = strategy.evaluate(candles)
     r2 = strategy.evaluate(reversed_candles)
     # Both calls use the same mock; results should match
+    assert (r1 is None) == (r2 is None)
+    if r1 and r2:
+        assert r1.action == r2.action
+
+
+# ── MLSignalStrategy ─────────────────────────────────────────────────────────
+
+
+def test_ml_raises_when_model_is_none() -> None:
+    with pytest.raises(ValueError, match="pre-loaded model"):
+        MLSignalStrategy(model=None)
+
+
+def test_ml_raises_when_buy_threshold_too_low() -> None:
+    with pytest.raises(ValueError, match="buy_threshold must be"):
+        MLSignalStrategy(model=_mock_model(0.6), buy_threshold=Decimal("0.5"))
+
+
+def test_ml_raises_when_sell_threshold_too_high() -> None:
+    with pytest.raises(ValueError, match="sell_threshold must be"):
+        MLSignalStrategy(model=_mock_model(0.4), sell_threshold=Decimal("0.5"))
+
+
+def test_ml_returns_none_when_too_few_candles() -> None:
+    strategy = MLSignalStrategy(model=_mock_model(0.9))
+    candles = _make_candles(20)
+    assert strategy.evaluate(candles) is None
+
+
+def test_ml_returns_buy_signal_when_high_up_probability() -> None:
+    strategy = MLSignalStrategy(model=_mock_model(0.8), buy_threshold=Decimal("0.60"))
+    candles = _make_candles(60)
+    result = strategy.evaluate(candles)
+    assert result is not None
+    assert result.action == "buy"
+    assert "ML" in result.reason
+
+
+def test_ml_returns_sell_signal_when_low_up_probability() -> None:
+    strategy = MLSignalStrategy(model=_mock_model(0.1), sell_threshold=Decimal("0.40"))
+    candles = _make_candles(60)
+    result = strategy.evaluate(candles)
+    assert result is not None
+    assert result.action == "sell"
+
+
+def test_ml_returns_none_in_neutral_zone() -> None:
+    strategy = MLSignalStrategy(
+        model=_mock_model(0.5),
+        buy_threshold=Decimal("0.60"),
+        sell_threshold=Decimal("0.40"),
+    )
+    candles = _make_candles(60)
+    result = strategy.evaluate(candles)
+    assert result is None
+
+
+def test_ml_handles_model_exception_gracefully() -> None:
+    model = MagicMock()
+    model.predict_proba.side_effect = RuntimeError("model error")
+    strategy = MLSignalStrategy(model=model)
+    candles = _make_candles(60)
+    assert strategy.evaluate(candles) is None
+
+
+def test_ml_minimum_candles_positive() -> None:
+    strategy = MLSignalStrategy(model=_mock_model(0.6))
+    assert strategy.minimum_candles() > 0
+
+
+def test_ml_custom_feature_names() -> None:
+    strategy = MLSignalStrategy(
+        model=_mock_model(0.8),
+        feature_names=["rsi", "atr_pct", "volume_ratio"],
+        buy_threshold=Decimal("0.60"),
+    )
+    candles = _make_candles(60)
+    result = strategy.evaluate(candles)
+    assert result is not None
+    assert result.action == "buy"
+
+
+def test_ml_unsorted_candles_produce_same_result() -> None:
+    model = _mock_model(0.8)
+    strategy = MLSignalStrategy(model=model, buy_threshold=Decimal("0.60"))
+    candles = _make_candles(60)
+    reversed_candles = list(reversed(candles))
+    r1 = strategy.evaluate(candles)
+    r2 = strategy.evaluate(reversed_candles)
     assert (r1 is None) == (r2 is None)
     if r1 and r2:
         assert r1.action == r2.action

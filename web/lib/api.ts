@@ -186,6 +186,8 @@ export type BacktestControlRequest = {
   adx_threshold?: string;
   xgb_buy_threshold?: number;
   xgb_sell_threshold?: number;
+  model_type?: string;
+  oos_only?: boolean;
   trading_mode?: string;
   leverage?: number | null;
   margin_mode?: string;
@@ -675,10 +677,18 @@ export type TrainModelRequest = {
   symbol: string;
   timeframe: string;
   exchange: string;
+  model_type: string;
+  label_type: string;
+  label_horizon: number;
+  label_threshold: number;
+  feature_names: string[];
+  candle_limit: number;
   n_estimators: number;
   max_depth: number;
   learning_rate: number;
   split_ratio: number;
+  buy_threshold: number;
+  sell_threshold: number;
 };
 
 export type FeatureImportance = {
@@ -690,7 +700,13 @@ export type TrainModelResponse = {
   status: string;
   symbol: string;
   timeframe: string;
+  model_type: string;
   model_path: string;
+  label_type: string;
+  label_horizon: number;
+  label_threshold: number;
+  feature_names: string[];
+  oos_start_index: number;
   sample_count: number;
   train_count: number;
   test_count: number;
@@ -705,9 +721,22 @@ export type TrainModelResponse = {
 export type ModelStatusItem = {
   symbol: string;
   timeframe: string;
+  model_type: string;
   model_path: string;
   exists: boolean;
   file_size_kb: number | null;
+  label_type: string | null;
+  label_horizon: number | null;
+  label_threshold: number | null;
+  feature_names: string[] | null;
+  buy_threshold: number | null;
+  sell_threshold: number | null;
+  sample_count: number | null;
+  train_count: number | null;
+  test_count: number | null;
+  oos_start_index: number | null;
+  accuracy: number | null;
+  roc_auc: number | null;
 };
 
 export type ModelStatusResponse = {

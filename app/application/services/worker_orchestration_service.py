@@ -928,14 +928,12 @@ class WorkerOrchestrationService:
                 atr_breakout_multiplier=Decimal("0.5"),
                 atr_stop_multiplier=Decimal("2.0"),
             )
-        if strategy_name == "xgboost_signal":
+        if strategy_name in ("xgboost_signal", "ml_signal"):
             from app.application.services.model_registry import (  # noqa: PLC0415
                 default_model_path,
-                load_xgboost_model,
+                load_model,
             )
-            from app.domain.strategies.xgboost_signal import (  # noqa: PLC0415
-                XGBoostSignalStrategy,
-            )
+            from app.domain.strategies.ml_signal import MLSignalStrategy  # noqa: PLC0415
 
             fast_period = (
                 operator_config.fast_period
@@ -945,19 +943,25 @@ class WorkerOrchestrationService:
             model_path = default_model_path(
                 symbol=settings.default_symbol,
                 timeframe=settings.default_timeframe,
+                model_type="xgboost",
             )
             try:
-                model = load_xgboost_model(model_path)
+                loaded = load_model(model_path)
+                return MLSignalStrategy(
+                    model=loaded.model,
+                    feature_names=loaded.metadata.feature_names,
+                    buy_threshold=Decimal(str(loaded.metadata.buy_threshold)),
+                    sell_threshold=Decimal(str(loaded.metadata.sell_threshold)),
+                )
             except FileNotFoundError:
                 logger.warning(
-                    "xgboost model not found at %s — falling back to EMA crossover",
+                    "ml model not found at %s — falling back to EMA crossover",
                     model_path,
                 )
                 return EmaCrossoverStrategy(
                     fast_period=fast_period or 20,
                     slow_period=slow or 50,
                 )
-            return XGBoostSignalStrategy(model=model)
         # ema_crossover (default) and rule_builder fall back to EMA
         return EmaCrossoverStrategy(
             fast_period=fast,

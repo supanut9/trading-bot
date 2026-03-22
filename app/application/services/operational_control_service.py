@@ -23,7 +23,10 @@ from app.application.services.live_order_state import (
 )
 from app.application.services.market_data_service import MarketDataService
 from app.application.services.market_data_sync_service import MarketDataSyncService
-from app.application.services.model_registry import default_model_path, load_xgboost_model
+from app.application.services.model_registry import (
+    default_model_path,
+    load_model,
+)
 from app.application.services.notification_service import (
     NotificationService,
     build_notification_service,
@@ -43,6 +46,7 @@ from app.domain.strategies.breakout_atr import BreakoutAtrStrategy
 from app.domain.strategies.ema_crossover import EmaCrossoverStrategy
 from app.domain.strategies.macd_crossover import MacdCrossoverStrategy
 from app.domain.strategies.mean_reversion_bollinger import MeanReversionBollingerStrategy
+from app.domain.strategies.ml_signal import MLSignalStrategy
 from app.domain.strategies.rsi_momentum import RsiMomentumStrategy
 from app.domain.strategies.rule_builder import (
     RuleBuilderStrategy,
@@ -50,7 +54,6 @@ from app.domain.strategies.rule_builder import (
     StrategyRuleCondition,
     StrategyRuleGroup,
 )
-from app.domain.strategies.xgboost_signal import XGBoostSignalStrategy
 from app.infrastructure.database.models.candle import CandleRecord
 from app.infrastructure.database.repositories.order_repository import OrderRepository
 from app.infrastructure.database.session import create_session_factory
@@ -66,6 +69,7 @@ BACKTEST_STRATEGY_MEAN_REVERSION_BOLLINGER = "mean_reversion_bollinger"
 BACKTEST_STRATEGY_RSI_MOMENTUM = "rsi_momentum"
 BACKTEST_STRATEGY_BREAKOUT_ATR = "breakout_atr"
 BACKTEST_STRATEGY_XGBOOST_SIGNAL = "xgboost_signal"
+BACKTEST_STRATEGY_ML_SIGNAL = "ml_signal"
 
 _ALL_BACKTEST_STRATEGIES = {
     BACKTEST_STRATEGY_EMA_CROSSOVER,
@@ -75,6 +79,7 @@ _ALL_BACKTEST_STRATEGIES = {
     BACKTEST_STRATEGY_RSI_MOMENTUM,
     BACKTEST_STRATEGY_BREAKOUT_ATR,
     BACKTEST_STRATEGY_XGBOOST_SIGNAL,
+    BACKTEST_STRATEGY_ML_SIGNAL,
 }
 
 _TIMEFRAME_MINUTES: dict[str, int] = {
@@ -143,10 +148,12 @@ class BacktestRunOptions:
     trading_mode: str = "SPOT"
     leverage: int | None = None  # None = auto-fetch for FUTURES
     margin_mode: str = "ISOLATED"
-    # XGBoost strategy params
+    # XGBoost / ML strategy params
     xgb_model_path: str | None = None
     xgb_buy_threshold: Decimal | None = None
     xgb_sell_threshold: Decimal | None = None
+    model_type: str | None = None  # "xgboost" | "lightgbm" | "random_forest"
+    oos_only: bool = False  # if True, slice candles to OOS window only
 
 
 def required_candles_for_backtest_options(options: BacktestRunOptions) -> int:
@@ -167,7 +174,7 @@ def required_candles_for_backtest_options(options: BacktestRunOptions) -> int:
         bp = options.breakout_period or 20
         ap = options.atr_period or 14
         return max(bp, ap) + 2
-    if sname == BACKTEST_STRATEGY_XGBOOST_SIGNAL:
+    if sname in (BACKTEST_STRATEGY_XGBOOST_SIGNAL, BACKTEST_STRATEGY_ML_SIGNAL):
         return 37  # MIN_CANDLES_FOR_FEATURES
     base = max((options.slow_period or 0) + 1, 0)
     rsi_min = (options.rsi_period + 1) if options.rsi_period is not None else 0
@@ -465,16 +472,25 @@ class OperationalControlService:
             resolved_symbol = (active.symbol or operator_config.symbol).strip()
             resolved_timeframe = (active.timeframe or operator_config.timeframe).strip()
             try:
-                result = MarketDataSyncService(
+                svc = MarketDataSyncService(
                     session,
                     build_market_data_exchange_client(self._settings),
-                ).sync_recent_closed_candles(
-                    exchange=self._settings.exchange_name,
-                    symbol=resolved_symbol,
-                    timeframe=resolved_timeframe,
-                    limit=resolved_limit,
-                    backfill=active.backfill,
                 )
+                if resolved_limit > 1000:
+                    result = svc.sync_candles_paginated(
+                        exchange=self._settings.exchange_name,
+                        symbol=resolved_symbol,
+                        timeframe=resolved_timeframe,
+                        total_limit=resolved_limit,
+                    )
+                else:
+                    result = svc.sync_recent_closed_candles(
+                        exchange=self._settings.exchange_name,
+                        symbol=resolved_symbol,
+                        timeframe=resolved_timeframe,
+                        limit=resolved_limit,
+                        backfill=active.backfill,
+                    )
             except Exception:
                 failed = MarketSyncControlResult(
                     status="failed",
@@ -719,6 +735,23 @@ class OperationalControlService:
                 timeframe=resolved.timeframe,
             )
             candle_count = len(records)
+
+            # OOS-only: skip the training portion of candles
+            if resolved.oos_only and records:
+                try:
+                    mt = resolved.model_type or "xgboost"
+                    mp = resolved.xgb_model_path or default_model_path(
+                        symbol=resolved.symbol,
+                        timeframe=resolved.timeframe,
+                        model_type=mt,
+                    )
+                    loaded_meta = load_model(mp)
+                    oos_start = loaded_meta.metadata.oos_start_index
+                    if oos_start > 0 and oos_start < len(records):
+                        records = records[oos_start:]
+                        candle_count = len(records)
+                except Exception:
+                    pass  # if model not found, run on all candles
 
             if not records:
                 backtest_result = None
@@ -1535,6 +1568,12 @@ class OperationalControlService:
             trading_mode=active.trading_mode,
             leverage=active.leverage,
             margin_mode=active.margin_mode,
+            # ML model params
+            xgb_model_path=active.xgb_model_path,
+            xgb_buy_threshold=active.xgb_buy_threshold,
+            xgb_sell_threshold=active.xgb_sell_threshold,
+            model_type=active.model_type,
+            oos_only=active.oos_only,
         )
         if strategy_name in _ALL_BACKTEST_STRATEGIES:
             return base_opts
@@ -1604,16 +1643,21 @@ class OperationalControlService:
                 atr_breakout_multiplier=options.atr_breakout_multiplier or Decimal("0.5"),
                 atr_stop_multiplier=options.atr_stop_multiplier or Decimal("2.0"),
             )
-        if sname == BACKTEST_STRATEGY_XGBOOST_SIGNAL:
+        if sname in (BACKTEST_STRATEGY_XGBOOST_SIGNAL, BACKTEST_STRATEGY_ML_SIGNAL):
+            mt = options.model_type or "xgboost"
             model_path = options.xgb_model_path or default_model_path(
                 symbol=options.symbol or "BTC/USDT",
                 timeframe=options.timeframe or "1h",
+                model_type=mt,
             )
-            model = load_xgboost_model(model_path)
-            return XGBoostSignalStrategy(
-                model=model,
-                buy_threshold=options.xgb_buy_threshold or Decimal("0.55"),
-                sell_threshold=options.xgb_sell_threshold or Decimal("0.45"),
+            loaded = load_model(model_path)
+            return MLSignalStrategy(
+                model=loaded.model,
+                feature_names=loaded.metadata.feature_names,
+                buy_threshold=options.xgb_buy_threshold
+                or Decimal(str(loaded.metadata.buy_threshold)),
+                sell_threshold=options.xgb_sell_threshold
+                or Decimal(str(loaded.metadata.sell_threshold)),
             )
         if sname != BACKTEST_STRATEGY_EMA_CROSSOVER:
             raise ValueError(f"unsupported backtest strategy: {sname}")

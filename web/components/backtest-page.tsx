@@ -48,7 +48,8 @@ type BacktestFormState = {
     | "mean_reversion_bollinger"
     | "rsi_momentum"
     | "breakout_atr"
-    | "xgboost_signal";
+    | "xgboost_signal"
+    | "ml_signal";
   preset_key: "ema_crossover_equivalent" | "ema_rsi_confirmation" | "mean_reversion";
   symbol: string;
   timeframe: string;
@@ -68,6 +69,8 @@ type BacktestFormState = {
   atr_stop_multiplier: string;
   xgb_buy_threshold: string;
   xgb_sell_threshold: string;
+  ml_model_type: string;
+  ml_oos_only: boolean;
   trading_mode: string;
   leverage: string;           // "" = auto
   margin_mode: string;
@@ -1033,6 +1036,8 @@ export function BacktestPage() {
     atr_stop_multiplier: "2.0",
     xgb_buy_threshold: "0.55",
     xgb_sell_threshold: "0.45",
+    ml_model_type: "xgboost",
+    ml_oos_only: true,
     trading_mode: "SPOT",
     leverage: "",
     margin_mode: "ISOLATED",
@@ -1159,6 +1164,8 @@ export function BacktestPage() {
         atr_stop_multiplier: "2.0",
         xgb_buy_threshold: "0.55",
         xgb_sell_threshold: "0.45",
+        ml_model_type: "xgboost",
+        ml_oos_only: true,
         trading_mode: run.trading_mode ?? "SPOT",
         leverage: "",
         margin_mode: "ISOLATED",
@@ -1217,6 +1224,9 @@ export function BacktestPage() {
     } else if (form.strategy_name === "xgboost_signal") {
       payload.xgb_buy_threshold = Number(form.xgb_buy_threshold);
       payload.xgb_sell_threshold = Number(form.xgb_sell_threshold);
+    } else if (form.strategy_name === "ml_signal") {
+      payload.model_type = form.ml_model_type;
+      payload.oos_only = form.ml_oos_only;
     } else {
       payload.rules = cloneRules(form.rules);
     }
@@ -1306,7 +1316,8 @@ export function BacktestPage() {
                       <option value="mean_reversion_bollinger">mean_reversion_bollinger</option>
                       <option value="rsi_momentum">rsi_momentum</option>
                       <option value="breakout_atr">breakout_atr</option>
-                      <option value="xgboost_signal">XGBoost Signal</option>
+                      <option value="xgboost_signal">XGBoost Signal (legacy)</option>
+                      <option value="ml_signal">ML Signal</option>
                       <option value="rule_builder">rule_builder</option>
                     </select>
                   </label>
@@ -1647,6 +1658,42 @@ export function BacktestPage() {
                         />
                       </label>
                     </div>
+                  </div>
+                )}
+
+                {form.strategy_name === "ml_signal" && (
+                  <div className="space-y-4">
+                    <div className="rounded-2xl border border-amber-300/20 bg-amber-300/[0.04] px-4 py-3 text-sm text-amber-200">
+                      Train a model first on the Models page before running this strategy.
+                    </div>
+                    <label className="space-y-2">
+                      <span className="text-[11px] uppercase tracking-[0.18em] text-slate-400">
+                        Model Type
+                      </span>
+                      <select
+                        className="w-full rounded-2xl border border-white/10 bg-[#09121a] px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-300/40 focus:ring-2 focus:ring-cyan-300/10"
+                        onChange={(event) => updateField("ml_model_type", event.target.value)}
+                        value={form.ml_model_type}
+                      >
+                        <option value="xgboost">XGBoost</option>
+                        <option value="lightgbm">LightGBM</option>
+                        <option value="random_forest">Random Forest</option>
+                      </select>
+                    </label>
+                    <label className="flex cursor-pointer items-center gap-3">
+                      <input
+                        checked={form.ml_oos_only}
+                        className="h-4 w-4 rounded accent-blue-500"
+                        onChange={(event) => updateField("ml_oos_only", event.target.checked)}
+                        type="checkbox"
+                      />
+                      <span className="text-sm text-slate-300">
+                        OOS only — backtest on out-of-sample candles only
+                      </span>
+                    </label>
+                    <p className="text-xs text-slate-500">
+                      When enabled, candles before the training split are excluded so results reflect true out-of-sample performance.
+                    </p>
                   </div>
                 )}
 

@@ -378,16 +378,26 @@ class BacktestControlRequest(BaseModel):
     xgb_model_path: str | None = None
     xgb_buy_threshold: float | None = None
     xgb_sell_threshold: float | None = None
+    oos_only: bool = False
+    model_type: str | None = None
 
 
 class TrainModelRequest(BaseModel):
     symbol: str = "BTC/USDT"
     timeframe: str = "1h"
     exchange: str = "binance"
+    model_type: str = "xgboost"
+    label_type: str = "forward_return"
+    label_horizon: int = Field(default=5, ge=1, le=50)
+    label_threshold: float = Field(default=0.003, ge=0.0, le=0.1)
+    feature_names: list[str] | None = None
+    candle_limit: int = Field(default=10000, ge=100, le=50000)
     n_estimators: int = Field(default=200, ge=10, le=2000)
     max_depth: int = Field(default=4, ge=1, le=20)
     learning_rate: float = Field(default=0.1, gt=0.0, le=1.0)
     split_ratio: float = Field(default=0.7, gt=0.0, lt=1.0)
+    buy_threshold: float = Field(default=0.60, gt=0.5, lt=1.0)
+    sell_threshold: float = Field(default=0.40, gt=0.0, lt=0.5)
 
 
 class FeatureImportanceSchema(BaseModel):
@@ -399,10 +409,16 @@ class TrainModelResponse(BaseModel):
     status: str
     symbol: str
     timeframe: str
+    model_type: str = "xgboost"
     model_path: str
+    label_type: str = "next_candle"
+    label_horizon: int = 1
+    label_threshold: float = 0.0
+    feature_names: list[str] = []
     sample_count: int
     train_count: int
     test_count: int
+    oos_start_index: int = 0
     accuracy: float | None = None
     precision: float | None = None
     recall: float | None = None
@@ -414,9 +430,23 @@ class TrainModelResponse(BaseModel):
 class ModelStatusItem(BaseModel):
     symbol: str
     timeframe: str
+    model_type: str
     model_path: str
     exists: bool
     file_size_kb: float | None = None
+    # sidecar metadata (None if no .meta.json)
+    label_type: str | None = None
+    label_horizon: int | None = None
+    label_threshold: float | None = None
+    feature_names: list[str] | None = None
+    buy_threshold: float | None = None
+    sell_threshold: float | None = None
+    sample_count: int | None = None
+    train_count: int | None = None
+    test_count: int | None = None
+    oos_start_index: int | None = None
+    accuracy: float | None = None
+    roc_auc: float | None = None
 
 
 class ModelStatusResponse(BaseModel):
@@ -487,7 +517,7 @@ class MarketSyncControlResponse(BaseModel):
 class MarketSyncControlRequest(BaseModel):
     symbol: str | None = None
     timeframe: str | None = None
-    limit: int | None = Field(default=None, ge=1, le=1000)
+    limit: int | None = Field(default=None, ge=1, le=50000)
     backfill: bool = False
 
 

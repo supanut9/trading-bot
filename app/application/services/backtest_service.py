@@ -118,6 +118,14 @@ class BacktestService:
 
     def run(self, candles: Sequence[Candle]) -> BacktestResult:
         ordered_candles = sorted(candles, key=lambda candle: candle.open_time)
+
+        # Pre-compute all signals in one batch if the strategy supports it.
+        # This avoids O(n²) slice allocation and allows batch model inference,
+        # making ML strategies ~50x faster on large candle sets.
+        _precomputed_signals: list | None = None
+        if hasattr(self._strategy, "batch_evaluate"):
+            _precomputed_signals = self._strategy.batch_evaluate(ordered_candles)
+
         peak_equity = self._starting_equity
         max_drawdown_pct = Decimal("0")
         realized_pnl = Decimal("0")
@@ -328,7 +336,10 @@ class BacktestService:
                             current_stop_price = new_stop
                             highest_price_since_entry = new_low
 
-            signal = self._strategy.evaluate(ordered_candles[: index + 1])
+            if _precomputed_signals is not None:
+                signal = _precomputed_signals[index]
+            else:
+                signal = self._strategy.evaluate(ordered_candles[: index + 1])
             if signal is None:
                 continue
 
