@@ -35,6 +35,8 @@ from app.interfaces.api.schemas import (
     OperatorConfigResponse,
     QualificationGateResponse,
     QualificationReportResponse,
+    RuntimePromotionControlRequest,
+    RuntimePromotionControlResponse,
     SymbolRulesControlResponse,
     TrainModelResponse,
     WorkerControlResponse,
@@ -235,6 +237,42 @@ def run_live_halt(
         source="api.control",
     )
     return LiveHaltControlResponse.model_validate(result)
+
+
+@router.get(
+    "/runtime-promotion",
+    response_model=RuntimePromotionControlResponse,
+    status_code=status.HTTP_200_OK,
+)
+def get_runtime_promotion(
+    settings: Settings = settings_dependency,
+    session_factory: sessionmaker[Session] = session_factory_dependency,
+) -> RuntimePromotionControlResponse:
+    result = OperationalControlService(
+        settings,
+        session_factory=session_factory,
+    ).get_runtime_promotion()
+    return RuntimePromotionControlResponse.model_validate(result)
+
+
+@router.post(
+    "/runtime-promotion",
+    response_model=RuntimePromotionControlResponse,
+    status_code=status.HTTP_200_OK,
+)
+def update_runtime_promotion(
+    request: RuntimePromotionControlRequest,
+    settings: Settings = settings_dependency,
+    session_factory: sessionmaker[Session] = session_factory_dependency,
+) -> RuntimePromotionControlResponse:
+    result = OperationalControlService(
+        settings,
+        session_factory=session_factory,
+    ).run_update_runtime_promotion(
+        stage=request.stage,
+        source="api.control",
+    )
+    return RuntimePromotionControlResponse.model_validate(result)
 
 
 @router.get(

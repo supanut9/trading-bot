@@ -37,6 +37,7 @@ from app.application.services.operator_runtime_config_service import (
     OperatorRuntimeConfig,
     OperatorRuntimeConfigService,
 )
+from app.application.services.runtime_promotion_service import RuntimePromotionService
 from app.application.services.symbol_rules_service import SymbolRulesService
 from app.application.services.worker_orchestration_service import WorkerOrchestrationService
 from app.config import Settings
@@ -372,6 +373,15 @@ class LiveReadinessControlResult:
     ready: bool
     checks: tuple[LiveReadinessCheckResult, ...]
     blocking_reasons: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class RuntimePromotionControlResult:
+    status: str
+    detail: str
+    stage: str
+    changed: bool
+    blockers: tuple[str, ...]
 
 
 @dataclass(frozen=True, slots=True)
@@ -1144,6 +1154,63 @@ class OperationalControlService:
             ),
             blocking_reasons=tuple(report.blocking_reasons),
         )
+
+    def get_runtime_promotion(self) -> RuntimePromotionControlResult:
+        with self._session_factory() as session:
+            state = RuntimePromotionService(session, self._settings).get_state()
+        return RuntimePromotionControlResult(
+            status="completed",
+            detail="runtime promotion stage evaluated",
+            stage=state.stage,
+            changed=False,
+            blockers=state.blockers,
+        )
+
+    def run_update_runtime_promotion(
+        self,
+        *,
+        stage: str,
+        source: str = "internal",
+    ) -> RuntimePromotionControlResult:
+        with self._session_factory() as session:
+            service = RuntimePromotionService(session, self._settings)
+            try:
+                update = service.set_stage(stage=stage, updated_by=source)  # type: ignore[arg-type]
+            except ValueError as exc:
+                state = service.get_state()
+                control_result = RuntimePromotionControlResult(
+                    status="failed",
+                    detail=f"cannot promote runtime stage: {exc}",
+                    stage=state.stage,
+                    changed=False,
+                    blockers=state.blockers,
+                )
+                self._audit.record_control_result(
+                    control_type="runtime_promotion",
+                    source=source,
+                    status=control_result.status,
+                    detail=control_result.detail,
+                    settings=self._settings,
+                    payload={"stage": stage, "blockers": list(state.blockers)},
+                )
+                return control_result
+
+            control_result = RuntimePromotionControlResult(
+                status="completed",
+                detail="runtime promotion stage updated",
+                stage=update.current_stage,
+                changed=update.changed,
+                blockers=update.blockers,
+            )
+            self._audit.record_control_result(
+                control_type="runtime_promotion",
+                source=source,
+                status=control_result.status,
+                detail=control_result.detail,
+                settings=self._settings,
+                payload={"stage": update.current_stage, "changed": update.changed},
+            )
+            return control_result
 
     def get_operator_config(self) -> OperatorConfigControlResult:
         config = self._get_effective_operator_config()

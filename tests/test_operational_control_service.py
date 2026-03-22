@@ -9,6 +9,7 @@ from app.application.services.operational_control_service import (
     MarketSyncControlResult,
     MarketSyncRunOptions,
     OperationalControlService,
+    RuntimePromotionControlResult,
     WorkerControlResult,
 )
 from app.application.services.worker_orchestration_service import WorkerCycleResult
@@ -511,6 +512,47 @@ def test_live_halt_rejects_resume_when_readiness_checks_fail(monkeypatch) -> Non
     assert result.detail == "cannot resume live trading: readiness checks failed"
     assert len(audit.entries) == 1
     assert audit.entries[0]["payload"]["reason"] == "live_readiness_failed"
+
+
+def test_runtime_promotion_rejects_update_when_prerequisites_fail(monkeypatch) -> None:
+    settings = Settings(DATABASE_URL="sqlite:///./operational_controls.db")
+    audit = RecordingAudit()
+
+    class FakeRuntimePromotionService:
+        def __init__(self, _session, _settings) -> None:
+            pass
+
+        def set_stage(self, *, stage: str, updated_by: str):
+            raise ValueError("live readiness is blocked")
+
+        def get_state(self):
+            return type(
+                "State",
+                (),
+                {"stage": "paper", "blockers": ("live readiness is blocked",)},
+            )()
+
+    monkeypatch.setattr(
+        "app.application.services.operational_control_service.RuntimePromotionService",
+        FakeRuntimePromotionService,
+    )
+
+    service = OperationalControlService(
+        settings,
+        session_factory=lambda: FakeSession(SessionState()),
+        audit=audit,
+    )
+
+    result = service.run_update_runtime_promotion(stage="canary", source="api.control")
+
+    assert result == RuntimePromotionControlResult(
+        status="failed",
+        detail="cannot promote runtime stage: live readiness is blocked",
+        stage="paper",
+        changed=False,
+        blockers=("live readiness is blocked",),
+    )
+    assert audit.entries[0]["control_type"] == "runtime_promotion"
 
 
 # ---------------------------------------------------------------------------

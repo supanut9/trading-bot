@@ -310,6 +310,44 @@ def test_live_readiness_control_returns_report(monkeypatch, tmp_path: Path) -> N
         teardown_client()
 
 
+def test_runtime_promotion_control_updates_stage(monkeypatch, tmp_path: Path) -> None:
+    client, settings = build_client(tmp_path)
+    try:
+
+        class FakeRuntimePromotionService:
+            def __init__(self, _session, _settings) -> None:
+                pass
+
+            def set_stage(self, *, stage: str, updated_by: str):
+                assert stage == "qualified"
+                assert updated_by == "api.control"
+                return type(
+                    "Update",
+                    (),
+                    {
+                        "current_stage": "qualified",
+                        "changed": True,
+                        "blockers": (),
+                    },
+                )()
+
+        monkeypatch.setattr(
+            "app.application.services.operational_control_service.RuntimePromotionService",
+            FakeRuntimePromotionService,
+        )
+
+        response = client.post("/controls/runtime-promotion", json={"stage": "qualified"})
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["status"] == "completed"
+        assert payload["stage"] == "qualified"
+        assert payload["changed"] is True
+        assert payload["blockers"] == []
+    finally:
+        teardown_client()
+
+
 def test_backtest_control_accepts_rule_builder_options(tmp_path: Path) -> None:
     client, settings = build_client(tmp_path)
     try:

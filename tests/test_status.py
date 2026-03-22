@@ -52,6 +52,8 @@ def test_status_endpoint_returns_bootstrap_configuration(tmp_path: Path) -> None
     assert payload["live_trading_enabled"] is False
     assert payload["live_trading_halted"] is False
     assert payload["live_safety_status"] == "disabled"
+    assert payload["runtime_promotion_stage"] == "paper"
+    assert payload["runtime_promotion_blockers"] == []
     assert payload["live_readiness_status"] == "blocked"
     assert payload["live_readiness_blocking_reasons"]
     assert payload["live_max_order_notional"] is None
@@ -295,6 +297,45 @@ def test_status_endpoint_prefers_runtime_operator_config_when_present(tmp_path: 
     assert payload["fast_period"] == 3
     assert payload["slow_period"] == 5
     assert payload["operator_config_source"] == "runtime_config"
+
+
+def test_status_endpoint_prefers_runtime_promotion_stage_when_present(tmp_path: Path) -> None:
+    settings = Settings(
+        DATABASE_URL=f"sqlite:///{tmp_path / 'status_runtime_promotion.db'}",
+    )
+    engine = create_engine_from_settings(settings)
+    Base.metadata.create_all(bind=engine)
+    session_factory = create_session_factory(settings)
+    session = session_factory()
+    session.add(
+        RuntimeControlRecord(
+            control_name="runtime_promotion_stage",
+            bool_value=False,
+            string_value="qualified",
+            updated_by="test.status",
+        )
+    )
+    session.commit()
+
+    def override_get_session():
+        try:
+            yield session
+        finally:
+            pass
+
+    app.dependency_overrides[get_settings] = lambda: settings
+    app.dependency_overrides[get_session] = override_get_session
+
+    try:
+        client = TestClient(app)
+        response = client.get("/status")
+    finally:
+        app.dependency_overrides.clear()
+        session.close()
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["runtime_promotion_stage"] == "qualified"
 
 
 def test_status_service_rolls_back_failed_runtime_control_lookup(monkeypatch) -> None:

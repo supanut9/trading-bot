@@ -1410,7 +1410,7 @@ Suggested readiness checks:
 
 Status:
 
-- planned
+- in progress
 
 Scope:
 
@@ -1691,6 +1691,7 @@ Main outputs:
 - persisted promotion stage for the active runtime
 - explicit operator approval path from paper → shadow → qualified → canary live
 - blocking prerequisites for each stage tied to readiness, qualification, and recovery health
+- read/write control surface for the current stage plus blocker visibility in status
 - audit trail of who promoted, paused, resumed, or rolled back runtime state
 - operator-visible status summary that explains the current stage and the next missing prerequisite
 

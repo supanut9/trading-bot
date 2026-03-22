@@ -55,8 +55,8 @@ Iteration and strategy improvement (current focus):
 1. `feature/live-performance-review-loop` — compare live vs walk-forward OOS to detect edge decay (in progress)
 2. `feature/live-readiness-gate` — explicit go/no-go report before any live resume or promotion path is trusted (completed)
 3. `feature/portfolio-risk-governor` — add portfolio-level exposure, concentration, and concurrent-position caps (in progress)
-4. `feature/execution-reconciliation-recovery` — turn restart and reconciliation tooling into one trusted recovery workflow (planned)
-5. `feature/runtime-promotion-workflow` — make paper → shadow → qualified → canary → live progression explicit and auditable (planned)
+4. `feature/execution-reconciliation-recovery` — turn restart and reconciliation tooling into one trusted recovery workflow (in progress)
+5. `feature/runtime-promotion-workflow` — make paper → shadow → qualified → canary → live progression explicit and auditable (in progress)
 6. `feature/strategy-iteration-workflow` — re-validate and re-promote when live results fall short (planned)
 
 Profitability improvements (what separates this bot from better real-world bots):
@@ -96,6 +96,7 @@ Profitability improvements (what separates this bot from better real-world bots)
 - expose exchange-side base and quote asset balances for the configured live symbol through the status surface
 - expose live readiness status and blocking reasons through the status surface
 - expose configured portfolio risk caps through the status surface for operator review before enabling live mode
+- expose the persisted runtime promotion stage and its blockers through the status surface
 - block new live entries when live trading is halted by configuration while leaving recovery controls available
 - allow operators to halt or resume live entry through a bounded persisted control without restarting the runtime
 - fail closed on live resume attempts when readiness checks are still blocked
@@ -108,6 +109,7 @@ Profitability improvements (what separates this bot from better real-world bots)
 - expose a compact recovery report for unresolved live orders and recent reconciliation or cancel context
 - render a recovery queue and recovery timeline inside the reporting surface so operators can inspect unresolved live state without correlating raw audit rows manually
 - classify unresolved live orders into operator-readable recovery states such as awaiting, partial-fill, stale, or manual-review-required
+- persist an operator-controlled promotion stage across paper, shadow, qualified, canary, and live states
 - render recovery timeline context from audit payloads so operators can see reconcile counts and cancel identifiers inline
 - allow operators to filter recovery queue and timeline views by status, review state, event type, and search terms
 - emit optional live-operations alerts for failed startup sync, failed scheduled reconciliation, and stale live orders

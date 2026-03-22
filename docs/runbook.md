@@ -198,10 +198,20 @@ Live order cancel control:
 - cancellation is bounded to local live orders in cancelable states such as `submitted`, `open`, or `partially_filled`
 - local order status is updated only after the exchange confirms cancellation
 
+Runtime promotion control:
+
+- `GET /controls/runtime-promotion` returns the persisted promotion stage and any current blockers
+- `POST /controls/runtime-promotion` updates the stage only when promotion prerequisites pass for forward moves
+- moving to `qualified` requires passing qualification gates
+- moving to `canary` requires passing qualification gates and a green live-readiness report
+- moving to `live` requires passing qualification gates, a green live-readiness report, and full canary rollout exposure
+- stage changes do not automatically switch `execution_mode`; they record operator-approved rollout state
+
 Next.js controls route:
 
 - `/controls` shows the current live posture from `GET /status`
 - operators can halt or resume live entry, run live reconcile, and submit one explicit cancel identifier at a time
+- operators can also inspect and update the persisted runtime promotion stage through the bounded controls API
 - the browser remains a bounded control surface; duplicate-order checks, sizing limits, and fail-closed execution behavior remain backend-owned
 
 Stale live order visibility:
