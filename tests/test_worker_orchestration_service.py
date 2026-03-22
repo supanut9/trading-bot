@@ -26,21 +26,22 @@ def build_service(
     tmp_path: Path,
     **setting_overrides: object,
 ) -> tuple[WorkerOrchestrationService, object, Settings]:
-    settings = Settings(
-        DATABASE_URL=f"sqlite:///{tmp_path / 'worker_orchestration.db'}",
-        EXCHANGE_NAME="binance",
-        DEFAULT_SYMBOL="BTC/USDT",
-        DEFAULT_TIMEFRAME="1h",
-        STRATEGY_FAST_PERIOD=3,
-        STRATEGY_SLOW_PERIOD=5,
-        MARKET_DATA_SYNC_ENABLED=False,
-        PAPER_ACCOUNT_EQUITY=10000.0,
-        RISK_PER_TRADE_PCT=0.01,
-        MAX_OPEN_POSITIONS=1,
-        MAX_DAILY_LOSS_PCT=0.03,
-        STRATEGY_ADX_FILTER_ENABLED=False,
-        **setting_overrides,
-    )
+    base_settings: dict[str, object] = {
+        "DATABASE_URL": f"sqlite:///{tmp_path / 'worker_orchestration.db'}",
+        "EXCHANGE_NAME": "binance",
+        "DEFAULT_SYMBOL": "BTC/USDT",
+        "DEFAULT_TIMEFRAME": "1h",
+        "STRATEGY_FAST_PERIOD": 3,
+        "STRATEGY_SLOW_PERIOD": 5,
+        "MARKET_DATA_SYNC_ENABLED": False,
+        "PAPER_ACCOUNT_EQUITY": 10000.0,
+        "RISK_PER_TRADE_PCT": 0.01,
+        "MAX_OPEN_POSITIONS": 1,
+        "MAX_DAILY_LOSS_PCT": 0.03,
+        "STRATEGY_ADX_FILTER_ENABLED": False,
+    }
+    base_settings.update(setting_overrides)
+    settings = Settings(**base_settings)
     engine = create_engine_from_settings(settings)
     Base.metadata.create_all(bind=engine)
     session = create_session_factory(settings)()
@@ -170,6 +171,44 @@ def test_rejects_buy_signal_after_daily_loss_limit_is_breached(tmp_path: Path) -
 
     assert result.status == "risk_rejected"
     assert result.detail == "daily loss limit reached"
+    assert order_count == 0
+
+
+def test_rejects_live_entry_when_portfolio_concurrent_positions_limit_is_reached(
+    tmp_path: Path,
+) -> None:
+    service, session, settings = build_service(
+        tmp_path,
+        PAPER_TRADING=False,
+        LIVE_TRADING_ENABLED=True,
+        EXCHANGE_API_KEY="key",
+        EXCHANGE_API_SECRET="secret",
+        LIVE_MAX_CONCURRENT_POSITIONS=1,
+        MAX_OPEN_POSITIONS=5,
+    )
+    store_closes(session, settings, [10, 10, 10, 10, 10, 9, 9, 9, 20])
+    PositionRepository(session).upsert(
+        exchange=settings.exchange_name,
+        symbol="ETH/USDT",
+        mode="live",
+        side="long",
+        quantity=Decimal("1"),
+        average_entry_price=Decimal("100"),
+        realized_pnl=Decimal("0"),
+        unrealized_pnl=Decimal("0"),
+    )
+    session.commit()
+
+    with patch(
+        "app.application.services.worker_orchestration_service.QualificationService"
+    ) as mock_qual:
+        mock_qual.return_value.evaluate.return_value = type("Report", (), {"all_passed": True})()
+        result = service.run_cycle()
+
+    order_count = session.scalar(select(func.count()).select_from(OrderRecord))
+
+    assert result.status == "auto_halted"
+    assert "live max concurrent positions reached" in result.detail
     assert order_count == 0
 
 

@@ -26,6 +26,19 @@ class RiskService:
         if is_entry and portfolio.execution_mode == "live" and self._limits.live_trading_halted:
             return RiskDecision(approved=False, reason="live trading is halted by configuration")
 
+        if (
+            is_entry
+            and portfolio.execution_mode == "live"
+            and self._limits.live_max_concurrent_positions is not None
+            and portfolio.current_position_quantity == Decimal("0")
+            and portfolio.open_positions >= self._limits.live_max_concurrent_positions
+        ):
+            return RiskDecision(
+                approved=False,
+                reason="live max concurrent positions reached",
+                is_hard_violation=True,
+            )
+
         if portfolio.account_equity <= Decimal("0"):
             return RiskDecision(approved=False, reason="account equity must be positive")
 
@@ -107,6 +120,52 @@ class RiskService:
                 return RiskDecision(
                     approved=False,
                     reason="live order notional exceeds configured limit",
+                    is_hard_violation=True,
+                )
+        else:
+            order_notional = quantity * trade.entry_price
+
+        if (
+            is_entry
+            and portfolio.execution_mode == "live"
+            and self._limits.live_max_total_exposure_notional is not None
+            and portfolio.total_open_exposure_notional + order_notional
+            > self._limits.live_max_total_exposure_notional
+        ):
+            return RiskDecision(
+                approved=False,
+                reason="live total exposure exceeds configured limit",
+                is_hard_violation=True,
+            )
+
+        if (
+            is_entry
+            and portfolio.execution_mode == "live"
+            and self._limits.live_max_symbol_exposure_notional is not None
+            and portfolio.current_symbol_exposure_notional + order_notional
+            > self._limits.live_max_symbol_exposure_notional
+        ):
+            return RiskDecision(
+                approved=False,
+                reason="live symbol exposure exceeds configured limit",
+                is_hard_violation=True,
+            )
+
+        if (
+            is_entry
+            and portfolio.execution_mode == "live"
+            and self._limits.live_max_symbol_concentration_pct is not None
+        ):
+            new_total_exposure = portfolio.total_open_exposure_notional + order_notional
+            new_symbol_exposure = portfolio.current_symbol_exposure_notional + order_notional
+            if (
+                new_total_exposure > Decimal("0")
+                and new_symbol_exposure / new_total_exposure
+                > self._limits.live_max_symbol_concentration_pct
+            ):
+                return RiskDecision(
+                    approved=False,
+                    reason="live symbol concentration exceeds configured limit",
                     is_hard_violation=True,
                 )
 

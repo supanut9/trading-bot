@@ -23,6 +23,10 @@ class StatusResponse(BaseModel):
     live_readiness_blocking_reasons: list[str] = Field(default_factory=list)
     live_max_order_notional: Decimal | None = None
     live_max_position_quantity: Decimal | None = None
+    live_max_total_exposure_notional: Decimal | None = None
+    live_max_symbol_exposure_notional: Decimal | None = None
+    live_max_symbol_concentration_pct: Decimal | None = None
+    live_max_concurrent_positions: int | None = None
     exchange: str
     strategy_name: str
     symbol: str
