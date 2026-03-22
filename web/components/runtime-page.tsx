@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { startTransition, useEffect, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { RefreshCcw, Save, Settings2, Waves } from "lucide-react";
 
@@ -91,15 +91,17 @@ export function RuntimePage() {
       return;
     }
 
-    setForm({
-      strategy_name: operatorConfigQuery.data.strategy_name,
-      symbol: operatorConfigQuery.data.symbol,
-      timeframe: operatorConfigQuery.data.timeframe,
-      fast_period: String(operatorConfigQuery.data.fast_period),
-      slow_period: String(operatorConfigQuery.data.slow_period),
-      trading_mode: operatorConfigQuery.data.trading_mode,
+    startTransition(() => {
+      setForm({
+        strategy_name: operatorConfigQuery.data.strategy_name,
+        symbol: operatorConfigQuery.data.symbol,
+        timeframe: operatorConfigQuery.data.timeframe,
+        fast_period: String(operatorConfigQuery.data.fast_period),
+        slow_period: String(operatorConfigQuery.data.slow_period),
+        trading_mode: operatorConfigQuery.data.trading_mode,
+      });
+      setHasHydratedDefaults(true);
     });
-    setHasHydratedDefaults(true);
   }, [hasHydratedDefaults, operatorConfigQuery.data]);
 
   function updateField<Key extends keyof RuntimeFormState>(key: Key, value: RuntimeFormState[Key]) {

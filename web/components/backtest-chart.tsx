@@ -1,7 +1,15 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { createChart, type SeriesMarker, type Time, type LineData } from "lightweight-charts";
+import {
+  CandlestickSeries,
+  LineSeries,
+  createChart,
+  createSeriesMarkers,
+  type LineData,
+  type SeriesMarker,
+  type Time,
+} from "lightweight-charts";
 import type { BacktestControlResponse } from "@/lib/api";
 
 type CandleData = {
@@ -68,7 +76,7 @@ export function BacktestChart({ result }: { result: BacktestControlResponse }) {
       timeScale: { borderColor: "#334155", timeVisible: true },
     });
 
-    const candleSeries = chart.addCandlestickSeries({
+    const candleSeries = chart.addSeries(CandlestickSeries, {
       upColor: "#22c55e",
       downColor: "#ef4444",
       borderUpColor: "#22c55e",
@@ -96,7 +104,7 @@ export function BacktestChart({ result }: { result: BacktestControlResponse }) {
         text: e.action === "buy" ? "B" : "S",
         size: 1,
       }));
-    candleSeries.setMarkers(markers);
+    createSeriesMarkers(candleSeries, markers);
 
     const closes = result.candles.map((c) => Number(c.close_price));
     const times = result.candles.map((c) => timeToSeconds(c.open_time));
@@ -111,7 +119,7 @@ export function BacktestChart({ result }: { result: BacktestControlResponse }) {
       const fastEma = calculateEma(closes, fastP);
       const slowEma = calculateEma(closes, slowP);
 
-      const fastSeries = chart.addLineSeries({
+      const fastSeries = chart.addSeries(LineSeries, {
         color: "#38bdf8",
         lineWidth: 1,
         priceLineVisible: false,
@@ -119,7 +127,7 @@ export function BacktestChart({ result }: { result: BacktestControlResponse }) {
       });
       fastSeries.setData(fastEma.map(({ index, value }) => ({ time: times[index], value })));
 
-      const slowSeries = chart.addLineSeries({
+      const slowSeries = chart.addSeries(LineSeries, {
         color: "#f59e0b",
         lineWidth: 1,
         priceLineVisible: false,
@@ -133,21 +141,21 @@ export function BacktestChart({ result }: { result: BacktestControlResponse }) {
       const stdMul = Number(result.bb_std_dev ?? "2");
       const bands = calculateBollinger(closes, period, stdMul);
 
-      const upperSeries = chart.addLineSeries({
+      const upperSeries = chart.addSeries(LineSeries, {
         color: "#fb7185",
         lineWidth: 1,
         priceLineVisible: false,
         lastValueVisible: false,
         lineStyle: 2,
       });
-      const midSeries = chart.addLineSeries({
+      const midSeries = chart.addSeries(LineSeries, {
         color: "#94a3b8",
         lineWidth: 1,
         priceLineVisible: false,
         lastValueVisible: false,
         lineStyle: 2,
       });
-      const lowerSeries = chart.addLineSeries({
+      const lowerSeries = chart.addSeries(LineSeries, {
         color: "#34d399",
         lineWidth: 1,
         priceLineVisible: false,
@@ -180,14 +188,14 @@ export function BacktestChart({ result }: { result: BacktestControlResponse }) {
         };
       });
 
-      const upperSeries = chart.addLineSeries({
+      const upperSeries = chart.addSeries(LineSeries, {
         color: "#f59e0b",
         lineWidth: 1,
         priceLineVisible: false,
         lastValueVisible: false,
         lineStyle: 2,
       });
-      const lowerSeries = chart.addLineSeries({
+      const lowerSeries = chart.addSeries(LineSeries, {
         color: "#fb7185",
         lineWidth: 1,
         priceLineVisible: false,

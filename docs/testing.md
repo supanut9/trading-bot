@@ -88,6 +88,7 @@ For paper execution changes, cover:
 
 - run tests with `make test`
 - `pre-push` runs `pytest`
+- validate the `web/` workspace with `yarn lint`, `yarn test`, and `yarn build` when frontend dependencies, configuration, or operator UI behavior changes
 - format and lint should pass before tests are considered complete
 
 ## Practical Rule

@@ -32,7 +32,7 @@ import {
   type StatusResponse,
   type WorkerControlResponse,
 } from "@/lib/api";
-import { formatDecimal, formatTimestamp } from "@/lib/format";
+import { formatDecimal } from "@/lib/format";
 
 type CancelIdentifierType = "order_id" | "client_order_id" | "exchange_order_id";
 

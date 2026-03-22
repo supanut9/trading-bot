@@ -2,8 +2,12 @@
 
 import { useEffect, useRef, useState } from "react";
 import {
+  CandlestickSeries,
+  LineSeries,
   createChart,
+  createSeriesMarkers,
   ISeriesApi,
+  ISeriesMarkersPluginApi,
   SeriesMarker,
   Time,
   type CandlestickData,
@@ -20,6 +24,16 @@ type ChartProps = {
 };
 
 type CandleData = CandlestickData<Time>;
+type BinanceKline = [number, string, string, string, string, ...unknown[]];
+type BinanceKlineMessage = {
+  k: {
+    t: number;
+    o: string;
+    h: string;
+    l: string;
+    c: string;
+  };
+};
 
 const TZ_OFFSET_SECONDS = 7 * 3600; // UTC+7 Thailand
 
@@ -56,6 +70,7 @@ export function TradingChart({
 }: ChartProps) {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const seriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
+  const markerSeriesRef = useRef<ISeriesMarkersPluginApi<Time> | null>(null);
   const fastEmaSeriesRef = useRef<ISeriesApi<"Line"> | null>(null);
   const slowEmaSeriesRef = useRef<ISeriesApi<"Line"> | null>(null);
 
@@ -91,12 +106,12 @@ export function TradingChart({
       },
       width: chartContainerRef.current.clientWidth,
       height: 400,
-      autoSize: true,
+      autoSize: false,
     });
 
     chartRef.current = chart;
 
-    const candlestickSeries = chart.addCandlestickSeries({
+    const candlestickSeries = chart.addSeries(CandlestickSeries, {
       upColor: "#10b981", // emerald-500
       downColor: "#ef4444", // red-500
       borderVisible: false,
@@ -104,10 +119,11 @@ export function TradingChart({
       wickDownColor: "#ef4444",
     });
     seriesRef.current = candlestickSeries;
+    markerSeriesRef.current = createSeriesMarkers(candlestickSeries, []);
 
     // Add EMA line series if periods are provided
     if (fast_period) {
-      fastEmaSeriesRef.current = chart.addLineSeries({
+      fastEmaSeriesRef.current = chart.addSeries(LineSeries, {
         color: "#38bdf8", // sky-400
         lineWidth: 2,
         priceLineVisible: false,
@@ -115,7 +131,7 @@ export function TradingChart({
       });
     }
     if (slow_period) {
-      slowEmaSeriesRef.current = chart.addLineSeries({
+      slowEmaSeriesRef.current = chart.addSeries(LineSeries, {
         color: "#f87171", // red-400
         lineWidth: 2,
         priceLineVisible: false,
@@ -134,10 +150,10 @@ export function TradingChart({
           `https://api.binance.com/api/v3/klines?symbol=${binanceSymbol}&interval=${binanceTimeframe}&limit=500`
         );
         if (!response.ok) throw new Error("Failed to fetch historical candles");
-        const json = await response.json();
+        const json = (await response.json()) as BinanceKline[];
 
         // format: [OpenTime, Open, High, Low, Close, Volume, CloseTime...]
-        historicData = json.map((kline: any) => ({
+        historicData = json.map((kline) => ({
           time: (kline[0] / 1000 + TZ_OFFSET_SECONDS) as Time,
           open: parseFloat(kline[1]),
           high: parseFloat(kline[2]),
@@ -164,7 +180,7 @@ export function TradingChart({
           );
 
           ws.onmessage = (event) => {
-            const message = JSON.parse(event.data);
+            const message = JSON.parse(event.data) as BinanceKlineMessage;
             const kline = message.k;
             const liveCandle: CandleData = {
               time: (kline.t / 1000 + TZ_OFFSET_SECONDS) as Time,
@@ -189,16 +205,17 @@ export function TradingChart({
               }
             }
             if (slow_period && slowEmaSeriesRef.current) {
-                const lastSlowEma =
-                  slowEmaSeriesRef.current.data().at(-1) as LineData<Time> | undefined;
-                if (lastSlowEma) {
-                  const multiplier = 2 / (slow_period + 1);
-                  const newEmaValue = (liveCandle.close - lastSlowEma.value) * multiplier + lastSlowEma.value;
-                  slowEmaSeriesRef.current.update({
-                    time: liveCandle.time,
-                    value: newEmaValue,
-                  });
-                }
+              const lastSlowEma =
+                slowEmaSeriesRef.current.data().at(-1) as LineData<Time> | undefined;
+              if (lastSlowEma) {
+                const multiplier = 2 / (slow_period + 1);
+                const newEmaValue =
+                  (liveCandle.close - lastSlowEma.value) * multiplier + lastSlowEma.value;
+                slowEmaSeriesRef.current.update({
+                  time: liveCandle.time,
+                  value: newEmaValue,
+                });
+              }
             }
           };
         }
@@ -229,7 +246,7 @@ export function TradingChart({
 
   // 4. Update the markers whenever trades change
   useEffect(() => {
-    if (!seriesRef.current || !trades) return;
+    if (!markerSeriesRef.current || !trades) return;
 
     // Convert trades to SeriesMarkers
     // We sort they by time first
@@ -246,7 +263,7 @@ export function TradingChart({
         };
       });
 
-    seriesRef.current.setMarkers(markers);
+    markerSeriesRef.current.setMarkers(markers);
   }, [trades]);
 
   if (error) {
