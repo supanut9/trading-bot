@@ -37,6 +37,11 @@ class BacktestRunView:
     total_trades: int | None
     winning_trades: int | None
     losing_trades: int | None
+    slippage_pct: Decimal | None
+    fee_pct: Decimal | None
+    spread_pct: Decimal | None
+    signal_latency_bars: int | None
+    assumption_summary: str
     rules_payload: dict[str, Any] | None
 
 
@@ -82,6 +87,8 @@ class BacktestRunHistoryService:
                 total_fees_paid=getattr(result, "total_fees_paid", None),
                 slippage_pct=getattr(result, "slippage_pct", None),
                 fee_pct=getattr(result, "fee_pct", None),
+                spread_pct=getattr(result, "spread_pct", None),
+                signal_latency_bars=getattr(result, "signal_latency_bars", None),
                 walk_forward_split_ratio=wf.split_ratio
                 if (wf := getattr(result, "walk_forward", None))
                 else None,
@@ -153,5 +160,15 @@ class BacktestRunHistoryService:
             total_trades=record.total_trades,
             winning_trades=record.winning_trades,
             losing_trades=record.losing_trades,
+            slippage_pct=record.slippage_pct,
+            fee_pct=record.fee_pct,
+            spread_pct=getattr(record, "spread_pct", None),
+            signal_latency_bars=getattr(record, "signal_latency_bars", None),
+            assumption_summary=(
+                f"slippage_pct={record.slippage_pct or Decimal('0')}, "
+                f"fee_pct={record.fee_pct or Decimal('0')}, "
+                f"spread_pct={getattr(record, 'spread_pct', None) or Decimal('0')}, "
+                f"signal_latency_bars={getattr(record, 'signal_latency_bars', None) or 0}"
+            ),
             rules_payload=rules_payload,
         )

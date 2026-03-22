@@ -167,6 +167,11 @@ class ReportingExportService:
                 "total_trades",
                 "winning_trades",
                 "losing_trades",
+                "slippage_pct",
+                "fee_pct",
+                "spread_pct",
+                "signal_latency_bars",
+                "assumption_summary",
                 "rules_json",
             ]
         )
@@ -195,6 +200,11 @@ class ReportingExportService:
                     run.total_trades,
                     run.winning_trades,
                     run.losing_trades,
+                    run.slippage_pct,
+                    run.fee_pct,
+                    run.spread_pct,
+                    run.signal_latency_bars,
+                    run.assumption_summary,
                     run.rules_payload,
                 ]
             )

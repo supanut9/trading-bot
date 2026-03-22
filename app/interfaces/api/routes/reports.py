@@ -160,6 +160,11 @@ def get_backtest_runs(
                 total_trades=run.total_trades,
                 winning_trades=run.winning_trades,
                 losing_trades=run.losing_trades,
+                slippage_pct=run.slippage_pct,
+                fee_pct=run.fee_pct,
+                spread_pct=run.spread_pct,
+                signal_latency_bars=run.signal_latency_bars or 0,
+                assumption_summary=run.assumption_summary,
                 rules=(
                     StrategyRuleBuilderRequest.model_validate(run.rules_payload)
                     if run.rules_payload is not None

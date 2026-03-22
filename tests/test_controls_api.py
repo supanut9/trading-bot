@@ -197,6 +197,9 @@ def test_backtest_control_returns_summary_for_completed_run(tmp_path: Path) -> N
         assert payload["total_fees_paid"] is not None
         assert payload["slippage_pct"] is not None
         assert payload["fee_pct"] is not None
+        assert payload["spread_pct"] is not None
+        assert payload["signal_latency_bars"] == 0
+        assert "signal_latency_bars=0" in payload["assumption_summary"]
         assert payload["strategy_name"] == "ema_crossover"
         assert payload["symbol"] == settings.default_symbol
         assert payload["timeframe"] == settings.default_timeframe
@@ -248,6 +251,8 @@ def test_backtest_control_accepts_explicit_run_options(tmp_path: Path) -> None:
                     "fast_period": 3,
                     "slow_period": 5,
                     "starting_equity": "15000",
+                    "spread_pct": "0.002",
+                    "signal_latency_bars": 1,
                 },
             )
 
@@ -258,6 +263,8 @@ def test_backtest_control_accepts_explicit_run_options(tmp_path: Path) -> None:
         assert payload["timeframe"] == "4h"
         assert payload["fast_period"] == 3
         assert payload["slow_period"] == 5
+        assert payload["spread_pct"] == "0.00200000"
+        assert payload["signal_latency_bars"] == 1
         assert payload["starting_equity_input"] == "15000.00000000"
         assert payload["starting_equity"] == "15000.00000000"
     finally:

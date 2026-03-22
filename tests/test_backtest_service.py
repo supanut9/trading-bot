@@ -215,6 +215,8 @@ def test_backtest_cost_modeling_reduces_pnl() -> None:
     assert result_with_cost.total_fees_paid > Decimal("0")
     assert result_with_cost.slippage_pct == Decimal("0.001")
     assert result_with_cost.fee_pct == Decimal("0.001")
+    assert result_with_cost.spread_pct == Decimal("0")
+    assert result_with_cost.signal_latency_bars == 0
 
 
 def test_backtest_cost_modeling_records_fill_price_and_fee_per_execution() -> None:
@@ -252,6 +254,32 @@ def test_backtest_high_fees_can_turn_winning_trade_into_loss() -> None:
 
     assert result.realized_pnl < Decimal("0")
     assert result.total_fees_paid > Decimal("0")
+
+
+def test_backtest_spread_and_latency_reduce_pnl() -> None:
+    service_no_extra_friction = BacktestService(
+        strategy=StubStrategy(),
+        starting_equity=Decimal("10000"),
+        slippage_pct=Decimal("0.001"),
+        fee_pct=Decimal("0.001"),
+    )
+    service_with_extra_friction = BacktestService(
+        strategy=StubStrategy(),
+        starting_equity=Decimal("10000"),
+        slippage_pct=Decimal("0.001"),
+        fee_pct=Decimal("0.001"),
+        spread_pct=Decimal("0.002"),
+        signal_latency_bars=1,
+    )
+
+    result_no_extra_friction = service_no_extra_friction.run(build_candles([10, 12, 20, 30]))
+    result_with_extra_friction = service_with_extra_friction.run(build_candles([10, 12, 20, 30]))
+
+    assert result_with_extra_friction.realized_pnl < result_no_extra_friction.realized_pnl
+    assert result_with_extra_friction.spread_pct == Decimal("0.002")
+    assert result_with_extra_friction.signal_latency_bars == 1
+    assert "spread_pct=0.002" in result_with_extra_friction.assumption_summary
+    assert "signal_latency_bars=1" in result_with_extra_friction.assumption_summary
 
 
 def test_walk_forward_returns_in_sample_and_oos_results() -> None:

@@ -222,6 +222,7 @@ def test_backtest_runs_dashboard_returns_recent_runs(tmp_path: Path) -> None:
         assert payload["runs"][0]["strategy_name"] == "ema_crossover"
         assert payload["runs"][0]["fast_period"] == 12
         assert payload["runs"][0]["total_return_pct"] == "2.50000000"
+        assert "signal_latency_bars=0" in payload["runs"][0]["assumption_summary"]
     finally:
         teardown_client(session)
 
@@ -253,6 +254,13 @@ def test_backtest_runs_csv_export_filters_limit(tmp_path: Path) -> None:
                 total_trades=4,
                 winning_trades=3,
                 losing_trades=1,
+                slippage_pct=Decimal("0.001"),
+                fee_pct=Decimal("0.001"),
+                spread_pct=Decimal("0.002"),
+                signal_latency_bars=1,
+                assumption_summary=(
+                    "slippage_pct=0.001, fee_pct=0.001, spread_pct=0.002, signal_latency_bars=1"
+                ),
             ),
         )
         history.record_run(

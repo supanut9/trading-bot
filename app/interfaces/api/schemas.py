@@ -255,6 +255,9 @@ class BacktestControlResponse(BaseModel):
     total_fees_paid: Decimal | None = None
     slippage_pct: Decimal | None = None
     fee_pct: Decimal | None = None
+    spread_pct: Decimal | None = None
+    signal_latency_bars: int = 0
+    assumption_summary: str = ""
     rsi_period: int | None = None
     rsi_overbought: Decimal | None = None
     rsi_oversold: Decimal | None = None
@@ -345,6 +348,11 @@ class BacktestRunResponse(BaseModel):
     leverage: int | None = None
     margin_mode: str | None = None
     liquidation_count: int | None = None
+    slippage_pct: Decimal | None = None
+    fee_pct: Decimal | None = None
+    spread_pct: Decimal | None = None
+    signal_latency_bars: int = 0
+    assumption_summary: str = ""
     rules: "StrategyRuleBuilderRequest | None" = None
 
 
@@ -363,6 +371,8 @@ class BacktestControlRequest(BaseModel):
     starting_equity: Decimal | None = None
     slippage_pct: Decimal | None = None
     fee_pct: Decimal | None = None
+    spread_pct: Decimal | None = None
+    signal_latency_bars: int | None = None
     walk_forward_split_ratio: Decimal | None = None
     rules: "StrategyRuleBuilderRequest | None" = None
     rsi_period: int | None = None

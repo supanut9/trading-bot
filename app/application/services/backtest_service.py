@@ -59,7 +59,10 @@ class BacktestResult:
     losing_trades: int
     slippage_pct: Decimal
     fee_pct: Decimal
-    executions: tuple[BacktestExecution, ...]
+    spread_pct: Decimal = Decimal("0")
+    signal_latency_bars: int = 0
+    assumption_summary: str = ""
+    executions: tuple[BacktestExecution, ...] = ()
     candles: tuple[Candle, ...] = ()
     leverage: int = 1
     margin_mode: str = "ISOLATED"
@@ -77,6 +80,8 @@ class BacktestService:
         starting_equity: Decimal = Decimal("10000"),
         slippage_pct: Decimal = Decimal("0"),
         fee_pct: Decimal = Decimal("0"),
+        spread_pct: Decimal = Decimal("0"),
+        signal_latency_bars: int = 0,
         trading_mode: str = "SPOT",
         leverage: int = 1,
         margin_mode: str = "ISOLATED",
@@ -103,6 +108,8 @@ class BacktestService:
         self._starting_equity = starting_equity
         self._slippage_pct = slippage_pct
         self._fee_pct = fee_pct
+        self._spread_pct = spread_pct
+        self._signal_latency_bars = signal_latency_bars
         self._trading_mode = trading_mode.upper()
         self._leverage = leverage
         self._margin_mode = margin_mode
@@ -376,7 +383,11 @@ class BacktestService:
                 if position_quantity > Decimal("0"):
                     continue
 
-                fill_price = candle.close_price * (Decimal("1") + self._slippage_pct)
+                execution_candle = self._execution_candle(ordered_candles, index)
+                fill_price = self._apply_execution_friction(
+                    execution_candle.close_price,
+                    side="buy",
+                )
 
                 # Closing a short
                 if position_quantity < Decimal("0"):
@@ -396,13 +407,13 @@ class BacktestService:
                     executions.append(
                         BacktestExecution(
                             action="buy",
-                            price=candle.close_price,
+                            price=execution_candle.close_price,
                             fill_price=fill_price,
                             quantity=abs(position_quantity),
                             fee=exit_fee,
                             realized_pnl=trade_pnl,
                             reason=f"close short: {signal.reason}",
-                            candle_open_time=candle.open_time,
+                            candle_open_time=execution_candle.open_time,
                         )
                     )
                     position_quantity = Decimal("0")
@@ -444,13 +455,13 @@ class BacktestService:
                     executions.append(
                         BacktestExecution(
                             action="buy",
-                            price=candle.close_price,
+                            price=execution_candle.close_price,
                             fill_price=fill_price,
                             quantity=position_quantity,
                             fee=entry_fee,
                             realized_pnl=Decimal("0"),
                             reason=signal.reason,
-                            candle_open_time=candle.open_time,
+                            candle_open_time=execution_candle.open_time,
                             liquidation_price=current_liq,
                             was_liquidated=False,
                         )
@@ -461,7 +472,11 @@ class BacktestService:
                 if position_quantity < Decimal("0"):
                     continue
 
-                fill_price = candle.close_price * (Decimal("1") - self._slippage_pct)
+                execution_candle = self._execution_candle(ordered_candles, index)
+                fill_price = self._apply_execution_friction(
+                    execution_candle.close_price,
+                    side="sell",
+                )
 
                 # Closing a long
                 if position_quantity > Decimal("0"):
@@ -481,13 +496,13 @@ class BacktestService:
                     executions.append(
                         BacktestExecution(
                             action="sell",
-                            price=candle.close_price,
+                            price=execution_candle.close_price,
                             fill_price=fill_price,
                             quantity=position_quantity,
                             fee=exit_fee,
                             realized_pnl=trade_pnl,
                             reason=f"close long: {signal.reason}",
-                            candle_open_time=candle.open_time,
+                            candle_open_time=execution_candle.open_time,
                         )
                     )
                     position_quantity = Decimal("0")
@@ -528,13 +543,13 @@ class BacktestService:
                     executions.append(
                         BacktestExecution(
                             action="sell",
-                            price=candle.close_price,
+                            price=execution_candle.close_price,
                             fill_price=fill_price,
                             quantity=abs(position_quantity),
                             fee=entry_fee,
                             realized_pnl=Decimal("0"),
                             reason=signal.reason,
-                            candle_open_time=candle.open_time,
+                            candle_open_time=execution_candle.open_time,
                             liquidation_price=current_liq,
                             was_liquidated=False,
                         )
@@ -545,7 +560,7 @@ class BacktestService:
             final_price = final_candle.close_price
 
             if position_quantity > Decimal("0"):
-                fill_price = final_price * (Decimal("1") - self._slippage_pct)
+                fill_price = self._apply_execution_friction(final_price, side="sell")
                 exit_fee = fill_price * position_quantity * self._fee_pct
                 trade_pnl = (
                     (fill_price - average_entry_fill_price) * position_quantity
@@ -554,7 +569,7 @@ class BacktestService:
                 )
                 action = "sell"
             else:  # short
-                fill_price = final_price * (Decimal("1") + self._slippage_pct)
+                fill_price = self._apply_execution_friction(final_price, side="buy")
                 exit_fee = fill_price * abs(position_quantity) * self._fee_pct
                 trade_pnl = (
                     (average_entry_fill_price - fill_price) * abs(position_quantity)
@@ -601,6 +616,9 @@ class BacktestService:
             losing_trades=losing_trades,
             slippage_pct=self._slippage_pct,
             fee_pct=self._fee_pct,
+            spread_pct=self._spread_pct,
+            signal_latency_bars=self._signal_latency_bars,
+            assumption_summary=self._assumption_summary(),
             executions=tuple(executions),
             candles=tuple(ordered_candles),
             leverage=self._leverage,
@@ -608,6 +626,24 @@ class BacktestService:
             liquidation_count=len(liquidation_events),
             liquidation_events=tuple(liquidation_events),
             stop_loss_count=stop_loss_count,
+        )
+
+    def _execution_candle(self, candles: Sequence[Candle], signal_index: int) -> Candle:
+        execution_index = min(signal_index + self._signal_latency_bars, len(candles) - 1)
+        return candles[execution_index]
+
+    def _apply_execution_friction(self, reference_price: Decimal, *, side: str) -> Decimal:
+        half_spread = self._spread_pct / Decimal("2")
+        if side == "buy":
+            return reference_price * (Decimal("1") + half_spread + self._slippage_pct)
+        return reference_price * (Decimal("1") - half_spread - self._slippage_pct)
+
+    def _assumption_summary(self) -> str:
+        return (
+            f"slippage_pct={self._slippage_pct}, "
+            f"fee_pct={self._fee_pct}, "
+            f"spread_pct={self._spread_pct}, "
+            f"signal_latency_bars={self._signal_latency_bars}"
         )
 
     def run_walk_forward(
