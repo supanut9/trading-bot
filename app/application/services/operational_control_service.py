@@ -21,6 +21,7 @@ from app.application.services.live_order_state import (
     resolve_cancellation_state,
     transition_live_order,
 )
+from app.application.services.live_readiness_service import LiveReadinessService
 from app.application.services.market_data_service import MarketDataService
 from app.application.services.market_data_sync_service import MarketDataSyncService
 from app.application.services.model_registry import (
@@ -36,7 +37,6 @@ from app.application.services.operator_runtime_config_service import (
     OperatorRuntimeConfig,
     OperatorRuntimeConfigService,
 )
-from app.application.services.qualification_service import QualificationService
 from app.application.services.symbol_rules_service import SymbolRulesService
 from app.application.services.worker_orchestration_service import WorkerOrchestrationService
 from app.config import Settings
@@ -354,6 +354,23 @@ class LiveHaltControlResult:
     live_trading_halted: bool
     changed: bool
     notified: bool = False
+
+
+@dataclass(frozen=True, slots=True)
+class LiveReadinessCheckResult:
+    name: str
+    passed: bool
+    severity: str
+    detail: str
+
+
+@dataclass(frozen=True, slots=True)
+class LiveReadinessControlResult:
+    status: str
+    detail: str
+    ready: bool
+    checks: tuple[LiveReadinessCheckResult, ...]
+    blocking_reasons: tuple[str, ...]
 
 
 @dataclass(frozen=True, slots=True)
@@ -1010,18 +1027,11 @@ class OperationalControlService:
     ) -> LiveHaltControlResult:
         if not halted and self._settings.live_trading_enabled:
             with self._session_factory() as session:
-                config = OperatorRuntimeConfigService(
-                    session,
-                    self._settings,
-                ).get_effective_config()
-                report = QualificationService(session).evaluate(
-                    exchange=self._settings.exchange_name,
-                    symbol=config.symbol,
-                )
-                if not report.all_passed:
+                readiness = LiveReadinessService(session, self._settings).build_report()
+                if not readiness.ready:
                     control_result = LiveHaltControlResult(
                         status="failed",
-                        detail="cannot resume live trading: strategy not qualified",
+                        detail="cannot resume live trading: readiness checks failed",
                         live_trading_halted=True,
                         changed=False,
                     )
@@ -1035,7 +1045,8 @@ class OperationalControlService:
                             payload={
                                 "live_trading_halted": control_result.live_trading_halted,
                                 "changed": control_result.changed,
-                                "reason": "strategy_not_qualified",
+                                "reason": "live_readiness_failed",
+                                "blocking_reasons": readiness.blocking_reasons,
                             },
                         )
                     return control_result
@@ -1076,6 +1087,25 @@ class OperationalControlService:
                 },
             )
         return control_result
+
+    def get_live_readiness(self) -> LiveReadinessControlResult:
+        with self._session_factory() as session:
+            report = LiveReadinessService(session, self._settings).build_report()
+        return LiveReadinessControlResult(
+            status="completed",
+            detail="live readiness evaluated",
+            ready=report.ready,
+            checks=tuple(
+                LiveReadinessCheckResult(
+                    name=check.name,
+                    passed=check.passed,
+                    severity=check.severity,
+                    detail=check.detail,
+                )
+                for check in report.checks
+            ),
+            blocking_reasons=tuple(report.blocking_reasons),
+        )
 
     def get_operator_config(self) -> OperatorConfigControlResult:
         config = self._get_effective_operator_config()

@@ -440,7 +440,8 @@ Minimum checks before enabling live mode:
 
 - `main` is green on the latest merged change and no required checks are failing
 - `GET /health` returns healthy and `GET /status` returns the expected `execution_mode`
-- the live-readiness report is green once `feature/live-readiness-gate` is implemented; until then, operators must manually verify the equivalent checks below
+- `GET /controls/live-readiness` returns `ready=true`
+- `/status` shows `live_readiness_status=ready` with no blocking reasons
 - exchange credentials are provided only through environment variables
 - `account_balance_status` is `available` and the reported base and quote assets match the configured symbol
 - `STARTUP_STATE_SYNC_ENABLED=true` and `LIVE_RECONCILE_SCHEDULE_ENABLED=true` are set for live-capable operation
@@ -458,6 +459,7 @@ make run-api
 make run-worker
 curl http://127.0.0.1:8000/health
 curl http://127.0.0.1:8000/status
+curl http://127.0.0.1:8000/controls/live-readiness
 curl -X POST http://127.0.0.1:8000/controls/live-reconcile
 curl http://127.0.0.1:8000/reports/live-recovery.csv
 ```
@@ -476,6 +478,7 @@ Live-trading gap rule:
 - treat live trading as not production-ready by default even when the code paths exist
 - do not use paper-production readiness as evidence that exchange-facing execution is safe enough
 - if any live prerequisite above is missing or untested, keep `LIVE_TRADING_ENABLED=false`
+- if a live resume attempt is rejected by readiness checks, investigate the reported blocking reasons before retrying
 
 ## Deployment And Restart
 

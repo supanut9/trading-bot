@@ -25,7 +25,8 @@ def main() -> None:
     logger.info(
         "runtime_ready component=%s app=%s env=%s mode=%s exchange=%s symbol=%s "
         "timeframe=%s database_scheme=%s log_level=%s live_safety_status=%s "
-        "live_trading_halted=%s live_max_order_notional=%s live_max_position_quantity=%s",
+        "live_trading_halted=%s live_max_order_notional=%s live_max_position_quantity=%s "
+        "live_readiness_status=%s live_readiness_blocking_reasons=%s",
         context.component,
         context.app,
         context.environment,
@@ -41,6 +42,8 @@ def main() -> None:
         settings.live_trading_halted,
         settings.live_max_order_notional,
         settings.live_max_position_quantity,
+        context.live_readiness_status,
+        list(context.live_readiness_blocking_reasons),
     )
     tables = init_database(settings)
     logger.info("worker_database_initialized tables=%s", ",".join(tables))

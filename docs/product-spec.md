@@ -88,13 +88,16 @@ Profitability improvements (what separates this bot from better real-world bots)
 - provide a signed live order client for the configured exchange, with validate-only routing available before full live execution is enabled
 - orchestrate a worker cycle from persisted candles through execution
 - persist accepted live orders locally while keeping trades and positions unchanged until exchange fills are explicitly reconciled
+- expose a read-only live-readiness report so operators can inspect blocking prerequisites before attempting live resume
 - normalize live order status into a canonical local state model before operator surfaces consume it
 - block new live submissions when an unresolved same-side live order already exists for the configured market
 - reconcile confirmed live exchange fills into local trades and positions through a bounded control workflow
 - mark uncertain exchange outcomes as `review_required` instead of silently treating them as ordinary open or terminal states
 - expose exchange-side base and quote asset balances for the configured live symbol through the status surface
+- expose live readiness status and blocking reasons through the status surface
 - block new live entries when live trading is halted by configuration while leaving recovery controls available
 - allow operators to halt or resume live entry through a bounded persisted control without restarting the runtime
+- fail closed on live resume attempts when readiness checks are still blocked
 - bound live entries by configured max order notional and max position quantity limits
 - optionally run recurring live reconciliation jobs so local runtime state can catch up with exchange fills without manual control calls
 - run startup live reconciliation before new live worker execution so restarts fail closed on uncertain exchange state

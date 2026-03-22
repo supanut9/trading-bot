@@ -892,6 +892,21 @@ A smart order execution feature is added to the live infrastructure phase to min
 Qualification gates are revised to require cost-adjusted out-of-sample evidence and shadow-versus-backtest drift within bounds rather than in-sample backtest metrics alone.
 
 A strategy iteration workflow closes the feedback loop when live performance falls below walk-forward expectations, defining how the strategy is re-validated and re-promoted rather than left running on a degrading edge.
+
+## 2026-03-22
+
+### Decision
+
+Introduce an explicit live-readiness report and require it to pass before live resume is allowed.
+
+### Reason
+
+Live-capable controls already existed, but operators still had to infer readiness from scattered status fields and manual runbook checks. That is not reliable enough for exchange-facing execution. A single readiness report and a fail-closed resume path reduce the chance of resuming live entry while prerequisites are missing.
+
+### Consequence
+
+The API now exposes `GET /controls/live-readiness`, `/status` includes `live_readiness_status` and `live_readiness_blocking_reasons`, and `POST /controls/live-halt` refuses live resume when readiness is blocked. The initial checks cover live enablement, runtime halt state, exchange credentials, symbol-rule availability, qualification, startup-sync and reconcile scheduling, unresolved review-required or stale live orders, and configured live sizing caps.
+
 ## 2026-03-21
 
 ### Decision

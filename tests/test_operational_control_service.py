@@ -452,7 +452,7 @@ def test_live_cancel_control_skips_non_cancelable_status(tmp_path) -> None:
     assert audit.entries[0]["status"] == "skipped"
 
 
-def test_live_halt_rejects_resume_when_strategy_not_qualified(monkeypatch) -> None:
+def test_live_halt_rejects_resume_when_readiness_checks_fail(monkeypatch) -> None:
     settings = Settings(
         DATABASE_URL="sqlite:///./operational_controls.db",
         PAPER_TRADING=False,
@@ -462,27 +462,23 @@ def test_live_halt_rejects_resume_when_strategy_not_qualified(monkeypatch) -> No
     )
     audit = RecordingAudit()
 
-    class FakeConfigService:
+    class FakeLiveReadinessService:
         def __init__(self, _session, _settings) -> None:
             pass
 
-        def get_effective_config(self):
-            return type("Config", (), {"symbol": "BTC/USDT"})()
-
-    class FakeQualificationService:
-        def __init__(self, _session) -> None:
-            pass
-
-        def evaluate(self, exchange, symbol):
-            return type("Report", (), {"all_passed": False})()
+        def build_report(self):
+            return type(
+                "Report",
+                (),
+                {
+                    "ready": False,
+                    "blocking_reasons": ["strategy qualification gates are not all passing"],
+                },
+            )()
 
     monkeypatch.setattr(
-        "app.application.services.operational_control_service.OperatorRuntimeConfigService",
-        FakeConfigService,
-    )
-    monkeypatch.setattr(
-        "app.application.services.operational_control_service.QualificationService",
-        FakeQualificationService,
+        "app.application.services.operational_control_service.LiveReadinessService",
+        FakeLiveReadinessService,
     )
 
     service = OperationalControlService(
@@ -494,9 +490,9 @@ def test_live_halt_rejects_resume_when_strategy_not_qualified(monkeypatch) -> No
     result = service.run_live_halt(halted=False, source="api.control")
 
     assert result.status == "failed"
-    assert result.detail == "cannot resume live trading: strategy not qualified"
+    assert result.detail == "cannot resume live trading: readiness checks failed"
     assert len(audit.entries) == 1
-    assert audit.entries[0]["payload"]["reason"] == "strategy_not_qualified"
+    assert audit.entries[0]["payload"]["reason"] == "live_readiness_failed"
 
 
 # ---------------------------------------------------------------------------
