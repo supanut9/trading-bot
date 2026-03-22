@@ -62,6 +62,8 @@ class BacktestResult:
     spread_pct: Decimal = Decimal("0")
     signal_latency_bars: int = 0
     assumption_summary: str = ""
+    allowed_weekdays_utc: tuple[int, ...] = ()
+    allowed_hours_utc: tuple[int, ...] = ()
     executions: tuple[BacktestExecution, ...] = ()
     candles: tuple[Candle, ...] = ()
     leverage: int = 1
@@ -82,6 +84,8 @@ class BacktestService:
         fee_pct: Decimal = Decimal("0"),
         spread_pct: Decimal = Decimal("0"),
         signal_latency_bars: int = 0,
+        allowed_weekdays_utc: Sequence[int] | None = None,
+        allowed_hours_utc: Sequence[int] | None = None,
         trading_mode: str = "SPOT",
         leverage: int = 1,
         margin_mode: str = "ISOLATED",
@@ -110,6 +114,8 @@ class BacktestService:
         self._fee_pct = fee_pct
         self._spread_pct = spread_pct
         self._signal_latency_bars = signal_latency_bars
+        self._allowed_weekdays_utc = tuple(allowed_weekdays_utc or ())
+        self._allowed_hours_utc = tuple(allowed_hours_utc or ())
         self._trading_mode = trading_mode.upper()
         self._leverage = leverage
         self._margin_mode = margin_mode
@@ -348,6 +354,9 @@ class BacktestService:
             else:
                 signal = self._strategy.evaluate(ordered_candles[: index + 1])
             if signal is None:
+                continue
+
+            if not self._is_session_allowed(candle):
                 continue
 
             # HTF confirmation: only use HTF candles whose open_time <= current candle
@@ -619,6 +628,8 @@ class BacktestService:
             spread_pct=self._spread_pct,
             signal_latency_bars=self._signal_latency_bars,
             assumption_summary=self._assumption_summary(),
+            allowed_weekdays_utc=self._allowed_weekdays_utc,
+            allowed_hours_utc=self._allowed_hours_utc,
             executions=tuple(executions),
             candles=tuple(ordered_candles),
             leverage=self._leverage,
@@ -643,8 +654,20 @@ class BacktestService:
             f"slippage_pct={self._slippage_pct}, "
             f"fee_pct={self._fee_pct}, "
             f"spread_pct={self._spread_pct}, "
-            f"signal_latency_bars={self._signal_latency_bars}"
+            f"signal_latency_bars={self._signal_latency_bars}, "
+            f"allowed_weekdays_utc={list(self._allowed_weekdays_utc)}, "
+            f"allowed_hours_utc={list(self._allowed_hours_utc)}"
         )
+
+    def _is_session_allowed(self, candle: Candle) -> bool:
+        if (
+            self._allowed_weekdays_utc
+            and candle.open_time.weekday() not in self._allowed_weekdays_utc
+        ):
+            return False
+        if self._allowed_hours_utc and candle.open_time.hour not in self._allowed_hours_utc:
+            return False
+        return True
 
     def run_walk_forward(
         self,

@@ -134,6 +134,12 @@ def run_backtest(
             fee_pct=payload.fee_pct,
             spread_pct=payload.spread_pct,
             signal_latency_bars=payload.signal_latency_bars,
+            allowed_weekdays_utc=tuple(payload.allowed_weekdays_utc)
+            if payload.allowed_weekdays_utc is not None
+            else None,
+            allowed_hours_utc=tuple(payload.allowed_hours_utc)
+            if payload.allowed_hours_utc is not None
+            else None,
             walk_forward_split_ratio=payload.walk_forward_split_ratio,
             rules=to_rule_builder_config(payload.rules),
             rsi_period=payload.rsi_period,

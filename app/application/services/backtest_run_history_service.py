@@ -42,6 +42,8 @@ class BacktestRunView:
     spread_pct: Decimal | None
     signal_latency_bars: int | None
     assumption_summary: str
+    allowed_weekdays_utc: tuple[int, ...]
+    allowed_hours_utc: tuple[int, ...]
     rules_payload: dict[str, Any] | None
 
 
@@ -89,6 +91,12 @@ class BacktestRunHistoryService:
                 fee_pct=getattr(result, "fee_pct", None),
                 spread_pct=getattr(result, "spread_pct", None),
                 signal_latency_bars=getattr(result, "signal_latency_bars", None),
+                allowed_weekdays_utc=self._serialize_int_tuple(
+                    getattr(result, "allowed_weekdays_utc", None)
+                ),
+                allowed_hours_utc=self._serialize_int_tuple(
+                    getattr(result, "allowed_hours_utc", None)
+                ),
                 walk_forward_split_ratio=wf.split_ratio
                 if (wf := getattr(result, "walk_forward", None))
                 else None,
@@ -133,10 +141,26 @@ class BacktestRunHistoryService:
         )
 
     @staticmethod
-    def _to_view(record: Any) -> BacktestRunView:
+    def _serialize_int_tuple(values: tuple[int, ...] | None) -> str | None:
+        if values is None:
+            return None
+        return json.dumps(list(values))
+
+    @staticmethod
+    def _deserialize_int_tuple(raw: str | None) -> tuple[int, ...]:
+        if not raw:
+            return ()
+        return tuple(int(value) for value in json.loads(raw))
+
+    @classmethod
+    def _to_view(cls, record: Any) -> BacktestRunView:
         rules_payload = None
         if record.rules_json:
             rules_payload = json.loads(record.rules_json)
+        allowed_weekdays_utc = cls._deserialize_int_tuple(
+            getattr(record, "allowed_weekdays_utc", None)
+        )
+        allowed_hours_utc = cls._deserialize_int_tuple(getattr(record, "allowed_hours_utc", None))
         return BacktestRunView(
             id=record.id,
             created_at=record.created_at,
@@ -168,7 +192,11 @@ class BacktestRunHistoryService:
                 f"slippage_pct={record.slippage_pct or Decimal('0')}, "
                 f"fee_pct={record.fee_pct or Decimal('0')}, "
                 f"spread_pct={getattr(record, 'spread_pct', None) or Decimal('0')}, "
-                f"signal_latency_bars={getattr(record, 'signal_latency_bars', None) or 0}"
+                f"signal_latency_bars={getattr(record, 'signal_latency_bars', None) or 0}, "
+                f"allowed_weekdays_utc={list(allowed_weekdays_utc)}, "
+                f"allowed_hours_utc={list(allowed_hours_utc)}"
             ),
+            allowed_weekdays_utc=allowed_weekdays_utc,
+            allowed_hours_utc=allowed_hours_utc,
             rules_payload=rules_payload,
         )

@@ -126,6 +126,8 @@ class BacktestRunOptions:
     fee_pct: Decimal | None = None
     spread_pct: Decimal | None = None
     signal_latency_bars: int | None = None
+    allowed_weekdays_utc: tuple[int, ...] | None = None
+    allowed_hours_utc: tuple[int, ...] | None = None
     walk_forward_split_ratio: Decimal | None = None
     rules: RuleBuilderStrategyConfig | None = None
     rsi_period: int | None = None
@@ -297,6 +299,8 @@ class BacktestControlResult:
     spread_pct: Decimal | None = None
     signal_latency_bars: int = 0
     assumption_summary: str = ""
+    allowed_weekdays_utc: tuple[int, ...] = ()
+    allowed_hours_utc: tuple[int, ...] = ()
     walk_forward: WalkForwardControlResult | None = None
     rules: RuleBuilderStrategyConfig | None = None
     executions: tuple[BacktestExecutionResult, ...] = ()
@@ -900,6 +904,8 @@ class OperationalControlService:
             spread_pct=self._quantize_decimal(backtest_result.spread_pct),
             signal_latency_bars=backtest_result.signal_latency_bars,
             assumption_summary=backtest_result.assumption_summary,
+            allowed_weekdays_utc=backtest_result.allowed_weekdays_utc,
+            allowed_hours_utc=backtest_result.allowed_hours_utc,
             walk_forward=self._build_walk_forward_control_result(walk_forward_result),
             rules=resolved.rules,
             adx_period=resolved.adx_period,
@@ -1518,6 +1524,8 @@ class OperationalControlService:
             fee_pct=fee_pct,
             spread_pct=spread_pct,
             signal_latency_bars=signal_latency_bars,
+            allowed_weekdays_utc=options.allowed_weekdays_utc,
+            allowed_hours_utc=options.allowed_hours_utc,
             trading_mode=options.trading_mode,
             leverage=options.leverage or 1,
             margin_mode=options.margin_mode,
@@ -1591,6 +1599,8 @@ class OperationalControlService:
             fee_pct=fee_pct,
             spread_pct=spread_pct,
             signal_latency_bars=signal_latency_bars,
+            allowed_weekdays_utc=options.allowed_weekdays_utc,
+            allowed_hours_utc=options.allowed_hours_utc,
             trading_mode=options.trading_mode,
             leverage=options.leverage or 1,
             margin_mode=options.margin_mode,
@@ -1661,6 +1671,24 @@ class OperationalControlService:
             raise ValueError("spread_pct must be non-negative")
         if active.signal_latency_bars is not None and active.signal_latency_bars < 0:
             raise ValueError("signal_latency_bars must be non-negative")
+        if active.allowed_weekdays_utc is not None:
+            invalid_weekdays = [day for day in active.allowed_weekdays_utc if day < 0 or day > 6]
+            if invalid_weekdays:
+                raise ValueError("allowed_weekdays_utc values must be between 0 and 6")
+        if active.allowed_hours_utc is not None:
+            invalid_hours = [hour for hour in active.allowed_hours_utc if hour < 0 or hour > 23]
+            if invalid_hours:
+                raise ValueError("allowed_hours_utc values must be between 0 and 23")
+        allowed_weekdays_utc = (
+            tuple(sorted(set(active.allowed_weekdays_utc)))
+            if active.allowed_weekdays_utc is not None
+            else None
+        )
+        allowed_hours_utc = (
+            tuple(sorted(set(active.allowed_hours_utc)))
+            if active.allowed_hours_utc is not None
+            else None
+        )
         if strategy_name == BACKTEST_STRATEGY_EMA_CROSSOVER:
             fast_period = active.fast_period or defaults.fast_period
             slow_period = active.slow_period or defaults.slow_period
@@ -1680,6 +1708,8 @@ class OperationalControlService:
                 fee_pct=active.fee_pct,
                 spread_pct=active.spread_pct,
                 signal_latency_bars=active.signal_latency_bars,
+                allowed_weekdays_utc=allowed_weekdays_utc,
+                allowed_hours_utc=allowed_hours_utc,
                 walk_forward_split_ratio=active.walk_forward_split_ratio,
                 rsi_period=active.rsi_period,
                 rsi_overbought=active.rsi_overbought,
@@ -1704,6 +1734,8 @@ class OperationalControlService:
                 fee_pct=active.fee_pct,
                 spread_pct=active.spread_pct,
                 signal_latency_bars=active.signal_latency_bars,
+                allowed_weekdays_utc=allowed_weekdays_utc,
+                allowed_hours_utc=allowed_hours_utc,
                 walk_forward_split_ratio=active.walk_forward_split_ratio,
                 rules=rules,
                 multi_tf_timeframe=active.multi_tf_timeframe,
@@ -1723,6 +1755,8 @@ class OperationalControlService:
             fee_pct=active.fee_pct,
             spread_pct=active.spread_pct,
             signal_latency_bars=active.signal_latency_bars,
+            allowed_weekdays_utc=allowed_weekdays_utc,
+            allowed_hours_utc=allowed_hours_utc,
             walk_forward_split_ratio=active.walk_forward_split_ratio,
             # shared indicator params
             rsi_period=active.rsi_period,

@@ -223,6 +223,8 @@ def test_backtest_runs_dashboard_returns_recent_runs(tmp_path: Path) -> None:
         assert payload["runs"][0]["fast_period"] == 12
         assert payload["runs"][0]["total_return_pct"] == "2.50000000"
         assert "signal_latency_bars=0" in payload["runs"][0]["assumption_summary"]
+        assert payload["runs"][0]["allowed_weekdays_utc"] == []
+        assert payload["runs"][0]["allowed_hours_utc"] == []
     finally:
         teardown_client(session)
 
@@ -261,6 +263,8 @@ def test_backtest_runs_csv_export_filters_limit(tmp_path: Path) -> None:
                 assumption_summary=(
                     "slippage_pct=0.001, fee_pct=0.001, spread_pct=0.002, signal_latency_bars=1"
                 ),
+                allowed_weekdays_utc=(1, 3),
+                allowed_hours_utc=(8, 12),
             ),
         )
         history.record_run(

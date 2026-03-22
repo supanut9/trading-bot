@@ -172,6 +172,8 @@ class ReportingExportService:
                 "spread_pct",
                 "signal_latency_bars",
                 "assumption_summary",
+                "allowed_weekdays_utc",
+                "allowed_hours_utc",
                 "rules_json",
             ]
         )
@@ -205,6 +207,8 @@ class ReportingExportService:
                     run.spread_pct,
                     run.signal_latency_bars,
                     run.assumption_summary,
+                    list(run.allowed_weekdays_utc),
+                    list(run.allowed_hours_utc),
                     run.rules_payload,
                 ]
             )
