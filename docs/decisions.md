@@ -907,6 +907,20 @@ Live-capable controls already existed, but operators still had to infer readines
 
 The API now exposes `GET /controls/live-readiness`, `/status` includes `live_readiness_status` and `live_readiness_blocking_reasons`, and `POST /controls/live-halt` refuses live resume when readiness is blocked. The initial checks cover live enablement, runtime halt state, exchange credentials, symbol-rule availability, qualification, startup-sync and reconcile scheduling, unresolved review-required or stale live orders, and configured live sizing caps.
 
+## 2026-03-22
+
+### Decision
+
+Add portfolio-level live entry caps to the existing risk evaluation path instead of creating a second portfolio-governor runtime.
+
+### Reason
+
+The worker already computes aggregate portfolio exposure before calling `RiskService`, so the clean extension point is to add portfolio cap fields there. That keeps live entry rejection in one place, preserves existing auto-halt behavior for hard violations, and avoids splitting trade approval between multiple overlapping services.
+
+### Consequence
+
+Live entry can now be blocked on total exposure, per-symbol exposure, per-symbol concentration, and live concurrent-position limits. These caps are surfaced through `/status` so operators can inspect the configured portfolio envelope before enabling live mode, and hard violations continue to fail closed by auto-halting live execution.
+
 ## 2026-03-21
 
 ### Decision

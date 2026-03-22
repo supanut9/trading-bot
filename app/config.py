@@ -75,6 +75,22 @@ class Settings(BaseSettings):
         default=None,
         alias="LIVE_MAX_CONCURRENT_EXPOSURE_NOTIONAL",
     )
+    live_max_total_exposure_notional: Decimal | None = Field(
+        default=None,
+        alias="LIVE_MAX_TOTAL_EXPOSURE_NOTIONAL",
+    )
+    live_max_symbol_exposure_notional: Decimal | None = Field(
+        default=None,
+        alias="LIVE_MAX_SYMBOL_EXPOSURE_NOTIONAL",
+    )
+    live_max_symbol_concentration_pct: Decimal | None = Field(
+        default=None,
+        alias="LIVE_MAX_SYMBOL_CONCENTRATION_PCT",
+    )
+    live_max_concurrent_positions: int | None = Field(
+        default=None,
+        alias="LIVE_MAX_CONCURRENT_POSITIONS",
+    )
     live_consecutive_loss_auto_halt_threshold: int | None = Field(
         default=None,
         alias="LIVE_CONSECUTIVE_LOSS_AUTO_HALT_THRESHOLD",
@@ -233,6 +249,26 @@ class Settings(BaseSettings):
         limit_exposure = self.live_max_concurrent_exposure_notional
         if limit_exposure is not None and limit_exposure <= Decimal("0"):
             raise ValueError("LIVE_MAX_CONCURRENT_EXPOSURE_NOTIONAL must be positive when provided")
+
+        limit_total_exposure = self.live_max_total_exposure_notional
+        if limit_total_exposure is not None and limit_total_exposure <= Decimal("0"):
+            raise ValueError("LIVE_MAX_TOTAL_EXPOSURE_NOTIONAL must be positive when provided")
+
+        limit_symbol_exposure = self.live_max_symbol_exposure_notional
+        if limit_symbol_exposure is not None and limit_symbol_exposure <= Decimal("0"):
+            raise ValueError("LIVE_MAX_SYMBOL_EXPOSURE_NOTIONAL must be positive when provided")
+
+        limit_symbol_concentration = self.live_max_symbol_concentration_pct
+        if limit_symbol_concentration is not None and (
+            limit_symbol_concentration <= Decimal("0") or limit_symbol_concentration > Decimal("1")
+        ):
+            raise ValueError(
+                "LIVE_MAX_SYMBOL_CONCENTRATION_PCT must be between 0 and 1 when provided"
+            )
+
+        limit_concurrent_positions = self.live_max_concurrent_positions
+        if limit_concurrent_positions is not None and limit_concurrent_positions <= 0:
+            raise ValueError("LIVE_MAX_CONCURRENT_POSITIONS must be positive when provided")
 
         limit_consec_loss = self.live_consecutive_loss_auto_halt_threshold
         if limit_consec_loss is not None and limit_consec_loss <= 0:

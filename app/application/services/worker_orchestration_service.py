@@ -89,6 +89,10 @@ class WorkerOrchestrationService:
             live_trading_halted=live_halt_state.halted,
             live_max_order_notional=settings.live_max_order_notional,
             live_max_position_quantity=settings.live_max_position_quantity,
+            live_max_total_exposure_notional=settings.live_max_total_exposure_notional,
+            live_max_symbol_exposure_notional=settings.live_max_symbol_exposure_notional,
+            live_max_symbol_concentration_pct=settings.live_max_symbol_concentration_pct,
+            live_max_concurrent_positions=settings.live_max_concurrent_positions,
             volatility_sizing_enabled=settings.volatility_sizing_enabled,
         )
 
@@ -635,8 +639,10 @@ class WorkerOrchestrationService:
         # Concurrent exposure: total notional across ALL open positions / equity
         total_notional = Decimal("0")
         for pos in all_positions:
-            if pos.quantity > Decimal("0") and pos.average_entry_price is not None:
-                total_notional += pos.quantity * pos.average_entry_price
+            if pos.mode != mode or pos.average_entry_price is None:
+                continue
+            if pos.quantity != Decimal("0"):
+                total_notional += abs(pos.quantity) * pos.average_entry_price
         if account_equity > Decimal("0"):
             concurrent_exposure_pct = total_notional / account_equity
         else:
@@ -645,7 +651,12 @@ class WorkerOrchestrationService:
         current_quantity = (
             current_position.quantity if current_position is not None else Decimal("0")
         )
-        open_count = sum(1 for p in all_positions if p.quantity > Decimal("0"))
+        current_symbol_exposure = Decimal("0")
+        if current_position is not None and current_position.average_entry_price is not None:
+            current_symbol_exposure = (
+                abs(current_position.quantity) * current_position.average_entry_price
+            )
+        open_count = sum(1 for p in all_positions if p.mode == mode and p.quantity != Decimal("0"))
 
         return PortfolioState(
             account_equity=account_equity,
@@ -657,6 +668,8 @@ class WorkerOrchestrationService:
             consecutive_losses=consecutive_losses,
             execution_mode=mode,  # type: ignore
             trading_mode=self._settings.trading_mode,  # type: ignore
+            total_open_exposure_notional=total_notional,
+            current_symbol_exposure_notional=current_symbol_exposure,
         )
 
     def _check_and_execute_stop_exit_for_symbol(

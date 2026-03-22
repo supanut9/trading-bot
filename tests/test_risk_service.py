@@ -279,6 +279,138 @@ def test_rejects_live_entry_when_position_quantity_exceeds_limit() -> None:
     assert decision.reason == "live position quantity exceeds configured limit"
 
 
+def test_rejects_live_entry_when_total_exposure_exceeds_limit() -> None:
+    service = RiskService(
+        RiskLimits(
+            risk_per_trade_pct=Decimal("0.01"),
+            max_open_positions=5,
+            max_daily_loss_pct=Decimal("0.03"),
+            paper_trading_only=False,
+            live_max_total_exposure_notional=Decimal("140"),
+        )
+    )
+
+    decision = service.evaluate(
+        portfolio=PortfolioState(
+            account_equity=Decimal("10000"),
+            open_positions=1,
+            current_position_quantity=Decimal("0"),
+            daily_realized_loss_pct=Decimal("0.00"),
+            weekly_realized_loss_pct=Decimal("0.00"),
+            concurrent_exposure_pct=Decimal("0.01"),
+            consecutive_losses=0,
+            execution_mode="live",
+            trading_mode="SPOT",
+            total_open_exposure_notional=Decimal("100"),
+            current_symbol_exposure_notional=Decimal("0"),
+        ),
+        trade=TradeContext(signal=build_signal(), entry_price=Decimal("50000")),
+    )
+
+    assert decision.approved is False
+    assert decision.is_hard_violation is True
+    assert decision.reason == "live total exposure exceeds configured limit"
+
+
+def test_rejects_live_entry_when_symbol_exposure_exceeds_limit() -> None:
+    service = RiskService(
+        RiskLimits(
+            risk_per_trade_pct=Decimal("0.01"),
+            max_open_positions=5,
+            max_daily_loss_pct=Decimal("0.03"),
+            paper_trading_only=False,
+            live_max_symbol_exposure_notional=Decimal("150"),
+        )
+    )
+
+    decision = service.evaluate(
+        portfolio=PortfolioState(
+            account_equity=Decimal("10000"),
+            open_positions=1,
+            current_position_quantity=Decimal("0.00100000"),
+            daily_realized_loss_pct=Decimal("0.00"),
+            weekly_realized_loss_pct=Decimal("0.00"),
+            concurrent_exposure_pct=Decimal("0.01"),
+            consecutive_losses=0,
+            execution_mode="live",
+            trading_mode="SPOT",
+            total_open_exposure_notional=Decimal("100"),
+            current_symbol_exposure_notional=Decimal("120"),
+        ),
+        trade=TradeContext(signal=build_signal(), entry_price=Decimal("50000")),
+    )
+
+    assert decision.approved is False
+    assert decision.is_hard_violation is True
+    assert decision.reason == "live symbol exposure exceeds configured limit"
+
+
+def test_rejects_live_entry_when_symbol_concentration_exceeds_limit() -> None:
+    service = RiskService(
+        RiskLimits(
+            risk_per_trade_pct=Decimal("0.01"),
+            max_open_positions=5,
+            max_daily_loss_pct=Decimal("0.03"),
+            paper_trading_only=False,
+            live_max_symbol_concentration_pct=Decimal("0.60"),
+        )
+    )
+
+    decision = service.evaluate(
+        portfolio=PortfolioState(
+            account_equity=Decimal("10000"),
+            open_positions=1,
+            current_position_quantity=Decimal("0.00100000"),
+            daily_realized_loss_pct=Decimal("0.00"),
+            weekly_realized_loss_pct=Decimal("0.00"),
+            concurrent_exposure_pct=Decimal("0.01"),
+            consecutive_losses=0,
+            execution_mode="live",
+            trading_mode="SPOT",
+            total_open_exposure_notional=Decimal("100"),
+            current_symbol_exposure_notional=Decimal("40"),
+        ),
+        trade=TradeContext(signal=build_signal(), entry_price=Decimal("50000")),
+    )
+
+    assert decision.approved is False
+    assert decision.is_hard_violation is True
+    assert decision.reason == "live symbol concentration exceeds configured limit"
+
+
+def test_rejects_live_entry_when_live_concurrent_positions_limit_is_reached() -> None:
+    service = RiskService(
+        RiskLimits(
+            risk_per_trade_pct=Decimal("0.01"),
+            max_open_positions=5,
+            max_daily_loss_pct=Decimal("0.03"),
+            paper_trading_only=False,
+            live_max_concurrent_positions=2,
+        )
+    )
+
+    decision = service.evaluate(
+        portfolio=PortfolioState(
+            account_equity=Decimal("10000"),
+            open_positions=2,
+            current_position_quantity=Decimal("0"),
+            daily_realized_loss_pct=Decimal("0.00"),
+            weekly_realized_loss_pct=Decimal("0.00"),
+            concurrent_exposure_pct=Decimal("0.02"),
+            consecutive_losses=0,
+            execution_mode="live",
+            trading_mode="SPOT",
+            total_open_exposure_notional=Decimal("200"),
+            current_symbol_exposure_notional=Decimal("0"),
+        ),
+        trade=TradeContext(signal=build_signal(), entry_price=Decimal("50000")),
+    )
+
+    assert decision.approved is False
+    assert decision.is_hard_violation is True
+    assert decision.reason == "live max concurrent positions reached"
+
+
 def test_allows_live_exit_when_live_trading_is_halted() -> None:
     service = RiskService(
         RiskLimits(

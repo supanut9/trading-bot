@@ -53,8 +53,8 @@ Next implementation queue:
 Iteration and strategy improvement (current focus):
 
 1. `feature/live-performance-review-loop` — compare live vs walk-forward OOS to detect edge decay (in progress)
-2. `feature/live-readiness-gate` — explicit go/no-go report before any live resume or promotion path is trusted (planned)
-3. `feature/portfolio-risk-governor` — add portfolio-level exposure, concentration, and concurrent-position caps (planned)
+2. `feature/live-readiness-gate` — explicit go/no-go report before any live resume or promotion path is trusted (completed)
+3. `feature/portfolio-risk-governor` — add portfolio-level exposure, concentration, and concurrent-position caps (in progress)
 4. `feature/execution-reconciliation-recovery` — turn restart and reconciliation tooling into one trusted recovery workflow (planned)
 5. `feature/runtime-promotion-workflow` — make paper → shadow → qualified → canary → live progression explicit and auditable (planned)
 6. `feature/strategy-iteration-workflow` — re-validate and re-promote when live results fall short (planned)
@@ -95,10 +95,12 @@ Profitability improvements (what separates this bot from better real-world bots)
 - mark uncertain exchange outcomes as `review_required` instead of silently treating them as ordinary open or terminal states
 - expose exchange-side base and quote asset balances for the configured live symbol through the status surface
 - expose live readiness status and blocking reasons through the status surface
+- expose configured portfolio risk caps through the status surface for operator review before enabling live mode
 - block new live entries when live trading is halted by configuration while leaving recovery controls available
 - allow operators to halt or resume live entry through a bounded persisted control without restarting the runtime
 - fail closed on live resume attempts when readiness checks are still blocked
 - bound live entries by configured max order notional and max position quantity limits
+- bound live entries by aggregate exposure, per-symbol exposure, concentration, and concurrent-position caps
 - optionally run recurring live reconciliation jobs so local runtime state can catch up with exchange fills without manual control calls
 - run startup live reconciliation before new live worker execution so restarts fail closed on uncertain exchange state
 - allow bounded manual cancellation of recent live orders through the controls surface
@@ -148,6 +150,7 @@ Profitability improvements (what separates this bot from better real-world bots)
 - fixed risk per trade
 - max open positions limit
 - daily loss limit before execution approval
+- live portfolio caps for total exposure, per-symbol exposure, concentration, and concurrent positions
 - execution mode must be configured explicitly as either paper or live, never both
 - explicit live mode must fail safely when exchange submission or later fill reconciliation cannot confirm runtime state
 - live-capable operation requires PostgreSQL persistence, backup coverage, startup sync, scheduled reconciliation, and tested alerts

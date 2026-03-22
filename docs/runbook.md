@@ -251,7 +251,7 @@ Reconciliation alerting:
 Live balance visibility:
 
 - `GET /status` includes `account_balance_status` and `account_balances`
-- `GET /status` also includes `live_safety_status`, `live_trading_halted`, `live_max_order_notional`, and `live_max_position_quantity`
+- `GET /status` also includes `live_safety_status`, `live_trading_halted`, `live_max_order_notional`, `live_max_position_quantity`, `live_max_total_exposure_notional`, `live_max_symbol_exposure_notional`, `live_max_symbol_concentration_pct`, and `live_max_concurrent_positions`
 - balance visibility is read-only and only attempts exchange lookup when live trading is enabled
 - the snapshot is filtered to the configured symbol's base and quote assets so operators can verify funded live mode quickly
 
@@ -444,6 +444,7 @@ Minimum checks before enabling live mode:
 - `/status` shows `live_readiness_status=ready` with no blocking reasons
 - exchange credentials are provided only through environment variables
 - `account_balance_status` is `available` and the reported base and quote assets match the configured symbol
+- portfolio risk caps are configured and visible in `/status` for the intended live rollout shape
 - `STARTUP_STATE_SYNC_ENABLED=true` and `LIVE_RECONCILE_SCHEDULE_ENABLED=true` are set for live-capable operation
 - notification delivery is configured and tested through the intended channel
 - stale live order threshold is set and understood by the operator
@@ -471,6 +472,7 @@ Expected operator conclusion before enabling live mode:
 - exchange balances are visible
 - reconciliation succeeds or clearly reports no unresolved work
 - no unexplained stale live orders remain
+- configured portfolio caps are understood and match the intended rollout size
 - alerts are routed to an observed destination
 
 Live-trading gap rule:

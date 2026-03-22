@@ -157,6 +157,10 @@ def test_status_endpoint_returns_live_account_balances_when_enabled(
     assert payload["live_readiness_blocking_reasons"] == []
     assert payload["live_max_order_notional"] == "250"
     assert payload["live_max_position_quantity"] == "0.02000000"
+    assert payload["live_max_total_exposure_notional"] is None
+    assert payload["live_max_symbol_exposure_notional"] is None
+    assert payload["live_max_symbol_concentration_pct"] is None
+    assert payload["live_max_concurrent_positions"] is None
     assert payload["latest_price_status"] == "available"
     assert payload["latest_price"] == "104321.55"
     assert payload["account_balance_status"] == "available"
@@ -208,6 +212,43 @@ def test_status_endpoint_prefers_runtime_halt_control_when_present(tmp_path: Pat
     payload = response.json()
     assert payload["live_trading_halted"] is True
     assert payload["live_safety_status"] == "halted"
+
+
+def test_status_endpoint_returns_portfolio_risk_limit_configuration(tmp_path: Path) -> None:
+    settings = Settings(
+        DATABASE_URL=f"sqlite:///{tmp_path / 'status_risk_limits.db'}",
+        LIVE_MAX_TOTAL_EXPOSURE_NOTIONAL=Decimal("1200"),
+        LIVE_MAX_SYMBOL_EXPOSURE_NOTIONAL=Decimal("400"),
+        LIVE_MAX_SYMBOL_CONCENTRATION_PCT=Decimal("0.35"),
+        LIVE_MAX_CONCURRENT_POSITIONS=3,
+    )
+    engine = create_engine_from_settings(settings)
+    Base.metadata.create_all(bind=engine)
+    session_factory = create_session_factory(settings)
+    session = session_factory()
+
+    def override_get_session():
+        try:
+            yield session
+        finally:
+            pass
+
+    app.dependency_overrides[get_settings] = lambda: settings
+    app.dependency_overrides[get_session] = override_get_session
+
+    try:
+        client = TestClient(app)
+        response = client.get("/status")
+    finally:
+        app.dependency_overrides.clear()
+        session.close()
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["live_max_total_exposure_notional"] == "1200"
+    assert payload["live_max_symbol_exposure_notional"] == "400"
+    assert payload["live_max_symbol_concentration_pct"] == "0.35"
+    assert payload["live_max_concurrent_positions"] == 3
 
 
 def test_status_endpoint_prefers_runtime_operator_config_when_present(tmp_path: Path) -> None:

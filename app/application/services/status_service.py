@@ -100,6 +100,22 @@ class StatusService:
                 if self._settings.live_max_position_quantity is not None
                 else None
             ),
+            "live_max_total_exposure_notional": (
+                format(self._settings.live_max_total_exposure_notional, "f")
+                if self._settings.live_max_total_exposure_notional is not None
+                else None
+            ),
+            "live_max_symbol_exposure_notional": (
+                format(self._settings.live_max_symbol_exposure_notional, "f")
+                if self._settings.live_max_symbol_exposure_notional is not None
+                else None
+            ),
+            "live_max_symbol_concentration_pct": (
+                format(self._settings.live_max_symbol_concentration_pct, "f")
+                if self._settings.live_max_symbol_concentration_pct is not None
+                else None
+            ),
+            "live_max_concurrent_positions": self._settings.live_max_concurrent_positions,
             "exchange": self._settings.exchange_name,
             "strategy_name": effective_operator_config["strategy_name"],
             "symbol": effective_operator_config["symbol"],
