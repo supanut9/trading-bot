@@ -103,7 +103,7 @@ class ReportingDashboardService:
         self._operations = OperationsService(session)
         self._audit = AuditService(session=session)
         self._stale_orders = StaleLiveOrderService(session)
-        self._recovery_report = LiveOrderRecoveryReportService(session)
+        self._recovery_report = LiveOrderRecoveryReportService(session, settings)
         self._performance = PerformanceAnalyticsService(session)
         self._settings = settings
         self._session_factory = session_factory

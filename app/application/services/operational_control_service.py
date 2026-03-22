@@ -333,6 +333,7 @@ class LiveReconcileControlResult:
     reconciled_count: int
     filled_count: int
     review_required_count: int
+    recovery_summary: str = "-"
     notified: bool = False
 
 
@@ -961,6 +962,7 @@ class OperationalControlService:
             with self._session_factory() as session:
                 results = LiveFillReconciliationService(
                     session,
+                    self._settings,
                     client=build_live_order_exchange_client(self._settings),
                 ).reconcile_recent_live_orders()
         except Exception:
@@ -970,6 +972,7 @@ class OperationalControlService:
                 reconciled_count=0,
                 filled_count=0,
                 review_required_count=0,
+                recovery_summary="reconciliation_failed",
                 notified=False,
             )
             if audit:
@@ -983,6 +986,7 @@ class OperationalControlService:
                         "reconciled_count": control_result.reconciled_count,
                         "filled_count": control_result.filled_count,
                         "review_required_count": control_result.review_required_count,
+                        "recovery_summary": control_result.recovery_summary,
                     },
                 )
             return control_result
@@ -990,17 +994,29 @@ class OperationalControlService:
         reconciled_count = len(results)
         filled_count = sum(1 for result in results if result.trade_created)
         review_required_count = sum(1 for result in results if result.requires_operator_review)
+        stale_count = sum(
+            1
+            for result in results
+            if result.recovery_state in {"stale_open_order", "stale_partial_fill"}
+        )
         detail = "no live orders to reconcile"
         if reconciled_count > 0:
             detail = "live orders reconciled"
         if review_required_count > 0:
             detail = "live orders require operator review"
+        recovery_summary = self._summarize_live_reconcile_results(
+            reconciled_count=reconciled_count,
+            filled_count=filled_count,
+            review_required_count=review_required_count,
+            stale_count=stale_count,
+        )
         control_result = LiveReconcileControlResult(
             status="completed",
             detail=detail,
             reconciled_count=reconciled_count,
             filled_count=filled_count,
             review_required_count=review_required_count,
+            recovery_summary=recovery_summary,
             notified=False,
         )
         if audit:
@@ -1014,9 +1030,31 @@ class OperationalControlService:
                     "reconciled_count": control_result.reconciled_count,
                     "filled_count": control_result.filled_count,
                     "review_required_count": control_result.review_required_count,
+                    "recovery_summary": control_result.recovery_summary,
                 },
             )
         return control_result
+
+    @staticmethod
+    def _summarize_live_reconcile_results(
+        *,
+        reconciled_count: int,
+        filled_count: int,
+        review_required_count: int,
+        stale_count: int,
+    ) -> str:
+        if reconciled_count == 0:
+            return "no_open_recovery_work"
+        parts = [f"orders={reconciled_count}"]
+        if filled_count:
+            parts.append(f"filled={filled_count}")
+        if review_required_count:
+            parts.append(f"review_required={review_required_count}")
+        if stale_count:
+            parts.append(f"stale={stale_count}")
+        if len(parts) == 1:
+            parts.append("state=awaiting_exchange")
+        return " ".join(parts)
 
     def run_live_halt(
         self,

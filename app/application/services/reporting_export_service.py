@@ -25,7 +25,7 @@ class ReportingExportService:
     ) -> None:
         self._audit = AuditService(session=session)
         self._backtest_runs = BacktestRunHistoryService(session=session)
-        self._recovery = LiveOrderRecoveryReportService(session)
+        self._recovery = LiveOrderRecoveryReportService(session, settings)
         self._operations = OperationsService(session)
         self._performance = PerformanceAnalyticsService(session)
         self._settings = settings
@@ -318,6 +318,7 @@ class ReportingExportService:
                 "latest_recovery_event_status",
                 "latest_recovery_event_context",
                 "requires_operator_review",
+                "recovery_state",
                 "next_action",
             ]
         )
@@ -337,6 +338,7 @@ class ReportingExportService:
                     latest_status,
                     latest_context,
                     str(order.requires_operator_review).lower(),
+                    order.recovery_state,
                     order.next_action,
                 ]
             )

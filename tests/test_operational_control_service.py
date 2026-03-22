@@ -293,13 +293,29 @@ def test_live_reconcile_control_returns_completed_result(monkeypatch) -> None:
     audit = RecordingAudit()
 
     class FakeReconcileService:
-        def __init__(self, _session: FakeSession, client: object) -> None:
+        def __init__(self, _session: FakeSession, _settings: Settings, client: object) -> None:
             assert client is not None
 
         def reconcile_recent_live_orders(self):
             return [
-                type("Result", (), {"trade_created": True, "requires_operator_review": False})(),
-                type("Result", (), {"trade_created": False, "requires_operator_review": True})(),
+                type(
+                    "Result",
+                    (),
+                    {
+                        "trade_created": True,
+                        "requires_operator_review": False,
+                        "recovery_state": "awaiting_exchange",
+                    },
+                )(),
+                type(
+                    "Result",
+                    (),
+                    {
+                        "trade_created": False,
+                        "requires_operator_review": True,
+                        "recovery_state": "manual_review_required",
+                    },
+                )(),
             ]
 
     monkeypatch.setattr(
@@ -325,6 +341,7 @@ def test_live_reconcile_control_returns_completed_result(monkeypatch) -> None:
         reconciled_count=2,
         filled_count=1,
         review_required_count=1,
+        recovery_summary="orders=2 filled=1 review_required=1",
         notified=False,
     )
     assert len(audit.entries) == 1
@@ -361,6 +378,7 @@ def test_live_reconcile_control_returns_failed_result_on_client_error(monkeypatc
         reconciled_count=0,
         filled_count=0,
         review_required_count=0,
+        recovery_summary="reconciliation_failed",
         notified=False,
     )
     assert len(audit.entries) == 1
