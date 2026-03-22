@@ -106,6 +106,14 @@ Iteration — performance review and strategy improvement loop:
 - 16. `feature/live-performance-review-loop` (in progress on `feature/live-performance-review-loop`)
 - 17. `feature/strategy-iteration-workflow` (planned)
 
+Recommended next bounded implementation sequence from the current codebase:
+
+- 1. `feature/live-readiness-gate` (planned) — make live enablement depend on one explicit readiness report spanning qualification, reconciliation health, stale-order state, runtime halt posture, and configured live limits
+- 2. `feature/portfolio-risk-governor` (planned) — add portfolio-level exposure, concentration, and concurrent-position controls on top of the existing live hard gates
+- 3. `feature/execution-reconciliation-recovery` (planned) — turn the current restart, reconcile, and stale-order tools into one trusted recovery workflow
+- 4. `feature/runtime-promotion-workflow` (planned) — make paper → shadow → qualified → canary → live progression explicit, durable, and operator-auditable
+- 5. `feature/backtest-market-friction-hardening` (planned) — close more of the gap between replay assumptions and live-market behavior
+
 Profitability improvements — what separates this bot from better real-world bots:
 
 - 18. `feature/trade-exit-stop-loss` — ATR hard stop + trailing stop (highest impact) (implemented on `main`)

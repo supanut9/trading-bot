@@ -53,11 +53,16 @@ Next implementation queue:
 Iteration and strategy improvement (current focus):
 
 1. `feature/live-performance-review-loop` — compare live vs walk-forward OOS to detect edge decay (in progress)
-2. `feature/strategy-iteration-workflow` — re-validate and re-promote when live results fall short (planned)
+2. `feature/live-readiness-gate` — explicit go/no-go report before any live resume or promotion path is trusted (planned)
+3. `feature/portfolio-risk-governor` — add portfolio-level exposure, concentration, and concurrent-position caps (planned)
+4. `feature/execution-reconciliation-recovery` — turn restart and reconciliation tooling into one trusted recovery workflow (planned)
+5. `feature/runtime-promotion-workflow` — make paper → shadow → qualified → canary → live progression explicit and auditable (planned)
+6. `feature/strategy-iteration-workflow` — re-validate and re-promote when live results fall short (planned)
 
 Profitability improvements (what separates this bot from better real-world bots):
 
-3. `feature/xgboost-signal-strategy` — ML-based signal using XGBoost trained on indicator features (planned)
+7. `feature/backtest-market-friction-hardening` — add spread, latency, partial-fill, and assumption-summary realism to replay results (planned)
+8. `feature/xgboost-signal-strategy` — ML-based signal using XGBoost trained on indicator features (planned)
 
 ## Initial Market And Strategy
 

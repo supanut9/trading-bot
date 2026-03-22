@@ -1374,7 +1374,39 @@ Main outputs:
 - monthly operator review template covering win rate, expectancy, slippage, drawdown, and regime context
 - strategy health indicators: slippage vs model, OOS drift, signal frequency changes, and consecutive-loss trend
 
-### 73. `feature/strategy-iteration-workflow`
+### 73. `feature/live-readiness-gate`
+
+Status:
+
+- planned
+
+Scope:
+
+- compute one explicit operator-visible readiness report before any live resume or promotion path is trusted
+- reuse existing qualification, reconciliation, stale-order, runtime-control, and live-risk signals instead of adding a second safety workflow
+- keep the feature bounded to live enablement and operator visibility rather than new execution or sizing behavior
+
+Main outputs:
+
+- `LiveReadinessService` that evaluates named readiness checks and returns one report with `ready`, `degraded`, or `blocked` status
+- read-only API surface for live readiness with per-check pass/fail detail and blocking reasons
+- hard refusal of live resume or enable actions when readiness is blocked, while preserving reconcile, cancel, and reporting controls
+- startup and status visibility that summarize the active live-readiness posture for operators
+- audit and structured logging for readiness failures and denied live enablement attempts
+
+Suggested readiness checks:
+
+- live trading explicitly enabled in configuration
+- runtime live halt is not active
+- exchange credentials are present
+- exchange rule metadata is available for the configured symbol
+- qualification gates are passing
+- startup sync and recent reconciliation state are healthy
+- no unresolved stale live order or recovery condition requires manual operator action
+- live max order notional and max position quantity are configured
+- duplicate live-order protection remains active
+
+### 74. `feature/strategy-iteration-workflow`
 
 Status:
 
@@ -1392,7 +1424,7 @@ Main outputs:
 - operator-driven promotion path from halt-for-rework back through walk-forward, shadow, and qualification gates
 - changelog of strategy versions with their qualification evidence and live outcome summaries
 
-### 74. `feature/futures-leverage-backtest`
+### 75. `feature/futures-leverage-backtest`
 
 Status:
 
@@ -1412,7 +1444,7 @@ Main outputs:
 - liquidation events surfaced in backtest execution detail and summary
 - liquidation count visible in backtest run history
 
-### 75. `feature/dashboard-unrealized-pnl`
+### 76. `feature/dashboard-unrealized-pnl`
 
 Status:
 
@@ -1430,7 +1462,7 @@ Main outputs:
 - unrealized PnL card in the 5-column runtime overview on the dashboard
 - strategy name truncated with tooltip so long names never break the card layout
 
-### 76. `feature/trade-exit-stop-loss`
+### 77. `feature/trade-exit-stop-loss`
 
 Status:
 
@@ -1452,7 +1484,7 @@ Main outputs:
 
 Why: Without a hard stop, one adverse move can hold an underwater position for days and wipe out multiple winning trades. This is the single highest-impact improvement for real-money PnL protection.
 
-### 77. `feature/regime-detection`
+### 78. `feature/regime-detection`
 
 Status:
 
@@ -1474,7 +1506,7 @@ Main outputs:
 
 Why: EMA crossover generates too many false signals in ranging markets. ADX filtering alone typically reduces trade count by 30–50% while keeping the winning trades, improving expectancy.
 
-### 78. `feature/volatility-adjusted-sizing`
+### 79. `feature/volatility-adjusted-sizing`
 
 Status:
 
@@ -1495,7 +1527,7 @@ Main outputs:
 
 Why: Fixed 1% risk means the same dollar loss whether the market moves 0.5% or 3% per candle. ATR sizing normalizes expected loss per trade, producing a smoother equity curve.
 
-### 79. `feature/multi-symbol-trading`
+### 80. `feature/multi-symbol-trading`
 
 Status:
 
@@ -1517,7 +1549,7 @@ Main outputs:
 
 Why: Trading one pair means every no-signal candle is wasted compute. More symbols = more opportunities for the strategy's edge to compound without increasing per-trade risk.
 
-### 80. `feature/auto-sync-on-backtest`
+### 81. `feature/auto-sync-on-backtest`
 
 Status:
 
@@ -1538,7 +1570,7 @@ Main outputs:
 
 Why: Requiring a separate manual sync before every backtest adds friction and is a common source of "not enough candles" failures. Auto-syncing on demand makes the backtest self-contained.
 
-### 81. `feature/multi-timeframe-confirmation`
+### 82. `feature/multi-timeframe-confirmation`
 
 Status:
 
@@ -1569,7 +1601,7 @@ Next bounded features:
 1. `feature/strategy-iteration-workflow` — close the re-validation loop when live results fall short
 2. `feature/xgboost-signal-strategy` — ML-based signal generation using XGBoost trained on technical indicator features
 
-### 82. `feature/xgboost-signal-strategy`
+### 83. `feature/xgboost-signal-strategy`
 
 Status:
 
@@ -1596,3 +1628,91 @@ Main outputs:
 - unit tests for feature engineering and inference path
 
 Why: Rule-based EMA crossover produces too many false signals in ranging markets. XGBoost can learn non-linear combinations of indicators (e.g. RSI + ADX + BB position together) that no single threshold rule captures. Walk-forward training ensures the model generalises to unseen candles rather than overfitting history.
+
+### 84. `feature/portfolio-risk-governor`
+
+Status:
+
+- planned
+
+Scope:
+
+- extend the existing live risk hard gates from per-trade blocking into portfolio-level capital governance
+- bound aggregate exposure across symbols and strategies instead of relying only on single-order checks
+- keep the feature bounded to account-level risk control rather than execution routing or strategy generation
+
+Main outputs:
+
+- total live notional exposure cap across all open positions
+- per-symbol and per-strategy exposure caps
+- max concurrent live positions limit
+- concentration guard that blocks excessive allocation to one symbol or one strategy
+- machine-readable reject reasons surfaced in controls, status, and audit events
+
+Why: A system can pass single-order validation and still take unacceptable portfolio risk. Real-world deployment needs account-level controls that remain understandable to operators and fail closed before capital concentration becomes dangerous.
+
+### 85. `feature/execution-reconciliation-recovery`
+
+Status:
+
+- planned
+
+Scope:
+
+- tighten the recovery workflow around restart, partial fill, stale-order, and exchange-drift conditions using the reconciliation features already in place
+- move from “tools exist” to “operator can trust the recovery state machine”
+- keep the feature bounded to correctness and restart safety rather than new trading logic
+
+Main outputs:
+
+- unified recovery-state classification for unresolved live orders
+- startup and scheduled reconciliation that produce one operator-readable recovery outcome
+- explicit review-required queue for drift, partial-fill, and missing-local-state cases
+- safer idempotency rules for replays and restarts when exchange state is uncertain
+- runbook and reporting updates for recovery actions and expected operator decisions
+
+Why: Real systems usually fail at the recovery boundary, not the happy path. If restart and reconciliation outcomes are ambiguous, operators either over-trust stale local state or halt more often than necessary.
+
+### 86. `feature/runtime-promotion-workflow`
+
+Status:
+
+- planned
+
+Scope:
+
+- make promotion through paper, shadow, qualified, canary, and broader live states explicit and operator-driven
+- reuse existing qualification, canary, and halt controls while adding one durable promotion workflow
+- keep the feature bounded to runtime state transitions rather than new strategy evidence generation
+
+Main outputs:
+
+- persisted promotion stage for the active runtime
+- explicit operator approval path from paper → shadow → qualified → canary live
+- blocking prerequisites for each stage tied to readiness, qualification, and recovery health
+- audit trail of who promoted, paused, resumed, or rolled back runtime state
+- operator-visible status summary that explains the current stage and the next missing prerequisite
+
+Why: The repo already has many ingredients for safe rollout, but without one explicit promotion workflow, the safety model is spread across env flags, qualification reports, controls, and runbook rules. Real-world use needs one coherent operator path.
+
+### 87. `feature/backtest-market-friction-hardening`
+
+Status:
+
+- planned
+
+Scope:
+
+- improve backtest realism beyond the current slippage and fee model by covering more of the friction that separates replay from live performance
+- reduce the gap between walk-forward evidence and observed live or shadow behavior
+- keep the feature bounded to simulation assumptions and reporting rather than new alpha models
+
+Main outputs:
+
+- configurable spread and latency assumptions in replay execution
+- optional session or market-availability constraints for backtests
+- partial-fill and missed-fill assumptions for limit-style execution paths
+- benchmark comparison in replay reports for cost-adjusted return context
+- explicit “assumption summary” included in backtest output so operators know what realism model was applied
+
+Why: Even a cost-adjusted backtest can still overstate live viability if it assumes immediate fills, zero spread pressure, and perfect market availability. Hardening the friction model makes strategy promotion decisions more honest.

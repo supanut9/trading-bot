@@ -440,6 +440,7 @@ Minimum checks before enabling live mode:
 
 - `main` is green on the latest merged change and no required checks are failing
 - `GET /health` returns healthy and `GET /status` returns the expected `execution_mode`
+- the live-readiness report is green once `feature/live-readiness-gate` is implemented; until then, operators must manually verify the equivalent checks below
 - exchange credentials are provided only through environment variables
 - `account_balance_status` is `available` and the reported base and quote assets match the configured symbol
 - `STARTUP_STATE_SYNC_ENABLED=true` and `LIVE_RECONCILE_SCHEDULE_ENABLED=true` are set for live-capable operation
@@ -464,6 +465,7 @@ curl http://127.0.0.1:8000/reports/live-recovery.csv
 Expected operator conclusion before enabling live mode:
 
 - local status is healthy
+- live readiness is explicitly understood and no blocking prerequisite is unresolved
 - exchange balances are visible
 - reconciliation succeeds or clearly reports no unresolved work
 - no unexplained stale live orders remain
