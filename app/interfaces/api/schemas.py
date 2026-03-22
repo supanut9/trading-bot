@@ -260,6 +260,8 @@ class BacktestControlResponse(BaseModel):
     assumption_summary: str = ""
     allowed_weekdays_utc: list[int] = Field(default_factory=list)
     allowed_hours_utc: list[int] = Field(default_factory=list)
+    max_volume_fill_pct: Decimal | None = None
+    allow_partial_fills: bool = False
     rsi_period: int | None = None
     rsi_overbought: Decimal | None = None
     rsi_oversold: Decimal | None = None
@@ -357,6 +359,8 @@ class BacktestRunResponse(BaseModel):
     assumption_summary: str = ""
     allowed_weekdays_utc: list[int] = Field(default_factory=list)
     allowed_hours_utc: list[int] = Field(default_factory=list)
+    max_volume_fill_pct: Decimal | None = None
+    allow_partial_fills: bool = False
     rules: "StrategyRuleBuilderRequest | None" = None
 
 
@@ -379,6 +383,8 @@ class BacktestControlRequest(BaseModel):
     signal_latency_bars: int | None = None
     allowed_weekdays_utc: list[int] | None = None
     allowed_hours_utc: list[int] | None = None
+    max_volume_fill_pct: Decimal | None = None
+    allow_partial_fills: bool = False
     walk_forward_split_ratio: Decimal | None = None
     rules: "StrategyRuleBuilderRequest | None" = None
     rsi_period: int | None = None

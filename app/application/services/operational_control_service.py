@@ -128,6 +128,8 @@ class BacktestRunOptions:
     signal_latency_bars: int | None = None
     allowed_weekdays_utc: tuple[int, ...] | None = None
     allowed_hours_utc: tuple[int, ...] | None = None
+    max_volume_fill_pct: Decimal | None = None
+    allow_partial_fills: bool = False
     walk_forward_split_ratio: Decimal | None = None
     rules: RuleBuilderStrategyConfig | None = None
     rsi_period: int | None = None
@@ -301,6 +303,8 @@ class BacktestControlResult:
     assumption_summary: str = ""
     allowed_weekdays_utc: tuple[int, ...] = ()
     allowed_hours_utc: tuple[int, ...] = ()
+    max_volume_fill_pct: Decimal | None = None
+    allow_partial_fills: bool = False
     walk_forward: WalkForwardControlResult | None = None
     rules: RuleBuilderStrategyConfig | None = None
     executions: tuple[BacktestExecutionResult, ...] = ()
@@ -906,6 +910,8 @@ class OperationalControlService:
             assumption_summary=backtest_result.assumption_summary,
             allowed_weekdays_utc=backtest_result.allowed_weekdays_utc,
             allowed_hours_utc=backtest_result.allowed_hours_utc,
+            max_volume_fill_pct=self._quantize_decimal(backtest_result.max_volume_fill_pct),
+            allow_partial_fills=backtest_result.allow_partial_fills,
             walk_forward=self._build_walk_forward_control_result(walk_forward_result),
             rules=resolved.rules,
             adx_period=resolved.adx_period,
@@ -1526,6 +1532,8 @@ class OperationalControlService:
             signal_latency_bars=signal_latency_bars,
             allowed_weekdays_utc=options.allowed_weekdays_utc,
             allowed_hours_utc=options.allowed_hours_utc,
+            max_volume_fill_pct=options.max_volume_fill_pct,
+            allow_partial_fills=options.allow_partial_fills,
             trading_mode=options.trading_mode,
             leverage=options.leverage or 1,
             margin_mode=options.margin_mode,
@@ -1601,6 +1609,8 @@ class OperationalControlService:
             signal_latency_bars=signal_latency_bars,
             allowed_weekdays_utc=options.allowed_weekdays_utc,
             allowed_hours_utc=options.allowed_hours_utc,
+            max_volume_fill_pct=options.max_volume_fill_pct,
+            allow_partial_fills=options.allow_partial_fills,
             trading_mode=options.trading_mode,
             leverage=options.leverage or 1,
             margin_mode=options.margin_mode,
@@ -1671,6 +1681,10 @@ class OperationalControlService:
             raise ValueError("spread_pct must be non-negative")
         if active.signal_latency_bars is not None and active.signal_latency_bars < 0:
             raise ValueError("signal_latency_bars must be non-negative")
+        if active.max_volume_fill_pct is not None and (
+            active.max_volume_fill_pct < Decimal("0") or active.max_volume_fill_pct > Decimal("1")
+        ):
+            raise ValueError("max_volume_fill_pct must be between 0 and 1")
         if active.allowed_weekdays_utc is not None:
             invalid_weekdays = [day for day in active.allowed_weekdays_utc if day < 0 or day > 6]
             if invalid_weekdays:
@@ -1710,6 +1724,8 @@ class OperationalControlService:
                 signal_latency_bars=active.signal_latency_bars,
                 allowed_weekdays_utc=allowed_weekdays_utc,
                 allowed_hours_utc=allowed_hours_utc,
+                max_volume_fill_pct=active.max_volume_fill_pct,
+                allow_partial_fills=active.allow_partial_fills,
                 walk_forward_split_ratio=active.walk_forward_split_ratio,
                 rsi_period=active.rsi_period,
                 rsi_overbought=active.rsi_overbought,
@@ -1736,6 +1752,8 @@ class OperationalControlService:
                 signal_latency_bars=active.signal_latency_bars,
                 allowed_weekdays_utc=allowed_weekdays_utc,
                 allowed_hours_utc=allowed_hours_utc,
+                max_volume_fill_pct=active.max_volume_fill_pct,
+                allow_partial_fills=active.allow_partial_fills,
                 walk_forward_split_ratio=active.walk_forward_split_ratio,
                 rules=rules,
                 multi_tf_timeframe=active.multi_tf_timeframe,
@@ -1757,6 +1775,8 @@ class OperationalControlService:
             signal_latency_bars=active.signal_latency_bars,
             allowed_weekdays_utc=allowed_weekdays_utc,
             allowed_hours_utc=allowed_hours_utc,
+            max_volume_fill_pct=active.max_volume_fill_pct,
+            allow_partial_fills=active.allow_partial_fills,
             walk_forward_split_ratio=active.walk_forward_split_ratio,
             # shared indicator params
             rsi_period=active.rsi_period,

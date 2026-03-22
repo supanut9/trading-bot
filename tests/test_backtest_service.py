@@ -298,6 +298,38 @@ def test_backtest_session_constraints_limit_trading_hours() -> None:
     assert "allowed_hours_utc=[2]" in result.assumption_summary
 
 
+def test_backtest_partial_fill_caps_entry_size_by_volume() -> None:
+    service = BacktestService(
+        strategy=StubStrategy(),
+        starting_equity=Decimal("10000"),
+        max_volume_fill_pct=Decimal("0.5"),
+        allow_partial_fills=True,
+    )
+
+    result = service.run(build_candles([10, 12, 20, 30]))
+
+    buy_exec = next(execution for execution in result.executions if execution.action == "buy")
+    assert buy_exec.quantity == Decimal("0.5")
+    assert "partial fill" in buy_exec.reason
+    assert result.max_volume_fill_pct == Decimal("0.5")
+    assert result.allow_partial_fills is True
+
+
+def test_backtest_skips_fill_when_volume_cap_blocks_and_partials_disabled() -> None:
+    service = BacktestService(
+        strategy=StubStrategy(),
+        starting_equity=Decimal("10000"),
+        max_volume_fill_pct=Decimal("0.1"),
+        allow_partial_fills=False,
+    )
+
+    result = service.run(build_candles([10, 12, 20, 30]))
+
+    assert result.total_trades == 0
+    assert "max_volume_fill_pct=0.1" in result.assumption_summary
+    assert "allow_partial_fills=False" in result.assumption_summary
+
+
 def test_walk_forward_returns_in_sample_and_oos_results() -> None:
     service = BacktestService(strategy=StubStrategy(), starting_equity=Decimal("10000"))
     # 4 candles: split 0.5 → 2 in-sample, 2 OOS

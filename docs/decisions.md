@@ -1047,3 +1047,17 @@ Some replay windows look tradable only because the simulator allows entries and 
 ### Consequence
 
 Backtest controls and reports now accept and persist `allowed_weekdays_utc` and `allowed_hours_utc`, and replay execution skips signal handling outside those windows while still forcing any remaining open position closed on the final candle.
+
+## 2026-03-22
+
+### Decision
+
+Model replay fill availability with a deterministic candle-volume participation cap and optional partial fills.
+
+### Reason
+
+Backtests that always assume a full fill on every signal remain too optimistic even after spread, latency, and session constraints. A deterministic participation cap closes that realism gap without introducing random outcomes or exchange-specific microstructure.
+
+### Consequence
+
+Backtest controls and reports now accept `max_volume_fill_pct` and `allow_partial_fills`. Replay execution can skip fills entirely when the requested size exceeds allowed participation, or partially fill the signal when that mode is enabled, and the applied assumption is surfaced in the backtest summary.

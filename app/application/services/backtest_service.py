@@ -64,6 +64,8 @@ class BacktestResult:
     assumption_summary: str = ""
     allowed_weekdays_utc: tuple[int, ...] = ()
     allowed_hours_utc: tuple[int, ...] = ()
+    max_volume_fill_pct: Decimal | None = None
+    allow_partial_fills: bool = False
     executions: tuple[BacktestExecution, ...] = ()
     candles: tuple[Candle, ...] = ()
     leverage: int = 1
@@ -86,6 +88,8 @@ class BacktestService:
         signal_latency_bars: int = 0,
         allowed_weekdays_utc: Sequence[int] | None = None,
         allowed_hours_utc: Sequence[int] | None = None,
+        max_volume_fill_pct: Decimal | None = None,
+        allow_partial_fills: bool = False,
         trading_mode: str = "SPOT",
         leverage: int = 1,
         margin_mode: str = "ISOLATED",
@@ -116,6 +120,8 @@ class BacktestService:
         self._signal_latency_bars = signal_latency_bars
         self._allowed_weekdays_utc = tuple(allowed_weekdays_utc or ())
         self._allowed_hours_utc = tuple(allowed_hours_utc or ())
+        self._max_volume_fill_pct = max_volume_fill_pct
+        self._allow_partial_fills = allow_partial_fills
         self._trading_mode = trading_mode.upper()
         self._leverage = leverage
         self._margin_mode = margin_mode
@@ -400,10 +406,21 @@ class BacktestService:
 
                 # Closing a short
                 if position_quantity < Decimal("0"):
-                    exit_fee = fill_price * abs(position_quantity) * self._fee_pct
+                    close_quantity, partial_close = self._resolve_fill_quantity(
+                        desired_quantity=abs(position_quantity),
+                        execution_candle=execution_candle,
+                    )
+                    if close_quantity == Decimal("0"):
+                        continue
+                    entry_fee_allocated = self._allocate_entry_fee(
+                        pending_entry_fee=pending_entry_fee,
+                        filled_quantity=close_quantity,
+                        open_quantity=abs(position_quantity),
+                    )
+                    exit_fee = fill_price * close_quantity * self._fee_pct
                     trade_pnl = (
-                        (average_entry_fill_price - fill_price) * abs(position_quantity)
-                        - pending_entry_fee
+                        (average_entry_fill_price - fill_price) * close_quantity
+                        - entry_fee_allocated
                         - exit_fee
                     )
                     realized_pnl += trade_pnl
@@ -418,24 +435,35 @@ class BacktestService:
                             action="buy",
                             price=execution_candle.close_price,
                             fill_price=fill_price,
-                            quantity=abs(position_quantity),
+                            quantity=close_quantity,
                             fee=exit_fee,
                             realized_pnl=trade_pnl,
-                            reason=f"close short: {signal.reason}",
+                            reason=self._with_partial_reason(
+                                f"close short: {signal.reason}",
+                                partial_close,
+                            ),
                             candle_open_time=execution_candle.open_time,
                         )
                     )
-                    position_quantity = Decimal("0")
-                    average_entry_fill_price = None
-                    pending_entry_fee = Decimal("0")
-                    current_liquidation_price = None
-                    current_position_side = None
-                    current_stop_price = None
-                    highest_price_since_entry = None
+                    position_quantity += close_quantity
+                    pending_entry_fee -= entry_fee_allocated
+                    if position_quantity == Decimal("0"):
+                        average_entry_fill_price = None
+                        pending_entry_fee = Decimal("0")
+                        current_liquidation_price = None
+                        current_position_side = None
+                        current_stop_price = None
+                        highest_price_since_entry = None
 
                 # Opening a long
                 if position_quantity == Decimal("0"):
-                    entry_quantity = decision.quantity * Decimal(self._leverage)
+                    desired_entry_quantity = decision.quantity * Decimal(self._leverage)
+                    entry_quantity, partial_entry = self._resolve_fill_quantity(
+                        desired_quantity=desired_entry_quantity,
+                        execution_candle=execution_candle,
+                    )
+                    if entry_quantity == Decimal("0"):
+                        continue
                     entry_fee = fill_price * entry_quantity * self._fee_pct
                     position_quantity = entry_quantity
                     average_entry_fill_price = fill_price
@@ -469,7 +497,7 @@ class BacktestService:
                             quantity=position_quantity,
                             fee=entry_fee,
                             realized_pnl=Decimal("0"),
-                            reason=signal.reason,
+                            reason=self._with_partial_reason(signal.reason, partial_entry),
                             candle_open_time=execution_candle.open_time,
                             liquidation_price=current_liq,
                             was_liquidated=False,
@@ -489,10 +517,21 @@ class BacktestService:
 
                 # Closing a long
                 if position_quantity > Decimal("0"):
-                    exit_fee = fill_price * position_quantity * self._fee_pct
+                    close_quantity, partial_close = self._resolve_fill_quantity(
+                        desired_quantity=position_quantity,
+                        execution_candle=execution_candle,
+                    )
+                    if close_quantity == Decimal("0"):
+                        continue
+                    entry_fee_allocated = self._allocate_entry_fee(
+                        pending_entry_fee=pending_entry_fee,
+                        filled_quantity=close_quantity,
+                        open_quantity=position_quantity,
+                    )
+                    exit_fee = fill_price * close_quantity * self._fee_pct
                     trade_pnl = (
-                        (fill_price - average_entry_fill_price) * position_quantity
-                        - pending_entry_fee
+                        (fill_price - average_entry_fill_price) * close_quantity
+                        - entry_fee_allocated
                         - exit_fee
                     )
                     realized_pnl += trade_pnl
@@ -507,24 +546,35 @@ class BacktestService:
                             action="sell",
                             price=execution_candle.close_price,
                             fill_price=fill_price,
-                            quantity=position_quantity,
+                            quantity=close_quantity,
                             fee=exit_fee,
                             realized_pnl=trade_pnl,
-                            reason=f"close long: {signal.reason}",
+                            reason=self._with_partial_reason(
+                                f"close long: {signal.reason}",
+                                partial_close,
+                            ),
                             candle_open_time=execution_candle.open_time,
                         )
                     )
-                    position_quantity = Decimal("0")
-                    average_entry_fill_price = None
-                    pending_entry_fee = Decimal("0")
-                    current_liquidation_price = None
-                    current_position_side = None
-                    current_stop_price = None
-                    highest_price_since_entry = None
+                    position_quantity -= close_quantity
+                    pending_entry_fee -= entry_fee_allocated
+                    if position_quantity == Decimal("0"):
+                        average_entry_fill_price = None
+                        pending_entry_fee = Decimal("0")
+                        current_liquidation_price = None
+                        current_position_side = None
+                        current_stop_price = None
+                        highest_price_since_entry = None
 
                 # Opening a short (FUTURES only)
                 if self._trading_mode == "FUTURES" and position_quantity == Decimal("0"):
-                    entry_quantity = decision.quantity * Decimal(self._leverage)
+                    desired_entry_quantity = decision.quantity * Decimal(self._leverage)
+                    entry_quantity, partial_entry = self._resolve_fill_quantity(
+                        desired_quantity=desired_entry_quantity,
+                        execution_candle=execution_candle,
+                    )
+                    if entry_quantity == Decimal("0"):
+                        continue
                     entry_fee = fill_price * entry_quantity * self._fee_pct
                     position_quantity = -entry_quantity  # Negative for shorts
                     average_entry_fill_price = fill_price
@@ -557,7 +607,7 @@ class BacktestService:
                             quantity=abs(position_quantity),
                             fee=entry_fee,
                             realized_pnl=Decimal("0"),
-                            reason=signal.reason,
+                            reason=self._with_partial_reason(signal.reason, partial_entry),
                             candle_open_time=execution_candle.open_time,
                             liquidation_price=current_liq,
                             was_liquidated=False,
@@ -630,6 +680,8 @@ class BacktestService:
             assumption_summary=self._assumption_summary(),
             allowed_weekdays_utc=self._allowed_weekdays_utc,
             allowed_hours_utc=self._allowed_hours_utc,
+            max_volume_fill_pct=self._max_volume_fill_pct,
+            allow_partial_fills=self._allow_partial_fills,
             executions=tuple(executions),
             candles=tuple(ordered_candles),
             leverage=self._leverage,
@@ -656,7 +708,9 @@ class BacktestService:
             f"spread_pct={self._spread_pct}, "
             f"signal_latency_bars={self._signal_latency_bars}, "
             f"allowed_weekdays_utc={list(self._allowed_weekdays_utc)}, "
-            f"allowed_hours_utc={list(self._allowed_hours_utc)}"
+            f"allowed_hours_utc={list(self._allowed_hours_utc)}, "
+            f"max_volume_fill_pct={self._max_volume_fill_pct}, "
+            f"allow_partial_fills={self._allow_partial_fills}"
         )
 
     def _is_session_allowed(self, candle: Candle) -> bool:
@@ -668,6 +722,42 @@ class BacktestService:
         if self._allowed_hours_utc and candle.open_time.hour not in self._allowed_hours_utc:
             return False
         return True
+
+    def _resolve_fill_quantity(
+        self,
+        *,
+        desired_quantity: Decimal,
+        execution_candle: Candle,
+    ) -> tuple[Decimal, bool]:
+        if desired_quantity <= Decimal("0"):
+            return Decimal("0"), False
+        if self._max_volume_fill_pct is None:
+            return desired_quantity, False
+        max_fill_quantity = execution_candle.volume * self._max_volume_fill_pct
+        if max_fill_quantity <= Decimal("0"):
+            return Decimal("0"), False
+        if desired_quantity <= max_fill_quantity:
+            return desired_quantity, False
+        if not self._allow_partial_fills:
+            return Decimal("0"), False
+        return max_fill_quantity, True
+
+    @staticmethod
+    def _allocate_entry_fee(
+        *,
+        pending_entry_fee: Decimal,
+        filled_quantity: Decimal,
+        open_quantity: Decimal,
+    ) -> Decimal:
+        if open_quantity <= Decimal("0") or pending_entry_fee <= Decimal("0"):
+            return Decimal("0")
+        return pending_entry_fee * (filled_quantity / open_quantity)
+
+    @staticmethod
+    def _with_partial_reason(reason: str, partial_fill: bool) -> str:
+        if not partial_fill:
+            return reason
+        return f"{reason} (partial fill)"
 
     def run_walk_forward(
         self,
