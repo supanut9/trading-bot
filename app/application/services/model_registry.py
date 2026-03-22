@@ -53,31 +53,7 @@ def load_model(model_path: str) -> LoadedModel:
         raise FileNotFoundError(f"Model not found: {model_path}")
 
     meta_path = path.with_suffix(".meta.json")
-    if not meta_path.exists():
-        raise FileNotFoundError(f"Model metadata not found: {meta_path}")
-
-    with meta_path.open() as f:
-        meta_dict = json.load(f)
-
-    from app.domain.strategies.features import DEFAULT_FEATURE_NAMES
-
-    metadata = ModelMetadata(
-        model_type=meta_dict.get("model_type", "xgboost"),
-        symbol=meta_dict.get("symbol", "BTC/USDT"),
-        timeframe=meta_dict.get("timeframe", "1h"),
-        feature_names=meta_dict.get("feature_names", list(DEFAULT_FEATURE_NAMES)),
-        label_type=meta_dict.get("label_type", "next_candle"),
-        label_horizon=meta_dict.get("label_horizon", 1),
-        label_threshold=meta_dict.get("label_threshold", 0.0),
-        buy_threshold=meta_dict.get("buy_threshold", 0.60),
-        sell_threshold=meta_dict.get("sell_threshold", 0.40),
-        sample_count=meta_dict.get("sample_count", 0),
-        train_count=meta_dict.get("train_count", 0),
-        test_count=meta_dict.get("test_count", 0),
-        accuracy=meta_dict.get("accuracy"),
-        roc_auc=meta_dict.get("roc_auc"),
-        oos_start_index=meta_dict.get("oos_start_index", 0),
-    )
+    metadata = _load_metadata(path, meta_path)
 
     model_type = metadata.model_type
     model: Any
@@ -109,6 +85,75 @@ def load_model(model_path: str) -> LoadedModel:
     _model_cache[model_path] = loaded
     logger.info("loaded %s model from %s", model_type, model_path)
     return loaded
+
+
+def _load_metadata(path: Path, meta_path: Path) -> ModelMetadata:
+    if meta_path.exists():
+        with meta_path.open() as f:
+            meta_dict = json.load(f)
+        return _metadata_from_dict(meta_dict)
+    if path.suffix == ".json" and path.name.startswith("xgboost_"):
+        logger.warning("model_metadata_missing_fallback path=%s", meta_path)
+        return _infer_legacy_xgboost_metadata(path)
+    raise FileNotFoundError(f"Model metadata not found: {meta_path}")
+
+
+def _metadata_from_dict(meta_dict: dict[str, Any]) -> ModelMetadata:
+    from app.domain.strategies.features import DEFAULT_FEATURE_NAMES
+
+    return ModelMetadata(
+        model_type=meta_dict.get("model_type", "xgboost"),
+        symbol=meta_dict.get("symbol", "BTC/USDT"),
+        timeframe=meta_dict.get("timeframe", "1h"),
+        feature_names=meta_dict.get("feature_names", list(DEFAULT_FEATURE_NAMES)),
+        label_type=meta_dict.get("label_type", "next_candle"),
+        label_horizon=meta_dict.get("label_horizon", 1),
+        label_threshold=meta_dict.get("label_threshold", 0.0),
+        buy_threshold=meta_dict.get("buy_threshold", 0.60),
+        sell_threshold=meta_dict.get("sell_threshold", 0.40),
+        sample_count=meta_dict.get("sample_count", 0),
+        train_count=meta_dict.get("train_count", 0),
+        test_count=meta_dict.get("test_count", 0),
+        accuracy=meta_dict.get("accuracy"),
+        roc_auc=meta_dict.get("roc_auc"),
+        oos_start_index=meta_dict.get("oos_start_index", 0),
+    )
+
+
+def _infer_legacy_xgboost_metadata(path: Path) -> ModelMetadata:
+    from app.domain.strategies.features import DEFAULT_FEATURE_NAMES
+
+    stem_parts = path.stem.split("_")
+    timeframe = stem_parts[-1] if len(stem_parts) >= 3 else "1h"
+    raw_symbol = stem_parts[-2] if len(stem_parts) >= 3 else "btcusdt"
+    symbol = _normalize_symbol(raw_symbol)
+    return ModelMetadata(
+        model_type="xgboost",
+        symbol=symbol,
+        timeframe=timeframe,
+        feature_names=list(DEFAULT_FEATURE_NAMES),
+        label_type="next_candle",
+        label_horizon=1,
+        label_threshold=0.0,
+        buy_threshold=0.60,
+        sell_threshold=0.40,
+        sample_count=0,
+        train_count=0,
+        test_count=0,
+        accuracy=None,
+        roc_auc=None,
+        oos_start_index=0,
+    )
+
+
+def _normalize_symbol(raw_symbol: str) -> str:
+    known_quote_assets = ("usdt", "usdc", "btc", "eth", "bnb")
+    lowered = raw_symbol.lower()
+    for quote in known_quote_assets:
+        if lowered.endswith(quote) and len(lowered) > len(quote):
+            base = lowered[: -len(quote)].upper()
+            return f"{base}/{quote.upper()}"
+    return raw_symbol.upper()
 
 
 class _LightGBMAdapter:

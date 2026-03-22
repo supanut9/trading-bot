@@ -731,7 +731,7 @@ function ResultPanel({
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
         <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-4">
           <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Candles</p>
           <p className="mt-3 text-3xl font-semibold tracking-tight text-white">
@@ -740,11 +740,35 @@ function ResultPanel({
           <p className="mt-2 text-sm text-slate-400">Required minimum {result.required_candles}</p>
         </div>
         <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-4">
+          <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Total PnL</p>
+          <p
+            className={`mt-3 text-3xl font-semibold tracking-tight ${
+              Number(result.realized_pnl ?? "0") > 0
+                ? "text-emerald-400"
+                : Number(result.realized_pnl ?? "0") < 0
+                  ? "text-rose-400"
+                  : "text-white"
+            }`}
+          >
+            {formatSignedDecimal(result.realized_pnl)}
+          </p>
+          <p className="mt-2 text-sm text-slate-400">
+            Start {formatDecimal(result.starting_equity_input)}
+          </p>
+        </div>
+        <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-4">
           <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Return</p>
           <p className="mt-3 text-3xl font-semibold tracking-tight text-white">
             {formatSignedDecimal(result.total_return_pct)}
           </p>
-          <p className="mt-2 text-sm text-slate-400">Total return percentage.</p>
+          <p className="mt-2 text-sm text-slate-400">Percentage return on starting equity.</p>
+        </div>
+        <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-4">
+          <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Ending Equity</p>
+          <p className="mt-3 text-3xl font-semibold tracking-tight text-white">
+            {formatDecimal(result.ending_equity)}
+          </p>
+          <p className="mt-2 text-sm text-slate-400">After realized profit, loss, and fees.</p>
         </div>
         <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-4">
           <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Trades</p>
@@ -923,6 +947,7 @@ function RecentRunsPanel({
                 <span>Start {formatDecimal(run.starting_equity_input)}</span>
                 <span>Required {run.required_candles}</span>
                 <span>Return {formatSignedDecimal(run.total_return_pct)}</span>
+                <span>PnL {formatSignedDecimal(run.realized_pnl)}</span>
               </div>
               <button
                 className="mt-4 rounded-2xl border border-cyan-300/20 px-4 py-2 text-sm font-medium text-cyan-100 transition hover:bg-cyan-300/10"

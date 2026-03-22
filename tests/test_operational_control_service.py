@@ -1,5 +1,6 @@
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 
 from app.application.services.market_data_sync_service import MarketDataSyncResult
 from app.application.services.operational_control_service import (
@@ -768,3 +769,86 @@ def test_control_result_includes_leverage_fields(monkeypatch) -> None:
     assert result.margin_mode == "CROSS"
     assert result.liquidation_count == 0
     assert result.trading_mode == "FUTURES"
+
+
+def test_run_backtest_returns_failed_when_model_file_is_missing(monkeypatch) -> None:
+    settings = Settings(DATABASE_URL="sqlite:///./ml_backtest_missing_model.db")
+
+    start = datetime(2026, 1, 1, tzinfo=UTC)
+    fake_candles = [
+        type(
+            "CandleRecord",
+            (),
+            {
+                "open_time": start + timedelta(hours=i),
+                "close_time": start + timedelta(hours=i + 1),
+                "open_price": Decimal("100"),
+                "high_price": Decimal("100"),
+                "low_price": Decimal("100"),
+                "close_price": Decimal("100"),
+                "volume": Decimal("1"),
+            },
+        )()
+        for i in range(60)
+    ]
+
+    class FakeMarketDataService:
+        def __init__(self, _session):
+            pass
+
+        def list_historical_candles(self, **kwargs):
+            return fake_candles
+
+    monkeypatch.setattr(
+        "app.application.services.operational_control_service.MarketDataService",
+        FakeMarketDataService,
+    )
+    monkeypatch.setattr(
+        "app.application.services.market_data_sync_service.MarketDataSyncService.sync_candles_paginated",
+        lambda *a, **kw: None,
+    )
+
+    class NullSession:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            pass
+
+        def commit(self):
+            pass
+
+    class NullNotifications:
+        def notify_backtest_completed(self, *a, **kw):
+            return False
+
+        def notify_backtest_skipped(self, *a, **kw):
+            return False
+
+    class NullAudit:
+        def record_control_result(self, **kwargs):
+            pass
+
+    service = OperationalControlService(
+        settings,
+        session_factory=lambda: NullSession(),
+        notifications=NullNotifications(),
+        audit=NullAudit(),
+    )
+
+    result = service.run_backtest(
+        options=BacktestRunOptions(
+            strategy_name="ml_signal",
+            exchange="binance",
+            symbol="BTC/USDT",
+            timeframe="2d",
+            starting_equity=Decimal("10000"),
+            model_type="xgboost",
+        ),
+        notify=False,
+        audit=False,
+        record_history=False,
+    )
+
+    assert result.status == "failed"
+    assert "Model metadata not found" in result.detail or "Model not found" in result.detail
