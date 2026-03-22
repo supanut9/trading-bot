@@ -124,6 +124,8 @@ class BacktestRunOptions:
     starting_equity: Decimal | None = None
     slippage_pct: Decimal | None = None
     fee_pct: Decimal | None = None
+    spread_pct: Decimal | None = None
+    signal_latency_bars: int | None = None
     walk_forward_split_ratio: Decimal | None = None
     rules: RuleBuilderStrategyConfig | None = None
     rsi_period: int | None = None
@@ -292,6 +294,9 @@ class BacktestControlResult:
     total_fees_paid: Decimal | None = None
     slippage_pct: Decimal | None = None
     fee_pct: Decimal | None = None
+    spread_pct: Decimal | None = None
+    signal_latency_bars: int = 0
+    assumption_summary: str = ""
     walk_forward: WalkForwardControlResult | None = None
     rules: RuleBuilderStrategyConfig | None = None
     executions: tuple[BacktestExecutionResult, ...] = ()
@@ -892,6 +897,9 @@ class OperationalControlService:
             total_fees_paid=self._quantize_decimal(backtest_result.total_fees_paid),
             slippage_pct=self._quantize_decimal(backtest_result.slippage_pct),
             fee_pct=self._quantize_decimal(backtest_result.fee_pct),
+            spread_pct=self._quantize_decimal(backtest_result.spread_pct),
+            signal_latency_bars=backtest_result.signal_latency_bars,
+            assumption_summary=backtest_result.assumption_summary,
             walk_forward=self._build_walk_forward_control_result(walk_forward_result),
             rules=resolved.rules,
             adx_period=resolved.adx_period,
@@ -1492,12 +1500,24 @@ class OperationalControlService:
             if options.fee_pct is not None
             else Decimal(str(self._settings.backtest_fee_pct))
         )
+        spread_pct = (
+            options.spread_pct
+            if options.spread_pct is not None
+            else Decimal(str(self._settings.backtest_spread_pct))
+        )
+        signal_latency_bars = (
+            options.signal_latency_bars
+            if options.signal_latency_bars is not None
+            else self._settings.backtest_signal_latency_bars
+        )
         return BacktestService(
             strategy=self._build_backtest_strategy(options),
             risk_service=self._build_risk_service(),
             starting_equity=options.starting_equity,
             slippage_pct=slippage_pct,
             fee_pct=fee_pct,
+            spread_pct=spread_pct,
+            signal_latency_bars=signal_latency_bars,
             trading_mode=options.trading_mode,
             leverage=options.leverage or 1,
             margin_mode=options.margin_mode,
@@ -1541,6 +1561,16 @@ class OperationalControlService:
             if options.fee_pct is not None
             else Decimal(str(self._settings.backtest_fee_pct))
         )
+        spread_pct = (
+            options.spread_pct
+            if options.spread_pct is not None
+            else Decimal(str(self._settings.backtest_spread_pct))
+        )
+        signal_latency_bars = (
+            options.signal_latency_bars
+            if options.signal_latency_bars is not None
+            else self._settings.backtest_signal_latency_bars
+        )
         candles = [
             Candle(
                 open_time=record.open_time,
@@ -1559,6 +1589,8 @@ class OperationalControlService:
             starting_equity=options.starting_equity,
             slippage_pct=slippage_pct,
             fee_pct=fee_pct,
+            spread_pct=spread_pct,
+            signal_latency_bars=signal_latency_bars,
             trading_mode=options.trading_mode,
             leverage=options.leverage or 1,
             margin_mode=options.margin_mode,
@@ -1621,6 +1653,14 @@ class OperationalControlService:
             raise ValueError("exchange, symbol, and timeframe are required for backtest")
         if starting_equity <= Decimal("0"):
             raise ValueError("starting equity must be positive")
+        if active.slippage_pct is not None and active.slippage_pct < Decimal("0"):
+            raise ValueError("slippage_pct must be non-negative")
+        if active.fee_pct is not None and active.fee_pct < Decimal("0"):
+            raise ValueError("fee_pct must be non-negative")
+        if active.spread_pct is not None and active.spread_pct < Decimal("0"):
+            raise ValueError("spread_pct must be non-negative")
+        if active.signal_latency_bars is not None and active.signal_latency_bars < 0:
+            raise ValueError("signal_latency_bars must be non-negative")
         if strategy_name == BACKTEST_STRATEGY_EMA_CROSSOVER:
             fast_period = active.fast_period or defaults.fast_period
             slow_period = active.slow_period or defaults.slow_period
@@ -1638,6 +1678,8 @@ class OperationalControlService:
                 starting_equity=starting_equity,
                 slippage_pct=active.slippage_pct,
                 fee_pct=active.fee_pct,
+                spread_pct=active.spread_pct,
+                signal_latency_bars=active.signal_latency_bars,
                 walk_forward_split_ratio=active.walk_forward_split_ratio,
                 rsi_period=active.rsi_period,
                 rsi_overbought=active.rsi_overbought,
@@ -1660,6 +1702,8 @@ class OperationalControlService:
                 starting_equity=starting_equity,
                 slippage_pct=active.slippage_pct,
                 fee_pct=active.fee_pct,
+                spread_pct=active.spread_pct,
+                signal_latency_bars=active.signal_latency_bars,
                 walk_forward_split_ratio=active.walk_forward_split_ratio,
                 rules=rules,
                 multi_tf_timeframe=active.multi_tf_timeframe,
@@ -1677,6 +1721,8 @@ class OperationalControlService:
             starting_equity=starting_equity,
             slippage_pct=active.slippage_pct,
             fee_pct=active.fee_pct,
+            spread_pct=active.spread_pct,
+            signal_latency_bars=active.signal_latency_bars,
             walk_forward_split_ratio=active.walk_forward_split_ratio,
             # shared indicator params
             rsi_period=active.rsi_period,

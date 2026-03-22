@@ -112,6 +112,7 @@ Manual controls:
 - `POST /controls/market-sync` fetches recent closed candles for the configured exchange and either the effective runtime symbol/timeframe or an explicitly supplied market override, then stores them through the market data service
 - `POST /controls/backtest` runs one backtest over stored candles and can now accept either the legacy EMA inputs or a structured rule-builder payload with separate shared, buy, and sell groups
 - bounded backtest runs now persist one summary history row for later review and backtest form hydration
+- backtest controls now accept `spread_pct` and `signal_latency_bars` in addition to slippage and fee assumptions
 - `GET /market-data/coverage` returns stored candle range, replay minimum, freshness status, and readiness guidance for the selected market slice and replay shape
 - live worker execution now rejects a new same-side live submission when an unresolved live order already exists for that market
 - `POST /controls/live-halt` persists the live-entry halt state used by status and worker execution
@@ -129,6 +130,7 @@ Report exports:
 - `GET /reports/backtest-summary.csv` runs one backtest summary export against stored candles using current settings
 - `GET /reports/backtest-runs` returns recent summary-level backtest runs for the Next.js backtest route
 - `GET /reports/backtest-runs.csv` exports recent summary-level backtest runs
+- backtest control and report responses now include an `assumption_summary` string so operators can see the exact replay friction model used
 - `GET /reports/recovery` returns the read-only recovery dashboard slice used by the Next.js reporting route
 - `GET /reports/notifications` returns the read-only notification-delivery slice used by the Next.js reporting route
 - `GET /reports/audit` returns the read-only generic audit slice used by the Next.js reporting route

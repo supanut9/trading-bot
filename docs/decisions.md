@@ -1019,3 +1019,17 @@ An HTF filter that errors or blocks when candle history is insufficient would ma
 ### Consequence
 
 `is_htf_trend_aligned()` returns `True` when fewer than `period` HTF candles are available. In the backtest engine, only HTF candles with `open_time <= candle.open_time` are passed to the filter, preventing any future HTF data from influencing historical entry decisions.
+
+## 2026-03-22
+
+### Decision
+
+Extend the backtest realism model with explicit spread and signal-latency assumptions, and surface those assumptions in backtest history and reporting.
+
+### Reason
+
+Slippage and fees alone still assume instantaneous fills at the signal candle with no bid/ask pressure. That leaves a practical gap between replay evidence and shadow or live outcomes, especially when signals are evaluated on closed candles and fills occur later.
+
+### Consequence
+
+Backtest controls now accept `spread_pct` and `signal_latency_bars`, replay execution applies those assumptions to fill prices, and stored backtest runs expose an `assumption_summary` so operators can see the exact friction model behind a reported result.

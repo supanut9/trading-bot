@@ -132,6 +132,8 @@ def run_backtest(
             starting_equity=payload.starting_equity,
             slippage_pct=payload.slippage_pct,
             fee_pct=payload.fee_pct,
+            spread_pct=payload.spread_pct,
+            signal_latency_bars=payload.signal_latency_bars,
             walk_forward_split_ratio=payload.walk_forward_split_ratio,
             rules=to_rule_builder_config(payload.rules),
             rsi_period=payload.rsi_period,

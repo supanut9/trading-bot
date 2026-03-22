@@ -61,7 +61,7 @@ Iteration and strategy improvement (current focus):
 
 Profitability improvements (what separates this bot from better real-world bots):
 
-7. `feature/backtest-market-friction-hardening` — add spread, latency, partial-fill, and assumption-summary realism to replay results (planned)
+7. `feature/backtest-market-friction-hardening` — add spread, latency, partial-fill, and assumption-summary realism to replay results (in progress)
 8. `feature/xgboost-signal-strategy` — ML-based signal using XGBoost trained on indicator features (planned)
 
 ## Initial Market And Strategy
@@ -127,6 +127,7 @@ Profitability improvements (what separates this bot from better real-world bots)
 - provide preset-first backtest strategy selection backed by curated rule-builder presets
 - allow operators to edit backtest-only rule-builder groups and conditions inside the backtest page while reusing the existing control API
 - persist recent backtest runs with summary metrics and allow the backtest page to hydrate its form from a stored run
+- expose spread, latency, and assumption-summary backtest realism settings through the control and reporting surfaces
 - provide read-only Next.js recovery reporting with stale-order visibility, unresolved live-order queue, recent recovery events, and filtered export links
 - persist paper-runtime operator defaults for symbol, timeframe, trading mode (SPOT/FUTURES), and EMA periods so operator actions do not depend only on startup env
 - render a compact reporting summary over the latest worker outcome, PnL, trade count, positions, and stale live state

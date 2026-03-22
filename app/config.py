@@ -144,6 +144,8 @@ class Settings(BaseSettings):
     volatility_sizing_atr_period: int = Field(default=14, alias="VOLATILITY_SIZING_ATR_PERIOD")
     backtest_slippage_pct: float = Field(default=0.0005, alias="BACKTEST_SLIPPAGE_PCT")
     backtest_fee_pct: float = Field(default=0.001, alias="BACKTEST_FEE_PCT")
+    backtest_spread_pct: float = Field(default=0.0, alias="BACKTEST_SPREAD_PCT")
+    backtest_signal_latency_bars: int = Field(default=0, alias="BACKTEST_SIGNAL_LATENCY_BARS")
     backtest_overfitting_threshold_pct: float = Field(
         default=35.0, alias="BACKTEST_OVERFITTING_THRESHOLD_PCT"
     )
@@ -257,6 +259,18 @@ class Settings(BaseSettings):
         limit_symbol_exposure = self.live_max_symbol_exposure_notional
         if limit_symbol_exposure is not None and limit_symbol_exposure <= Decimal("0"):
             raise ValueError("LIVE_MAX_SYMBOL_EXPOSURE_NOTIONAL must be positive when provided")
+
+        if self.backtest_slippage_pct < 0:
+            raise ValueError("BACKTEST_SLIPPAGE_PCT must be non-negative")
+
+        if self.backtest_fee_pct < 0:
+            raise ValueError("BACKTEST_FEE_PCT must be non-negative")
+
+        if self.backtest_spread_pct < 0:
+            raise ValueError("BACKTEST_SPREAD_PCT must be non-negative")
+
+        if self.backtest_signal_latency_bars < 0:
+            raise ValueError("BACKTEST_SIGNAL_LATENCY_BARS must be non-negative")
 
         limit_symbol_concentration = self.live_max_symbol_concentration_pct
         if limit_symbol_concentration is not None and (
