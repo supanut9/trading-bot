@@ -329,6 +329,8 @@ def test_live_readiness_control_returns_report(monkeypatch, tmp_path: Path) -> N
         assert payload["ready"] is False
         assert payload["blocking_reasons"] == ["strategy qualification gates are not all passing"]
         assert payload["checks"][0]["name"] == "qualification"
+        assert payload["live_recovery_summary"]["posture"] == "clear"
+        assert payload["live_recovery_summary"]["next_action"] == "none"
     finally:
         teardown_client()
 
@@ -367,6 +369,7 @@ def test_runtime_promotion_control_updates_stage(monkeypatch, tmp_path: Path) ->
         assert payload["stage"] == "qualified"
         assert payload["changed"] is True
         assert payload["blockers"] == []
+        assert payload["live_recovery_summary"]["posture"] == "clear"
     finally:
         teardown_client()
 
@@ -410,6 +413,7 @@ def test_runtime_promotion_control_returns_failed_when_live_review_gate_blocks(
         assert payload["stage"] == "canary"
         assert payload["changed"] is False
         assert payload["blockers"] == ["latest performance review decision is stale"]
+        assert payload["live_recovery_summary"]["posture"] == "clear"
         assert "cannot promote runtime stage" in payload["detail"]
     finally:
         teardown_client()

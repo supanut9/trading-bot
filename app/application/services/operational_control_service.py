@@ -396,6 +396,7 @@ class LiveReadinessControlResult:
     ready: bool
     checks: tuple[LiveReadinessCheckResult, ...]
     blocking_reasons: tuple[str, ...]
+    live_recovery_summary: RecoverySummaryView | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -405,6 +406,7 @@ class RuntimePromotionControlResult:
     stage: str
     changed: bool
     blockers: tuple[str, ...]
+    live_recovery_summary: RecoverySummaryView | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -1257,6 +1259,7 @@ class OperationalControlService:
     def get_live_readiness(self) -> LiveReadinessControlResult:
         with self._session_factory() as session:
             report = LiveReadinessService(session, self._settings).build_report()
+            live_recovery_summary = self._build_live_recovery_summary(session)
         return LiveReadinessControlResult(
             status="completed",
             detail="live readiness evaluated",
@@ -1271,17 +1274,20 @@ class OperationalControlService:
                 for check in report.checks
             ),
             blocking_reasons=tuple(report.blocking_reasons),
+            live_recovery_summary=live_recovery_summary,
         )
 
     def get_runtime_promotion(self) -> RuntimePromotionControlResult:
         with self._session_factory() as session:
             state = RuntimePromotionService(session, self._settings).get_state()
+            live_recovery_summary = self._build_live_recovery_summary(session)
         return RuntimePromotionControlResult(
             status="completed",
             detail="runtime promotion stage evaluated",
             stage=state.stage,
             changed=False,
             blockers=state.blockers,
+            live_recovery_summary=live_recovery_summary,
         )
 
     def run_update_runtime_promotion(
@@ -1296,12 +1302,14 @@ class OperationalControlService:
                 update = service.set_stage(stage=stage, updated_by=source)  # type: ignore[arg-type]
             except ValueError as exc:
                 state = service.get_state()
+                live_recovery_summary = self._build_live_recovery_summary(session)
                 control_result = RuntimePromotionControlResult(
                     status="failed",
                     detail=f"cannot promote runtime stage: {exc}",
                     stage=state.stage,
                     changed=False,
                     blockers=state.blockers,
+                    live_recovery_summary=live_recovery_summary,
                 )
                 self._audit.record_control_result(
                     control_type="runtime_promotion",
@@ -1309,16 +1317,24 @@ class OperationalControlService:
                     status=control_result.status,
                     detail=control_result.detail,
                     settings=self._settings,
-                    payload={"stage": stage, "blockers": list(state.blockers)},
+                    payload={
+                        "stage": stage,
+                        "blockers": list(state.blockers),
+                        "live_recovery_summary": self._recovery_summary_payload(
+                            control_result.live_recovery_summary
+                        ),
+                    },
                 )
                 return control_result
 
+            live_recovery_summary = self._build_live_recovery_summary(session)
             control_result = RuntimePromotionControlResult(
                 status="completed",
                 detail="runtime promotion stage updated",
                 stage=update.current_stage,
                 changed=update.changed,
                 blockers=update.blockers,
+                live_recovery_summary=live_recovery_summary,
             )
             self._audit.record_control_result(
                 control_type="runtime_promotion",
@@ -1326,7 +1342,13 @@ class OperationalControlService:
                 status=control_result.status,
                 detail=control_result.detail,
                 settings=self._settings,
-                payload={"stage": update.current_stage, "changed": update.changed},
+                payload={
+                    "stage": update.current_stage,
+                    "changed": update.changed,
+                    "live_recovery_summary": self._recovery_summary_payload(
+                        control_result.live_recovery_summary
+                    ),
+                },
             )
             return control_result
 

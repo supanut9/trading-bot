@@ -1733,6 +1733,7 @@ Current completion slice:
 - surface the dominant recovery state, next recommended action, and state counts through reporting and status surfaces
 - reuse the same recovery-posture wording in live readiness, promotion blockers, and live-resume failures so control paths match reporting
 - attach the post-action recovery posture to live reconcile and live halt control responses plus audit payloads so operators can inspect recovery state immediately after acting
+- expose the same structured recovery posture through live-readiness and runtime-promotion control responses so control polling does not depend on parsing blocker text alone
 - keep the slice read-only and bounded to operator trust in recovery state, not new execution controls
 
 Why: Real systems usually fail at the recovery boundary, not the happy path. If restart and reconciliation outcomes are ambiguous, operators either over-trust stale local state or halt more often than necessary.

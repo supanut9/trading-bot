@@ -760,6 +760,7 @@ class LiveReadinessControlResponse(BaseModel):
     ready: bool
     checks: list[LiveReadinessCheckResponse] = Field(default_factory=list)
     blocking_reasons: list[str] = Field(default_factory=list)
+    live_recovery_summary: RecoverySummaryResponse | None = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -774,6 +775,7 @@ class RuntimePromotionControlResponse(BaseModel):
     stage: str
     changed: bool
     blockers: list[str] = Field(default_factory=list)
+    live_recovery_summary: RecoverySummaryResponse | None = None
 
     model_config = ConfigDict(from_attributes=True)
 

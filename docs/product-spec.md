@@ -115,6 +115,7 @@ Profitability improvements (what separates this bot from better real-world bots)
 - expose one aggregate recovery posture with the dominant recovery state and next recommended action through reporting and status surfaces
 - reuse that aggregate recovery posture in live-readiness and promotion blocker messaging so operator controls describe the same recovery state shown in reporting
 - include the post-action recovery posture in live reconcile and live halt control results plus audit evidence
+- expose the structured recovery posture directly through live-readiness and runtime-promotion control responses
 - persist an operator-controlled promotion stage across paper, shadow, qualified, canary, and live states
 - render recovery timeline context from audit payloads so operators can see reconcile counts and cancel identifiers inline
 - allow operators to filter recovery queue and timeline views by status, review state, event type, and search terms
