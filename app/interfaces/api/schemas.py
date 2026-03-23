@@ -41,6 +41,7 @@ class StatusResponse(BaseModel):
     database_status: str
     latest_price_status: str
     latest_price: Decimal | None = None
+    latest_performance_review_decision: "PerformanceReviewDecisionResponse | None" = None
     account_balance_status: str
     account_balances: list[AccountBalanceResponse] = Field(default_factory=list)
 
@@ -755,6 +756,28 @@ class RuntimePromotionControlResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class PerformanceReviewDecisionRequest(BaseModel):
+    operator_decision: Literal["keep_running", "reduce_risk", "pause_and_rework", "halt"]
+    rationale: str = Field(min_length=1)
+    review_period_days: int = Field(default=30, ge=1, le=365)
+
+
+class PerformanceReviewDecisionResponse(BaseModel):
+    recommendation: str
+    operator_decision: str
+    rationale: str
+    review_period_days: int
+    root_cause_driver: str
+    root_cause_regime: str
+    review_generated_at: datetime
+    decided_at: datetime
+    decided_by: str
+    age_days: int
+    stale: bool
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class ShadowTradeResponse(BaseModel):
     id: int
     side: str
@@ -886,6 +909,7 @@ class LivePerformanceReviewResponse(BaseModel):
     oos_baseline: OOSBaselineResponse | None
     health_indicators: StrategyHealthIndicatorsResponse
     root_cause: RootCauseAnalysisResponse
+    latest_decision: PerformanceReviewDecisionResponse | None = None
     recommendation: str
     recommendation_reasons: list[str]
     review_period_days: int

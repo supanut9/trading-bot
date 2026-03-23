@@ -84,6 +84,7 @@ class LivePerformanceReview:
     recommendation_reasons: list[str]
     review_period_days: int
     generated_at: datetime
+    latest_decision: object | None = None
 
 
 class LivePerformanceReviewService:
@@ -137,6 +138,7 @@ class LivePerformanceReviewService:
             health_indicators=health_indicators,
         )
 
+        latest_decision = self._latest_decision(exchange=exchange, symbol=symbol)
         recommendation, reasons = self._derive_recommendation(
             live_metrics=live_metrics,
             health_indicators=health_indicators,
@@ -148,6 +150,7 @@ class LivePerformanceReviewService:
             oos_baseline=oos_baseline,
             health_indicators=health_indicators,
             root_cause=root_cause,
+            latest_decision=latest_decision,
             recommendation=recommendation,
             recommendation_reasons=reasons,
             review_period_days=review_period_days,
@@ -415,6 +418,19 @@ class LivePerformanceReviewService:
         if not components:
             return None
         return sum(components, Decimal("0"))
+
+    def _latest_decision(self, *, exchange: str, symbol: str) -> object | None:
+        from app.application.services.performance_review_decision_service import (
+            PerformanceReviewDecisionService,
+        )
+
+        try:
+            return PerformanceReviewDecisionService(self._session).get_latest_decision(
+                exchange=exchange,
+                symbol=symbol,
+            )
+        except Exception:
+            return None
 
     @staticmethod
     def _derive_root_cause(

@@ -6,6 +6,9 @@ from app.application.services.exchange_balance_service import ExchangeBalanceSer
 from app.application.services.live_operator_control_service import LiveOperatorControlService
 from app.application.services.live_readiness_service import LiveReadinessService
 from app.application.services.operator_runtime_config_service import OperatorRuntimeConfigService
+from app.application.services.performance_review_decision_service import (
+    PerformanceReviewDecisionService,
+)
 from app.application.services.runtime_promotion_service import RuntimePromotionService
 from app.config import Settings
 from app.infrastructure.database.session import create_engine_from_settings
@@ -26,6 +29,10 @@ class StatusService:
         effective_operator_config = self._effective_operator_config()
         live_readiness = self._live_readiness_report()
         runtime_promotion = self._runtime_promotion_state()
+        latest_performance_review_decision = self._latest_performance_review_decision(
+            exchange=self._settings.exchange_name,
+            symbol=str(effective_operator_config["symbol"]),
+        )
         latest_price_status = "unavailable"
         latest_price: str | None = None
         try:
@@ -132,6 +139,7 @@ class StatusService:
             "database_status": database_status,
             "latest_price_status": latest_price_status,
             "latest_price": latest_price,
+            "latest_performance_review_decision": latest_performance_review_decision,
             "account_balance_status": balance_status,
             "account_balances": account_balances,
         }
@@ -218,6 +226,38 @@ class StatusService:
         except SQLAlchemyError:
             self._session.rollback()
             return {"stage": "paper", "blockers": []}
+
+    def _latest_performance_review_decision(
+        self,
+        *,
+        exchange: str,
+        symbol: str,
+    ) -> dict[str, object] | None:
+        if self._session is None:
+            return None
+        try:
+            decision = PerformanceReviewDecisionService(self._session).get_latest_decision(
+                exchange=exchange,
+                symbol=symbol,
+            )
+            if decision is None:
+                return None
+            return {
+                "recommendation": decision.recommendation,
+                "operator_decision": decision.operator_decision,
+                "rationale": decision.rationale,
+                "review_period_days": decision.review_period_days,
+                "root_cause_driver": decision.root_cause_driver,
+                "root_cause_regime": decision.root_cause_regime,
+                "review_generated_at": decision.review_generated_at,
+                "decided_at": decision.decided_at,
+                "decided_by": decision.decided_by,
+                "age_days": decision.age_days,
+                "stale": decision.stale,
+            }
+        except SQLAlchemyError:
+            self._session.rollback()
+            return None
 
     def _get_database_status(self) -> str:
         try:

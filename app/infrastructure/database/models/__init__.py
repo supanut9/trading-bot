@@ -3,6 +3,9 @@ from app.infrastructure.database.models.backtest_run import BacktestRunRecord
 from app.infrastructure.database.models.candle import CandleRecord
 from app.infrastructure.database.models.operator_config import OperatorConfigRecord
 from app.infrastructure.database.models.order import OrderRecord
+from app.infrastructure.database.models.performance_review_decision import (
+    PerformanceReviewDecisionRecord,
+)
 from app.infrastructure.database.models.position import PositionRecord
 from app.infrastructure.database.models.runtime_control import RuntimeControlRecord
 from app.infrastructure.database.models.shadow_blocked_signal import ShadowBlockedSignalRecord
@@ -16,6 +19,7 @@ __all__ = [
     "CandleRecord",
     "OperatorConfigRecord",
     "OrderRecord",
+    "PerformanceReviewDecisionRecord",
     "PositionRecord",
     "RuntimeControlRecord",
     "ShadowBlockedSignalRecord",

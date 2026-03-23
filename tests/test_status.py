@@ -9,6 +9,9 @@ from app.application.services.status_service import StatusService
 from app.config import Settings, get_settings
 from app.infrastructure.database.base import Base
 from app.infrastructure.database.models.operator_config import OperatorConfigRecord
+from app.infrastructure.database.models.performance_review_decision import (
+    PerformanceReviewDecisionRecord,
+)
 from app.infrastructure.database.models.runtime_control import RuntimeControlRecord
 from app.infrastructure.database.session import (
     create_engine_from_settings,
@@ -336,6 +339,56 @@ def test_status_endpoint_prefers_runtime_promotion_stage_when_present(tmp_path: 
     assert response.status_code == 200
     payload = response.json()
     assert payload["runtime_promotion_stage"] == "qualified"
+
+
+def test_status_endpoint_returns_latest_performance_review_decision(tmp_path: Path) -> None:
+    settings = Settings(
+        DATABASE_URL=f"sqlite:///{tmp_path / 'status_review_decision.db'}",
+    )
+    engine = create_engine_from_settings(settings)
+    Base.metadata.create_all(bind=engine)
+    session_factory = create_session_factory(settings)
+    session = session_factory()
+    session.add(
+        PerformanceReviewDecisionRecord(
+            exchange=settings.exchange_name,
+            symbol=settings.default_symbol,
+            review_period_days=30,
+            recommendation="reduce_risk",
+            operator_decision="pause_and_rework",
+            rationale="shadow drift has persisted for two review windows",
+            root_cause_driver="strategy_or_regime_drift",
+            root_cause_regime="shadow_underperforms_walk_forward_oos",
+            review_generated_at="2026-03-20T00:00:00+00:00",
+            decided_by="test.status",
+            snapshot_json="{}",
+        )
+    )
+    session.commit()
+
+    def override_get_session():
+        try:
+            yield session
+        finally:
+            pass
+
+    app.dependency_overrides[get_settings] = lambda: settings
+    app.dependency_overrides[get_session] = override_get_session
+
+    try:
+        client = TestClient(app)
+        response = client.get("/status")
+    finally:
+        app.dependency_overrides.clear()
+        session.close()
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["latest_performance_review_decision"] is not None
+    assert payload["latest_performance_review_decision"]["recommendation"] == "reduce_risk"
+    assert payload["latest_performance_review_decision"]["operator_decision"] == "pause_and_rework"
+    assert payload["latest_performance_review_decision"]["decided_by"] == "test.status"
+    assert payload["latest_performance_review_decision"]["stale"] is False
 
 
 def test_status_service_rolls_back_failed_runtime_control_lookup(monkeypatch) -> None:
