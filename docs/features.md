@@ -1382,7 +1382,7 @@ Main outputs:
 
 Status:
 
-- partially implemented on `main`
+- completed
 
 Scope:
 
@@ -1398,17 +1398,12 @@ Main outputs:
 
 Implemented on `main`:
 
-- `LivePerformanceReviewService`
-- API endpoints for review output
-- reporting UI card for live versus shadow versus OOS review
+- `LivePerformanceReviewService` with normalized live, shadow, and walk-forward OOS comparison metrics
+- modeled slippage baseline comparison in review health indicators
+- operator-readable root-cause and regime context in API and reporting UI
+- persisted operator review decision support
+- explicit connections from review outcomes into runtime promotion and strategy iteration workflows
 - service tests and a monthly review template document
-
-Remaining to complete:
-
-- tighten metric definitions so OOS, shadow, and live comparisons are like-for-like
-- replace placeholder slippage-versus-model logic with a real modeled baseline comparison
-- add operator-readable regime context and clearer root-cause explanation for underperformance
-- connect review outcomes more explicitly to the strategy iteration and promotion workflow
 
 ### 73. `feature/live-readiness-gate`
 

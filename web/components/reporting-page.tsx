@@ -1346,6 +1346,20 @@ export function ReportingPage() {
                         <TableCell>—</TableCell>
                       </TableRow>
                       <TableRow>
+                        <TableCell>Total return %</TableCell>
+                        <TableCell>
+                          {formatSignedDecimal(performanceReview.live_metrics?.total_return_pct)}
+                        </TableCell>
+                        <TableCell>
+                          {formatSignedDecimal(performanceReview.shadow_metrics.total_return_pct)}
+                        </TableCell>
+                        <TableCell>
+                          {performanceReview.oos_baseline
+                            ? formatSignedDecimal(performanceReview.oos_baseline.oos_return_pct)
+                            : "—"}
+                        </TableCell>
+                      </TableRow>
+                      <TableRow>
                         <TableCell>Expectancy</TableCell>
                         <TableCell>
                           {formatSignedDecimal(performanceReview.live_metrics?.expectancy)}
@@ -1353,11 +1367,7 @@ export function ReportingPage() {
                         <TableCell>
                           {formatSignedDecimal(performanceReview.shadow_metrics.expectancy)}
                         </TableCell>
-                        <TableCell>
-                          {performanceReview.oos_baseline
-                            ? formatSignedDecimal(performanceReview.oos_baseline.oos_return_pct)
-                            : "—"}
-                        </TableCell>
+                        <TableCell>—</TableCell>
                       </TableRow>
                       <TableRow>
                         <TableCell>Max drawdown %</TableCell>
@@ -1397,6 +1407,10 @@ export function ReportingPage() {
                       <p className="font-medium text-white">Slippage vs model %</p>
                       <p className="mt-2">
                         {formatDecimal(performanceReview.health_indicators.slippage_vs_model_pct)}
+                      </p>
+                      <p className="mt-2 text-xs text-slate-500">
+                        Modeled baseline:{" "}
+                        {formatDecimal(performanceReview.oos_baseline?.modeled_slippage_pct)}
                       </p>
                     </div>
                     <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-sm text-slate-300">
