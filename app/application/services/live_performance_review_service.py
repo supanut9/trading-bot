@@ -26,6 +26,7 @@ class LiveModeMetrics:
     trade_count: int
     win_rate_pct: Decimal | None
     expectancy: Decimal | None
+    total_return_pct: Decimal | None
     max_drawdown_pct: Decimal | None
     total_net_pnl: Decimal
     total_fees_paid: Decimal
@@ -38,6 +39,7 @@ class ShadowModeMetrics:
     trade_count: int
     win_rate_pct: Decimal | None
     expectancy: Decimal | None
+    total_return_pct: Decimal | None
     max_drawdown_pct: Decimal | None
     total_net_pnl: Decimal
 
@@ -50,6 +52,7 @@ class OOSBaseline:
     oos_drawdown_pct: Decimal
     oos_total_trades: int
     in_sample_return_pct: Decimal
+    modeled_slippage_pct: Decimal | None
     overfitting_warning: bool
 
 
@@ -191,6 +194,13 @@ class LivePerformanceReviewService:
 
         total_net_pnl = sum(t.realized_pnl or Decimal("0") for t in live_trades)
         total_fees = sum(t.fee_amount or Decimal("0") for t in live_trades)
+        total_notional = sum(
+            abs((t.price or Decimal("0")) * (t.quantity or Decimal("0"))) for t in live_trades
+        )
+        total_return_pct = self._compute_total_return_pct(
+            total_net_pnl=total_net_pnl,
+            total_notional=total_notional,
+        )
 
         # Slippage: query live orders with both signal_price and average_fill_price
         avg_slippage, slippage_count = self._compute_avg_slippage(
@@ -201,6 +211,7 @@ class LivePerformanceReviewService:
             trade_count=len(live_trades),
             win_rate_pct=win_rate,
             expectancy=expectancy,
+            total_return_pct=total_return_pct,
             max_drawdown_pct=max_drawdown_pct,
             total_net_pnl=total_net_pnl,
             total_fees_paid=total_fees,
@@ -243,6 +254,7 @@ class LivePerformanceReviewService:
                 trade_count=0,
                 win_rate_pct=None,
                 expectancy=None,
+                total_return_pct=None,
                 max_drawdown_pct=None,
                 total_net_pnl=Decimal("0"),
             )
@@ -269,11 +281,20 @@ class LivePerformanceReviewService:
             [t.net_pnl or Decimal("0") for t in closed]
         )
         total_net_pnl = sum(t.net_pnl or Decimal("0") for t in closed)
+        total_notional = sum(
+            abs((t.simulated_fill_price or Decimal("0")) * (t.quantity or Decimal("0")))
+            for t in closed
+        )
+        total_return_pct = self._compute_total_return_pct(
+            total_net_pnl=total_net_pnl,
+            total_notional=total_notional,
+        )
 
         return ShadowModeMetrics(
             trade_count=len(closed),
             win_rate_pct=win_rate,
             expectancy=expectancy,
+            total_return_pct=total_return_pct,
             max_drawdown_pct=max_drawdown_pct,
             total_net_pnl=total_net_pnl,
         )
@@ -298,6 +319,7 @@ class LivePerformanceReviewService:
             oos_drawdown_pct=run.walk_forward_oos_drawdown_pct or Decimal("0"),
             oos_total_trades=run.walk_forward_oos_total_trades or 0,
             in_sample_return_pct=run.walk_forward_in_sample_return_pct or Decimal("0"),
+            modeled_slippage_pct=self._compute_modeled_slippage_pct(run=run),
             overfitting_warning=run.walk_forward_overfitting_warning or False,
         )
 
@@ -320,18 +342,23 @@ class LivePerformanceReviewService:
             return None
         if oos_baseline is None:
             return live_metrics.avg_slippage_pct
-        return live_metrics.avg_slippage_pct
+        modeled = oos_baseline.modeled_slippage_pct
+        if modeled is None:
+            return live_metrics.avg_slippage_pct
+        return live_metrics.avg_slippage_pct - modeled
 
     @staticmethod
     def _compute_shadow_vs_oos_expectancy_drift(
         *, shadow_metrics: ShadowModeMetrics, oos_baseline: OOSBaseline | None
     ) -> Decimal | None:
-        if shadow_metrics.expectancy is None or oos_baseline is None:
+        # The field name is kept for API compatibility, but use normalized return
+        # percentages so the comparison is like-for-like with walk-forward OOS return.
+        if shadow_metrics.total_return_pct is None or oos_baseline is None:
             return None
         oos_return = oos_baseline.oos_return_pct
         if oos_return == Decimal("0"):
             return None
-        drift = (shadow_metrics.expectancy - oos_return) / abs(oos_return) * Decimal("100")
+        drift = (shadow_metrics.total_return_pct - oos_return) / abs(oos_return) * Decimal("100")
         return drift
 
     @staticmethod
@@ -357,6 +384,21 @@ class LivePerformanceReviewService:
             if dd > max_dd:
                 max_dd = dd
         return (max_dd / peak * Decimal("100")) if peak > Decimal("0") else Decimal("0")
+
+    @staticmethod
+    def _compute_total_return_pct(
+        *, total_net_pnl: Decimal, total_notional: Decimal
+    ) -> Decimal | None:
+        if total_notional == Decimal("0"):
+            return None
+        return total_net_pnl / total_notional * Decimal("100")
+
+    @staticmethod
+    def _compute_modeled_slippage_pct(*, run: BacktestRunRecord) -> Decimal | None:
+        components = [value for value in (run.slippage_pct, run.spread_pct) if value is not None]
+        if not components:
+            return None
+        return sum(components, Decimal("0"))
 
     @staticmethod
     def _derive_recommendation(
@@ -401,7 +443,8 @@ class LivePerformanceReviewService:
             and health_indicators.slippage_vs_model_pct > _PAUSE_SLIPPAGE_OVERSHOOT
         ):
             reasons.append(
-                f"Average slippage {health_indicators.slippage_vs_model_pct:.4f}% exceeds "
+                "Average slippage exceeded the modeled baseline by "
+                f"{health_indicators.slippage_vs_model_pct:.4f}%, above the "
                 f"{_PAUSE_SLIPPAGE_OVERSHOOT}% pause threshold."
             )
         if reasons:
@@ -422,7 +465,8 @@ class LivePerformanceReviewService:
             and health_indicators.slippage_vs_model_pct > _REDUCE_SLIPPAGE_OVERSHOOT
         ):
             reasons.append(
-                f"Average slippage {health_indicators.slippage_vs_model_pct:.4f}% exceeds "
+                "Average slippage exceeded the modeled baseline by "
+                f"{health_indicators.slippage_vs_model_pct:.4f}%, above the "
                 f"{_REDUCE_SLIPPAGE_OVERSHOOT}% reduce-risk threshold."
             )
         if reasons:

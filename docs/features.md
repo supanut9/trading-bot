@@ -1382,7 +1382,7 @@ Main outputs:
 
 Status:
 
-- in progress on `feature/live-performance-review-loop`
+- partially implemented on `main`
 
 Scope:
 
@@ -1395,6 +1395,20 @@ Main outputs:
 - live-versus-shadow-versus-walk-forward-OOS comparison reporting with cost-adjusted metrics
 - monthly operator review template covering win rate, expectancy, slippage, drawdown, and regime context
 - strategy health indicators: slippage vs model, OOS drift, signal frequency changes, and consecutive-loss trend
+
+Implemented on `main`:
+
+- `LivePerformanceReviewService`
+- API endpoints for review output
+- reporting UI card for live versus shadow versus OOS review
+- service tests and a monthly review template document
+
+Remaining to complete:
+
+- tighten metric definitions so OOS, shadow, and live comparisons are like-for-like
+- replace placeholder slippage-versus-model logic with a real modeled baseline comparison
+- add operator-readable regime context and clearer root-cause explanation for underperformance
+- connect review outcomes more explicitly to the strategy iteration and promotion workflow
 
 ### 73. `feature/live-readiness-gate`
 

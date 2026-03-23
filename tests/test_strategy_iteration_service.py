@@ -32,6 +32,7 @@ def _make_review(recommendation: str, reasons: list, shadow_count: int = 0):
         trade_count=shadow_count,
         win_rate_pct=None,
         expectancy=None,
+        total_return_pct=None,
         max_drawdown_pct=None,
         total_net_pnl=Decimal("0"),
     )

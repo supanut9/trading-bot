@@ -103,7 +103,7 @@ Backtest hardening and dashboard visibility:
 
 Iteration — performance review and strategy improvement loop:
 
-- 16. `feature/live-performance-review-loop` (in progress on `feature/live-performance-review-loop`)
+- 16. `feature/live-performance-review-loop` (partially implemented on `main`; completion pass needed)
 - 17. `feature/strategy-iteration-workflow` (planned)
 
 Recommended next bounded implementation sequence from the current codebase:
