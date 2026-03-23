@@ -248,6 +248,7 @@ class BacktestCandleResult:
 class WorkerControlResult:
     status: str
     detail: str
+    risk_reason: str | None = None
     signal_action: str | None = None
     client_order_id: str | None = None
     order_id: int | None = None
@@ -489,6 +490,7 @@ class OperationalControlService:
         control_result = WorkerControlResult(
             status=result.status,
             detail=result.detail,
+            risk_reason=result.risk_reason,
             signal_action=result.signal_action,
             client_order_id=result.client_order_id,
             order_id=result.order_id,
@@ -504,6 +506,7 @@ class OperationalControlService:
                 detail=control_result.detail,
                 settings=self._settings,
                 payload={
+                    "risk_reason": control_result.risk_reason,
                     "signal_action": control_result.signal_action,
                     "client_order_id": control_result.client_order_id,
                     "order_id": control_result.order_id,

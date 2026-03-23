@@ -48,6 +48,7 @@ logger = get_logger(__name__)
 class WorkerCycleResult:
     status: str
     detail: str
+    risk_reason: str | None = None
     signal_action: str | None = None
     client_order_id: str | None = None
     order_id: int | None = None
@@ -392,6 +393,7 @@ class WorkerOrchestrationService:
                         f"live trading halted due to critical risk violation: "
                         f"{risk_decision.reason}"
                     ),
+                    risk_reason=risk_decision.reason,
                     signal_action=signal.action,
                     client_order_id=client_order_id,
                 )
@@ -412,6 +414,7 @@ class WorkerOrchestrationService:
             return WorkerCycleResult(
                 status="risk_rejected",
                 detail=risk_decision.reason,
+                risk_reason=risk_decision.reason,
                 signal_action=signal.action,
                 client_order_id=client_order_id,
             )

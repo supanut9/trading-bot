@@ -200,6 +200,7 @@ class DemoScenarioLoadResponse(BaseModel):
 class WorkerControlResponse(BaseModel):
     status: str
     detail: str
+    risk_reason: str | None = None
     signal_action: str | None = None
     client_order_id: str | None = None
     order_id: int | None = None

@@ -1675,7 +1675,7 @@ Why: Rule-based EMA crossover produces too many false signals in ranging markets
 
 Status:
 
-- planned
+- partially implemented on `main`
 
 Scope:
 
@@ -1690,6 +1690,19 @@ Main outputs:
 - max concurrent live positions limit
 - concentration guard that blocks excessive allocation to one symbol or one strategy
 - machine-readable reject reasons surfaced in controls, status, and audit events
+
+Implemented on `main`:
+
+- total live notional exposure cap across open positions
+- per-symbol live exposure cap
+- live symbol concentration guard
+- max concurrent live positions limit
+- portfolio cap visibility through the status surface
+
+Current completion slice:
+
+- surface machine-readable portfolio-risk reject reasons in worker control responses
+- carry the same reject reason into worker-cycle audit payloads for operator review
 
 Why: A system can pass single-order validation and still take unacceptable portfolio risk. Real-world deployment needs account-level controls that remain understandable to operators and fail closed before capital concentration becomes dangerous.
 
