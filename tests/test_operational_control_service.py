@@ -492,7 +492,12 @@ def test_live_halt_rejects_resume_when_readiness_checks_fail(monkeypatch) -> Non
                 (),
                 {
                     "ready": False,
-                    "blocking_reasons": ["strategy qualification gates are not all passing"],
+                    "blocking_reasons": [
+                        "live recovery posture is blocked: "
+                        "1 unresolved live order(s) require manual exchange-state "
+                        "review before trusting local recovery state "
+                        "(next action: inspect_exchange_state)"
+                    ],
                 },
             )()
 
@@ -510,7 +515,11 @@ def test_live_halt_rejects_resume_when_readiness_checks_fail(monkeypatch) -> Non
     result = service.run_live_halt(halted=False, source="api.control")
 
     assert result.status == "failed"
-    assert result.detail == "cannot resume live trading: readiness checks failed"
+    assert (
+        result.detail == "cannot resume live trading: live recovery posture is blocked: "
+        "1 unresolved live order(s) require manual exchange-state review before "
+        "trusting local recovery state (next action: inspect_exchange_state)"
+    )
     assert len(audit.entries) == 1
     assert audit.entries[0]["payload"]["reason"] == "live_readiness_failed"
 

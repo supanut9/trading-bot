@@ -68,6 +68,11 @@ def test_live_readiness_ready_when_all_checks_pass(monkeypatch, tmp_path: Path) 
         assert report.status == "ready"
         assert report.blocking_reasons == []
         assert all(check.passed for check in report.checks)
+        assert any(
+            check.name == "live_recovery_posture"
+            and check.detail == "live recovery posture is clear"
+            for check in report.checks
+        )
     finally:
         session.close()
 
@@ -128,27 +133,16 @@ def test_live_readiness_reports_blocking_reasons(monkeypatch, tmp_path: Path) ->
             "app.application.services.live_readiness_service.QualificationService",
             FakeQualificationService,
         )
-        monkeypatch.setattr(
-            "app.application.services.live_readiness_service.StaleLiveOrderService",
-            lambda _session: type(
-                "FakeStaleService",
-                (),
-                {
-                    "list_stale_orders": lambda self, **kwargs: [
-                        type("StaleOrder", (), {"id": 1, "age_minutes": 120})()
-                    ]
-                },
-            )(),
-        )
-
         report = LiveReadinessService(session, settings).build_report()
 
         assert report.ready is False
         assert report.status == "blocked"
         assert any("qualification gates" in reason for reason in report.blocking_reasons)
         assert any("symbol rules" in reason for reason in report.blocking_reasons)
-        assert any("review" in reason for reason in report.blocking_reasons)
-        assert any("stale live order" in reason for reason in report.blocking_reasons)
+        assert any(
+            "live recovery posture is blocked" in reason for reason in report.blocking_reasons
+        )
+        assert any("manual exchange-state review" in reason for reason in report.blocking_reasons)
         assert any("max order notional" in reason for reason in report.blocking_reasons)
     finally:
         session.close()

@@ -117,7 +117,12 @@ class RuntimePromotionService:
         if stage in {"canary", "live"}:
             readiness = LiveReadinessService(self._session, self._settings).build_report()
             if not readiness.ready:
-                blockers.append("live readiness is blocked")
+                detail = (
+                    readiness.blocking_reasons[0]
+                    if readiness.blocking_reasons
+                    else "live readiness checks are blocked"
+                )
+                blockers.append(f"live readiness is blocked: {detail}")
 
         if stage == "live":
             multiplier = CanaryRolloutService(

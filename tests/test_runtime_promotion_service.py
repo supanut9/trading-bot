@@ -59,7 +59,19 @@ def test_runtime_promotion_rejects_canary_when_readiness_blocked(
         monkeypatch.setattr(
             "app.application.services.runtime_promotion_service.LiveReadinessService",
             lambda _session, _settings: MagicMock(
-                build_report=lambda: type("Report", (), {"ready": False})()
+                build_report=lambda: type(
+                    "Report",
+                    (),
+                    {
+                        "ready": False,
+                        "blocking_reasons": [
+                            "live recovery posture is blocked: "
+                            "1 unresolved live order(s) require manual exchange-state "
+                            "review before trusting local recovery state "
+                            "(next action: inspect_exchange_state)"
+                        ],
+                    },
+                )()
             ),
         )
 
@@ -68,7 +80,7 @@ def test_runtime_promotion_rejects_canary_when_readiness_blocked(
         try:
             service.set_stage(stage="canary", updated_by="test")
         except ValueError as exc:
-            assert "live readiness is blocked" in str(exc)
+            assert "live readiness is blocked: live recovery posture is blocked" in str(exc)
         else:
             raise AssertionError("expected promotion to canary to be blocked")
     finally:
