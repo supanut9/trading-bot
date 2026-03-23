@@ -9,7 +9,6 @@ from app.application.services.operational_control_service import (
     MarketSyncControlResult,
     MarketSyncRunOptions,
     OperationalControlService,
-    RuntimePromotionControlResult,
     WorkerControlResult,
 )
 from app.application.services.worker_orchestration_service import WorkerCycleResult
@@ -620,6 +619,28 @@ def test_runtime_promotion_rejects_update_when_prerequisites_fail(monkeypatch) -
         "app.application.services.operational_control_service.RuntimePromotionService",
         FakeRuntimePromotionService,
     )
+    monkeypatch.setattr(
+        OperationalControlService,
+        "_build_live_recovery_summary",
+        lambda self, session: type(
+            "Summary",
+            (),
+            {
+                "posture": "clear",
+                "dominant_recovery_state": "resolved",
+                "next_action": "none",
+                "summary": "No unresolved live recovery work remains.",
+                "unresolved_order_count": 0,
+                "awaiting_exchange_count": 0,
+                "partial_fill_in_flight_count": 0,
+                "stale_open_order_count": 0,
+                "stale_partial_fill_count": 0,
+                "manual_review_required_count": 0,
+                "requires_operator_review_count": 0,
+                "stale_order_count": 0,
+            },
+        )(),
+    )
 
     service = OperationalControlService(
         settings,
@@ -629,14 +650,15 @@ def test_runtime_promotion_rejects_update_when_prerequisites_fail(monkeypatch) -
 
     result = service.run_update_runtime_promotion(stage="canary", source="api.control")
 
-    assert result == RuntimePromotionControlResult(
-        status="failed",
-        detail="cannot promote runtime stage: live readiness is blocked",
-        stage="paper",
-        changed=False,
-        blockers=("live readiness is blocked",),
-    )
+    assert result.status == "failed"
+    assert result.detail == "cannot promote runtime stage: live readiness is blocked"
+    assert result.stage == "paper"
+    assert result.changed is False
+    assert result.blockers == ("live readiness is blocked",)
+    assert result.live_recovery_summary is not None
+    assert result.live_recovery_summary.posture == "clear"
     assert audit.entries[0]["control_type"] == "runtime_promotion"
+    assert audit.entries[0]["payload"]["live_recovery_summary"]["posture"] == "clear"
 
 
 # ---------------------------------------------------------------------------
