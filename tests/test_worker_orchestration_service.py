@@ -171,6 +171,7 @@ def test_rejects_buy_signal_after_daily_loss_limit_is_breached(tmp_path: Path) -
 
     assert result.status == "risk_rejected"
     assert result.detail == "daily loss limit reached"
+    assert result.risk_reason == "daily loss limit reached"
     assert order_count == 0
 
 
@@ -209,6 +210,7 @@ def test_rejects_live_entry_when_portfolio_concurrent_positions_limit_is_reached
 
     assert result.status == "auto_halted"
     assert "live max concurrent positions reached" in result.detail
+    assert result.risk_reason == "live max concurrent positions reached"
     assert order_count == 0
 
 

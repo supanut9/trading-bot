@@ -1039,6 +1039,7 @@ def test_worker_cycle_control_rejects_live_entry_when_halted(tmp_path: Path) -> 
         payload = response.json()
         assert payload["status"] == "risk_rejected"
         assert payload["detail"] == "live trading is halted by configuration"
+        assert payload["risk_reason"] == "live trading is halted by configuration"
         assert payload["signal_action"] == "buy"
     finally:
         teardown_client()
@@ -1110,6 +1111,7 @@ def test_worker_cycle_control_uses_runtime_halt_override(tmp_path: Path) -> None
         payload = response.json()
         assert payload["status"] == "risk_rejected"
         assert payload["detail"] == "live trading is halted by configuration"
+        assert payload["risk_reason"] == "live trading is halted by configuration"
         assert payload["signal_action"] == "buy"
     finally:
         teardown_client()
@@ -1156,6 +1158,7 @@ def test_worker_cycle_control_rejects_duplicate_live_order(tmp_path: Path) -> No
         payload = response.json()
         assert payload["status"] == "duplicate_live_order"
         assert payload["detail"] == "active live order already exists for the same market side"
+        assert payload["risk_reason"] is None
         assert payload["signal_action"] == "buy"
     finally:
         teardown_client()
