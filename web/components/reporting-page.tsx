@@ -1142,6 +1142,25 @@ export function ReportingPage() {
                       </li>
                     ))}
                   </ul>
+                  <div className="mt-4 rounded-2xl border border-slate-700/60 bg-slate-950/40 p-4">
+                    <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">
+                      Root Cause Read
+                    </p>
+                    <p className="mt-2 text-sm text-slate-200">
+                      {performanceReview.root_cause.summary}
+                    </p>
+                    <div className="mt-3 flex flex-wrap gap-3 text-xs text-slate-400">
+                      <span>driver: {performanceReview.root_cause.primary_driver}</span>
+                      <span>regime: {performanceReview.root_cause.regime_assessment}</span>
+                    </div>
+                    <ul className="mt-3 space-y-1">
+                      {performanceReview.root_cause.operator_focus.map((focus) => (
+                        <li key={focus} className="text-sm text-slate-300">
+                          &bull; {focus}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
                 </div>
 
                 {/* Comparison table: Live vs Shadow vs OOS */}

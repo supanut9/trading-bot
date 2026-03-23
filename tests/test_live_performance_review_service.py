@@ -107,6 +107,7 @@ def test_no_live_trades_returns_keep_running(session, monkeypatch):
     assert review.recommendation == "keep_running"
     assert review.live_metrics is None
     assert "paper or shadow mode" in review.recommendation_reasons[0].lower()
+    assert review.root_cause.primary_driver == "insufficient_live_data"
 
 
 # ------------------------------------------------------------------
@@ -225,6 +226,7 @@ def test_high_slippage_triggers_pause_and_rework(session, monkeypatch):
 
     assert review.recommendation == "pause_and_rework"
     assert any("slippage" in r.lower() for r in review.recommendation_reasons)
+    assert review.root_cause.primary_driver == "execution_cost_overshoot"
 
 
 # ------------------------------------------------------------------
@@ -385,6 +387,7 @@ def test_healthy_live_metrics_returns_keep_running(session, monkeypatch):
     assert review.recommendation == "keep_running"
     assert review.live_metrics is not None
     assert review.live_metrics.trade_count == 3
+    assert review.root_cause.primary_driver == "within_expected_variation"
 
 
 def test_modeled_slippage_baseline_reduces_observed_overshoot(session, monkeypatch):
@@ -438,6 +441,7 @@ def test_modeled_slippage_baseline_reduces_observed_overshoot(session, monkeypat
     assert review.oos_baseline.modeled_slippage_pct == Decimal("1.2")
     assert review.health_indicators.slippage_vs_model_pct == Decimal("0.3")
     assert review.recommendation == "keep_running"
+    assert review.root_cause.primary_driver == "within_expected_variation"
 
 
 def test_shadow_vs_oos_drift_uses_return_pct_basis(session, monkeypatch):
@@ -473,3 +477,4 @@ def test_shadow_vs_oos_drift_uses_return_pct_basis(session, monkeypatch):
 
     assert review.shadow_metrics.total_return_pct == Decimal("10")
     assert review.health_indicators.shadow_vs_oos_expectancy_drift == Decimal("-50")
+    assert review.root_cause.primary_driver == "strategy_or_regime_drift"

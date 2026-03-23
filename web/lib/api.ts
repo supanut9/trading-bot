@@ -802,6 +802,12 @@ export type LivePerformanceReviewResponse = {
   shadow_metrics: ShadowModeMetricsResponse;
   oos_baseline: OOSBaselineResponse | null;
   health_indicators: StrategyHealthIndicatorsResponse;
+  root_cause: {
+    primary_driver: string;
+    regime_assessment: string;
+    summary: string;
+    operator_focus: string[];
+  };
   recommendation: string;
   recommendation_reasons: string[];
   review_period_days: number;

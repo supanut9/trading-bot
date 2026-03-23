@@ -871,11 +871,21 @@ class StrategyHealthIndicatorsResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class RootCauseAnalysisResponse(BaseModel):
+    primary_driver: str
+    regime_assessment: str
+    summary: str
+    operator_focus: list[str]
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class LivePerformanceReviewResponse(BaseModel):
     live_metrics: LiveModeMetricsResponse | None
     shadow_metrics: ShadowModeMetricsResponse
     oos_baseline: OOSBaselineResponse | None
     health_indicators: StrategyHealthIndicatorsResponse
+    root_cause: RootCauseAnalysisResponse
     recommendation: str
     recommendation_reasons: list[str]
     review_period_days: int
