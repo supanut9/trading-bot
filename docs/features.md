@@ -1757,7 +1757,7 @@ Why: The repo already has many ingredients for safe rollout, but without one exp
 
 Status:
 
-- planned
+- in progress
 
 Scope:
 
@@ -1770,6 +1770,7 @@ Main outputs:
 - configurable spread and latency assumptions in replay execution
 - persisted spread and latency assumptions in backtest run history and reports
 - explicit assumption summary included in backtest API and reporting output
+- backtest UI controls that let operators set friction assumptions directly and reload them from recent runs
 - optional UTC weekday and hour constraints for backtests
 - deterministic partial-fill and missed-fill assumptions via candle-volume participation caps
 - benchmark comparison in replay reports for cost-adjusted return context
