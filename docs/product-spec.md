@@ -37,6 +37,7 @@ Current baseline on `main`:
 - automated fallback mechanism for timed-out live limit orders that cancels and resubmits as market orders
 - ATR hard stop and trailing stop, ADX regime filter, ATR volatility-adjusted sizing, multi-symbol worker loop, auto-sync before backtest, and multi-timeframe HTF trend confirmation
 - persisted operator performance-review decisions with audit logging plus status and reporting visibility for latest decision freshness
+- durable `strategy_name` identity persisted on orders, trades, and positions across paper, shadow, and live execution paths
 
 Current production boundary:
 
@@ -64,6 +65,7 @@ Profitability improvements (what separates this bot from better real-world bots)
 
 7. `feature/backtest-market-friction-hardening` — add spread, latency, partial-fill, assumption-summary, explicit export columns, and buy-and-hold benchmark realism to replay results, run history, reporting exports, and operator controls (completed)
 8. `feature/xgboost-signal-strategy` — ML-based signal using XGBoost trained on indicator features (completed)
+9. `feature/durable-strategy-identity` — persist strategy identity on orders, trades, and positions before enforcing any per-strategy live-risk governor (in progress)
 
 ## Initial Market And Strategy
 

@@ -70,6 +70,7 @@ def test_submits_live_buy_and_persists_order_without_trade(tmp_path: Path) -> No
             side="buy",
             quantity=Decimal("0.002"),
             price=Decimal("50000"),
+            strategy_name="ml_signal",
             mode="live",
             client_order_id="live-binance-btc-usdt-buy-1",
         )
@@ -79,6 +80,7 @@ def test_submits_live_buy_and_persists_order_without_trade(tmp_path: Path) -> No
 
     assert result.order.status == "submitted"
     assert result.order.exchange_order_id == "abc123"
+    assert result.order.strategy_name == "ml_signal"
     assert result.trade is None
     assert trade_count == 0
 

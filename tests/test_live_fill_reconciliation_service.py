@@ -75,6 +75,7 @@ def test_reconciles_filled_live_buy_into_trade_and_position(tmp_path: Path) -> N
             order_type="market",
             status="submitted",
             mode="live",
+            strategy_name="xgboost_signal",
             quantity=Decimal("0.002"),
             price=Decimal("50000"),
             client_order_id="live-buy-1",
@@ -90,14 +91,18 @@ def test_reconciles_filled_live_buy_into_trade_and_position(tmp_path: Path) -> N
 
         trade_count = session.scalar(select(func.count()).select_from(TradeRecord))
         position = session.scalar(select(PositionRecord))
+        trade = session.scalar(select(TradeRecord))
 
         assert len(results) == 1
         assert results[0].trade_created is True
         assert results[0].requires_operator_review is False
         assert trade_count == 1
         assert order.status == "filled"
+        assert trade is not None
+        assert trade.strategy_name == "xgboost_signal"
         assert position is not None
         assert position.mode == "live"
+        assert position.strategy_name == "xgboost_signal"
         assert position.quantity == Decimal("0.00200000")
     finally:
         session.close()

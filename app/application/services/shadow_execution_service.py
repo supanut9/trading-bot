@@ -66,6 +66,7 @@ class ShadowExecutionService:
             symbol=request.symbol,
             mode="shadow",
             side="long",
+            strategy_name=request.strategy_name,
             quantity=request.quantity,
             average_entry_price=request.price,
             realized_pnl=Decimal("0"),
@@ -131,6 +132,9 @@ class ShadowExecutionService:
             symbol=request.symbol,
             mode="shadow",
             side="long",
+            strategy_name=existing_position.strategy_name
+            if existing_position is not None
+            else None,
             quantity=Decimal("0"),
             average_entry_price=None,
             realized_pnl=realized + (closed.net_pnl or Decimal("0")),

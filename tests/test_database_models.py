@@ -82,3 +82,88 @@ def test_init_database_reconciles_backtest_run_columns(tmp_path) -> None:
         "max_volume_fill_pct",
         "allow_partial_fills",
     }.issubset(columns)
+
+
+def test_init_database_reconciles_strategy_identity_columns(tmp_path) -> None:
+    settings = Settings(DATABASE_URL=f"sqlite:///{tmp_path / 'strategy_identity.db'}")
+    engine = create_engine_from_settings(settings)
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                """
+                CREATE TABLE orders (
+                    id INTEGER PRIMARY KEY,
+                    exchange TEXT NOT NULL,
+                    symbol TEXT NOT NULL,
+                    side TEXT NOT NULL,
+                    order_type TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    trading_mode TEXT NOT NULL,
+                    mode TEXT NOT NULL,
+                    client_order_id TEXT,
+                    exchange_order_id TEXT,
+                    quantity NUMERIC(20, 8) NOT NULL,
+                    executed_quantity NUMERIC(20, 8) NOT NULL,
+                    price NUMERIC(20, 8),
+                    signal_price NUMERIC(20, 8),
+                    average_fill_price NUMERIC(20, 8),
+                    submitted_reason TEXT,
+                    created_at TEXT,
+                    updated_at TEXT
+                )
+                """
+            )
+        )
+        connection.execute(
+            text(
+                """
+                CREATE TABLE positions (
+                    id INTEGER PRIMARY KEY,
+                    exchange TEXT NOT NULL,
+                    symbol TEXT NOT NULL,
+                    side TEXT NOT NULL,
+                    trading_mode TEXT NOT NULL,
+                    mode TEXT NOT NULL,
+                    quantity NUMERIC(20, 8) NOT NULL,
+                    average_entry_price NUMERIC(20, 8),
+                    realized_pnl NUMERIC(20, 8) NOT NULL,
+                    unrealized_pnl NUMERIC(20, 8) NOT NULL,
+                    stop_loss_price NUMERIC(20, 8),
+                    highest_price_since_entry NUMERIC(20, 8),
+                    created_at TEXT,
+                    updated_at TEXT
+                )
+                """
+            )
+        )
+        connection.execute(
+            text(
+                """
+                CREATE TABLE trades (
+                    id INTEGER PRIMARY KEY,
+                    order_id INTEGER,
+                    exchange TEXT NOT NULL,
+                    symbol TEXT NOT NULL,
+                    trading_mode TEXT NOT NULL,
+                    side TEXT NOT NULL,
+                    quantity NUMERIC(20, 8) NOT NULL,
+                    price NUMERIC(20, 8) NOT NULL,
+                    realized_pnl NUMERIC(20, 8),
+                    fee_amount NUMERIC(20, 8),
+                    fee_asset TEXT,
+                    created_at TEXT,
+                    updated_at TEXT
+                )
+                """
+            )
+        )
+
+    init_database(settings)
+
+    orders_columns = {column["name"] for column in inspect(engine).get_columns("orders")}
+    positions_columns = {column["name"] for column in inspect(engine).get_columns("positions")}
+    trades_columns = {column["name"] for column in inspect(engine).get_columns("trades")}
+
+    assert "strategy_name" in orders_columns
+    assert "strategy_name" in positions_columns
+    assert "strategy_name" in trades_columns

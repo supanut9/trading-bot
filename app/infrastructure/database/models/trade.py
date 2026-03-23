@@ -19,6 +19,7 @@ class TradeRecord(TimestampMixin, Base):
     symbol: Mapped[str] = mapped_column(String(50), nullable=False)
     trading_mode: Mapped[str] = mapped_column(String(20), nullable=False, default="SPOT")
     side: Mapped[str] = mapped_column(String(10), nullable=False)
+    strategy_name: Mapped[str | None] = mapped_column(String(100))
     quantity: Mapped[Decimal] = mapped_column(Numeric(20, 8), nullable=False)
     price: Mapped[Decimal] = mapped_column(Numeric(20, 8), nullable=False)
     realized_pnl: Mapped[Decimal | None] = mapped_column(Numeric(20, 8))

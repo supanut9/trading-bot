@@ -95,6 +95,7 @@ class SmartOrderFallbackService:
                                 order_type="market",
                                 status="submitting",
                                 mode="live",
+                                strategy_name=order.strategy_name,
                                 quantity=order.quantity,
                                 price=None,
                                 signal_price=order.signal_price,

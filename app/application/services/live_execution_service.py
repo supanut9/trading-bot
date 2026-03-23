@@ -128,6 +128,7 @@ class LiveExecutionService:
             status="submitting",
             trading_mode=request.trading_mode,
             mode=request.mode,
+            strategy_name=request.strategy_name,
             quantity=request.quantity,
             price=price,
             signal_price=signal_price,
