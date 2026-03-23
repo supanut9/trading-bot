@@ -1631,17 +1631,17 @@ Why: Entries that align with the higher timeframe trend have historically higher
 
 ## Current Recommended Queue
 
-Features 59–87 are complete on `main`. The system now has ATR stops, ADX regime detection, volatility-adjusted sizing, multi-symbol trading, auto-sync backtest, multi-timeframe trend confirmation, and hardened replay friction plus benchmark reporting.
+Features 59–87 are complete on `main`. The system now has ATR stops, ADX regime detection, volatility-adjusted sizing, multi-symbol trading, auto-sync backtest, multi-timeframe trend confirmation, hardened replay friction plus benchmark reporting, and the XGBoost signal path.
 
 Next bounded features:
 
-1. `feature/xgboost-signal-strategy` — ML-based signal generation using XGBoost trained on technical indicator features
+- no remaining in-progress features in the current catalog; define the next bounded feature before implementation
 
 ### 83. `feature/xgboost-signal-strategy`
 
 Status:
 
-- in progress
+- implemented on `main`
 
 Scope:
 
@@ -1653,7 +1653,7 @@ Scope:
 - add `xgboost_signal` as a selectable strategy in the backtest API and worker runtime
 - keep inference pure (no IO in domain layer); model loading happens in the application service layer
 
-Main outputs:
+Implemented on `main`:
 
 - `scripts/train_xgboost.py` — standalone training script that reads candles from DB and saves model file
 - `app/domain/strategies/xgboost_signal.py` — pure inference strategy using a loaded XGBoost model

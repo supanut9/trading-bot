@@ -121,7 +121,7 @@ Profitability improvements — what separates this bot from better real-world bo
 - 20. `feature/volatility-adjusted-sizing` — size positions relative to ATR, not flat % (implemented on `main`)
 - 21. `feature/multi-symbol-trading` — trade multiple pairs for more edge opportunities (implemented on `main`)
 - 22. `feature/multi-timeframe-confirmation` — higher timeframe trend alignment filter (implemented on `main`)
-- 23. `feature/xgboost-signal-strategy` — ML-based signal generation using XGBoost on indicator features
+- 23. `feature/xgboost-signal-strategy` — ML-based signal generation using XGBoost on indicator features (implemented on `main`)
 
 Project completion boundary:
 

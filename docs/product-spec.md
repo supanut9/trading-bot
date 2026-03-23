@@ -63,7 +63,7 @@ Iteration and strategy improvement (current focus):
 Profitability improvements (what separates this bot from better real-world bots):
 
 7. `feature/backtest-market-friction-hardening` — add spread, latency, partial-fill, assumption-summary, explicit export columns, and buy-and-hold benchmark realism to replay results, run history, reporting exports, and operator controls (completed)
-8. `feature/xgboost-signal-strategy` — ML-based signal using XGBoost trained on indicator features (planned)
+8. `feature/xgboost-signal-strategy` — ML-based signal using XGBoost trained on indicator features (completed)
 
 ## Initial Market And Strategy
 
