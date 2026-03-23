@@ -99,6 +99,7 @@ Profitability improvements (what separates this bot from better real-world bots)
 - expose configured portfolio risk caps through the status surface for operator review before enabling live mode
 - expose the persisted runtime promotion stage and its blockers through the status surface
 - expose the latest persisted performance-review decision and its stale/not-stale posture through the status and reporting surfaces
+- require a fresh persisted `keep_running` performance-review decision before promoting from `canary` to full `live`
 - block new live entries when live trading is halted by configuration while leaving recovery controls available
 - allow operators to halt or resume live entry through a bounded persisted control without restarting the runtime
 - fail closed on live resume attempts when readiness checks are still blocked

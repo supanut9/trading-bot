@@ -208,7 +208,7 @@ Runtime promotion control:
 - `POST /controls/runtime-promotion` updates the stage only when promotion prerequisites pass for forward moves
 - moving to `qualified` requires passing qualification gates
 - moving to `canary` requires passing qualification gates and a green live-readiness report
-- moving to `live` requires passing qualification gates, a green live-readiness report, and full canary rollout exposure
+- moving to `live` requires passing qualification gates, a green live-readiness report, full canary rollout exposure, and a fresh persisted `keep_running` performance-review decision
 - stage changes do not automatically switch `execution_mode`; they record operator-approved rollout state
 
 Performance review decision control:

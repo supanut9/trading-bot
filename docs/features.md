@@ -1714,7 +1714,7 @@ Why: Real systems usually fail at the recovery boundary, not the happy path. If 
 
 Status:
 
-- planned
+- in progress
 
 Scope:
 
@@ -1730,6 +1730,12 @@ Main outputs:
 - read/write control surface for the current stage plus blocker visibility in status
 - audit trail of who promoted, paused, resumed, or rolled back runtime state
 - operator-visible status summary that explains the current stage and the next missing prerequisite
+
+Current completion slice:
+
+- require a fresh persisted performance-review decision before promoting from canary to full `live`
+- block full `live` promotion when the latest operator decision is stale, missing, or not favorable
+- surface the review-decision blocker through the existing runtime promotion state and control responses
 
 Why: The repo already has many ingredients for safe rollout, but without one explicit promotion workflow, the safety model is spread across env flags, qualification reports, controls, and runbook rules. Real-world use needs one coherent operator path.
 
@@ -1761,7 +1767,7 @@ Why: Even a cost-adjusted backtest can still overstate live viability if it assu
 
 Status:
 
-- in progress
+- completed
 
 Scope:
 
