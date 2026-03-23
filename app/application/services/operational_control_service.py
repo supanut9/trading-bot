@@ -1126,9 +1126,14 @@ class OperationalControlService:
             with self._session_factory() as session:
                 readiness = LiveReadinessService(session, self._settings).build_report()
                 if not readiness.ready:
+                    blocker = (
+                        readiness.blocking_reasons[0]
+                        if readiness.blocking_reasons
+                        else "readiness checks failed"
+                    )
                     control_result = LiveHaltControlResult(
                         status="failed",
-                        detail="cannot resume live trading: readiness checks failed",
+                        detail=f"cannot resume live trading: {blocker}",
                         live_trading_halted=True,
                         changed=False,
                     )

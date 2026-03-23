@@ -1,16 +1,16 @@
 from dataclasses import dataclass
 from decimal import Decimal
 
-from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.application.services.live_operator_control_service import LiveOperatorControlService
+from app.application.services.live_order_recovery_report_service import (
+    LiveOrderRecoveryReportService,
+)
 from app.application.services.operator_runtime_config_service import OperatorRuntimeConfigService
 from app.application.services.qualification_service import QualificationService
-from app.application.services.stale_live_order_service import StaleLiveOrderService
 from app.application.services.symbol_rules_service import SymbolRulesService
 from app.config import Settings
-from app.infrastructure.database.models.order import OrderRecord
 
 
 @dataclass(frozen=True, slots=True)
@@ -49,8 +49,7 @@ class LiveReadinessService:
             self._check_qualification(exchange=exchange, symbol=symbol),
             self._check_startup_sync_enabled(),
             self._check_reconcile_schedule_enabled(),
-            self._check_unresolved_review_required_orders(),
-            self._check_stale_orders(),
+            self._check_recovery_posture(),
             self._check_live_max_order_notional(),
             self._check_live_max_position_quantity(),
         ]
@@ -165,42 +164,31 @@ class LiveReadinessService:
             ),
         )
 
-    def _check_unresolved_review_required_orders(self) -> LiveReadinessCheck:
-        count = (
-            self._session.execute(
-                select(OrderRecord.id).where(
-                    OrderRecord.mode == "live",
-                    OrderRecord.status == "review_required",
-                )
+    def _check_recovery_posture(self) -> LiveReadinessCheck:
+        summary = (
+            LiveOrderRecoveryReportService(
+                self._session,
+                self._settings,
             )
-            .scalars()
-            .all()
+            .build_report(order_limit=50, audit_limit=1)
+            .summary
         )
+        passed = summary.posture in {"clear", "awaiting_exchange"}
+        detail = f"live recovery posture is {summary.posture}"
+        if passed and summary.unresolved_order_count == 0:
+            detail = "live recovery posture is clear"
+        elif passed:
+            detail = f"live recovery posture is {summary.posture}: {summary.summary}"
+        else:
+            detail = (
+                f"live recovery posture is blocked: {summary.summary} "
+                f"(next action: {summary.next_action})"
+            )
         return LiveReadinessCheck(
-            name="review_required_orders",
-            passed=len(count) == 0,
+            name="live_recovery_posture",
+            passed=passed,
             severity="blocking",
-            detail=(
-                "no live orders require operator review"
-                if not count
-                else f"{len(count)} live order(s) require operator review"
-            ),
-        )
-
-    def _check_stale_orders(self) -> LiveReadinessCheck:
-        stale_orders = StaleLiveOrderService(self._session).list_stale_orders(
-            threshold_minutes=self._settings.stale_live_order_threshold_minutes,
-            limit=20,
-        )
-        return LiveReadinessCheck(
-            name="stale_live_orders",
-            passed=len(stale_orders) == 0,
-            severity="blocking",
-            detail=(
-                "no stale live orders require operator action"
-                if not stale_orders
-                else f"{len(stale_orders)} stale live order(s) require operator action"
-            ),
+            detail=detail,
         )
 
     def _check_live_max_order_notional(self) -> LiveReadinessCheck:
