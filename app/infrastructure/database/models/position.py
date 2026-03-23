@@ -19,6 +19,7 @@ class PositionRecord(TimestampMixin, Base):
     side: Mapped[str] = mapped_column(String(10), nullable=False, default="long")
     trading_mode: Mapped[str] = mapped_column(String(20), nullable=False, default="SPOT")
     mode: Mapped[str] = mapped_column(String(20), nullable=False, default="paper")
+    strategy_name: Mapped[str | None] = mapped_column(String(100))
     quantity: Mapped[Decimal] = mapped_column(Numeric(20, 8), nullable=False, default=0)
     average_entry_price: Mapped[Decimal | None] = mapped_column(Numeric(20, 8))
     realized_pnl: Mapped[Decimal] = mapped_column(Numeric(20, 8), nullable=False, default=0)

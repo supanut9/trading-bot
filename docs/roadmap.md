@@ -122,6 +122,7 @@ Profitability improvements — what separates this bot from better real-world bo
 - 21. `feature/multi-symbol-trading` — trade multiple pairs for more edge opportunities (implemented on `main`)
 - 22. `feature/multi-timeframe-confirmation` — higher timeframe trend alignment filter (implemented on `main`)
 - 23. `feature/xgboost-signal-strategy` — ML-based signal generation using XGBoost on indicator features (implemented on `main`)
+- 24. `feature/durable-strategy-identity` — persist strategy identity on orders, trades, and positions before any per-strategy live governor (in progress)
 
 Project completion boundary:
 

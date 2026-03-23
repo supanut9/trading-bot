@@ -21,6 +21,7 @@ class PaperExecutionRequest:
     side: str
     quantity: Decimal
     price: Decimal
+    strategy_name: str | None = None
     order_type: str = "market"
     mode: str = "paper"
     trading_mode: str = "SPOT"
@@ -81,6 +82,7 @@ class PaperExecutionService:
             status="filled",
             trading_mode=request.trading_mode,
             mode=request.mode,
+            strategy_name=request.strategy_name,
             quantity=request.quantity,
             price=request.price,
             average_fill_price=request.price,
@@ -98,6 +100,7 @@ class PaperExecutionService:
             symbol=request.symbol,
             trading_mode=request.trading_mode,
             side=request.side,
+            strategy_name=request.strategy_name,
             quantity=request.quantity,
             price=request.price,
             order_id=order.id,
@@ -157,6 +160,9 @@ class PaperExecutionService:
                     trading_mode=request.trading_mode,
                     mode=request.mode,
                     side="short" if new_quantity > Decimal("0") else "long",
+                    strategy_name=(
+                        current_position.strategy_name if new_quantity > Decimal("0") else None
+                    ),
                     quantity=new_quantity,
                     average_entry_price=new_average,
                     realized_pnl=existing_realized + realized_pnl,
@@ -173,6 +179,7 @@ class PaperExecutionService:
                         trading_mode=request.trading_mode,
                         mode=request.mode,
                         side="long",
+                        strategy_name=request.strategy_name,
                         quantity=remaining_quantity,
                         average_entry_price=request.price,
                         realized_pnl=position.realized_pnl,
@@ -192,6 +199,8 @@ class PaperExecutionService:
                 trading_mode=request.trading_mode,
                 mode=request.mode,
                 side="long",
+                strategy_name=request.strategy_name
+                or (current_position.strategy_name if current_position else None),
                 quantity=new_quantity,
                 average_entry_price=new_average,
                 realized_pnl=existing_realized,
@@ -222,6 +231,9 @@ class PaperExecutionService:
                 trading_mode=request.trading_mode,
                 mode=request.mode,
                 side="long",
+                strategy_name=current_position.strategy_name
+                if new_quantity > Decimal("0")
+                else None,
                 quantity=new_quantity,
                 average_entry_price=new_average,
                 realized_pnl=existing_realized + realized_pnl,
@@ -238,6 +250,7 @@ class PaperExecutionService:
                         trading_mode=request.trading_mode,
                         mode=request.mode,
                         side="short",
+                        strategy_name=request.strategy_name,
                         quantity=remaining_quantity,
                         average_entry_price=request.price,
                         realized_pnl=position.realized_pnl,
@@ -266,6 +279,8 @@ class PaperExecutionService:
             trading_mode=request.trading_mode,
             mode=request.mode,
             side="short",
+            strategy_name=request.strategy_name
+            or (current_position.strategy_name if current_position else None),
             quantity=new_quantity,
             average_entry_price=new_average,
             realized_pnl=existing_realized,

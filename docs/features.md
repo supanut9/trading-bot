@@ -1631,11 +1631,11 @@ Why: Entries that align with the higher timeframe trend have historically higher
 
 ## Current Recommended Queue
 
-Features 59–87 are complete on `main`. The system now has ATR stops, ADX regime detection, volatility-adjusted sizing, multi-symbol trading, auto-sync backtest, multi-timeframe trend confirmation, hardened replay friction plus benchmark reporting, and the XGBoost signal path.
+Features 59–88 are complete on `main`. The system now has ATR stops, ADX regime detection, volatility-adjusted sizing, multi-symbol trading, auto-sync backtest, multi-timeframe trend confirmation, hardened replay friction plus benchmark reporting, the XGBoost signal path, and the live review / promotion loop.
 
 Next bounded features:
 
-- no remaining in-progress features in the current catalog; define the next bounded feature before implementation
+- 1. `feature/durable-strategy-identity` — persist strategy identity on orders, trades, and positions so future per-strategy live risk controls are enforceable
 
 ### 83. `feature/xgboost-signal-strategy`
 
@@ -1798,3 +1798,24 @@ Main outputs:
 - audit events for recorded performance review decisions
 
 Why: Recommendation logic and root-cause analysis now exist, but without a durable operator decision record there is no trustworthy evidence trail for later promotion gating or review accountability.
+
+### 89. `feature/durable-strategy-identity`
+
+Status:
+
+- in progress
+
+Scope:
+
+- persist durable `strategy_name` identity on execution records instead of inferring it later from transient operator config
+- keep the feature bounded to identity propagation and storage, not per-strategy risk policy yet
+- preserve current one-position-per-symbol behavior until a later feature intentionally changes live position partitioning
+
+Main outputs:
+
+- `strategy_name` persisted on `orders`, `trades`, and `positions`
+- execution and reconciliation paths that carry strategy identity from request to stored records
+- local schema reconciliation for existing development databases
+- tests proving strategy identity survives paper execution, live submission, and live fill reconciliation
+
+Why: Per-strategy exposure caps are not trustworthy until the runtime stores strategy identity durably on the records those caps would inspect. Without that, any future “per-strategy” live governor would silently depend on the current operator config rather than the order or position that actually exists.

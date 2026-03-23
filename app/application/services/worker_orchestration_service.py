@@ -427,6 +427,11 @@ class WorkerOrchestrationService:
             if signal.action == "sell" and current_position is not None
             else (risk_decision.quantity * canary_multiplier).quantize(Decimal("0.00000001"))
         )
+        active_strategy_name = (
+            self._operator_config.strategy_name
+            if self._operator_config is not None
+            else "ema_crossover"
+        )
         try:
             execution = self._execution.execute(
                 PaperExecutionRequest(
@@ -437,6 +442,7 @@ class WorkerOrchestrationService:
                     price=latest_price,
                     mode=self._trading_mode,
                     trading_mode=self._settings.trading_mode,
+                    strategy_name=active_strategy_name,
                     client_order_id=client_order_id,
                     submitted_reason=signal.reason,
                 )
@@ -718,6 +724,7 @@ class WorkerOrchestrationService:
                     price=mark_price,
                     mode=self._trading_mode,
                     trading_mode=self._settings.trading_mode,
+                    strategy_name=position.strategy_name,
                     client_order_id=client_order_id,
                     submitted_reason="stop_loss_hit",
                 )

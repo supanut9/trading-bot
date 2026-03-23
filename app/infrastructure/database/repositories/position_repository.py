@@ -41,6 +41,7 @@ class PositionRepository:
         trading_mode: str = "SPOT",
         mode: str,
         side: str,
+        strategy_name: str | None = None,
         quantity: Decimal,
         average_entry_price: Decimal | None = None,
         realized_pnl: Decimal = Decimal("0"),
@@ -61,6 +62,7 @@ class PositionRepository:
                 trading_mode=trading_mode,
                 mode=mode,
                 side=side,
+                strategy_name=strategy_name,
                 quantity=quantity,
                 average_entry_price=average_entry_price,
                 realized_pnl=realized_pnl,
@@ -71,6 +73,7 @@ class PositionRepository:
             self._session.add(record)
         else:
             record.side = side
+            record.strategy_name = strategy_name
             record.quantity = quantity
             record.average_entry_price = average_entry_price
             record.realized_pnl = realized_pnl

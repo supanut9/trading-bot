@@ -33,6 +33,7 @@ def test_executes_buy_and_creates_filled_order_trade_and_position(tmp_path: Path
             side="buy",
             quantity=Decimal("0.002"),
             price=Decimal("50000"),
+            strategy_name="ema_crossover",
             client_order_id="paper-binance-btc-usdt-buy-1",
             submitted_reason="entry signal",
         )
@@ -40,9 +41,12 @@ def test_executes_buy_and_creates_filled_order_trade_and_position(tmp_path: Path
 
     assert result.order.status == "filled"
     assert result.order.client_order_id == "paper-binance-btc-usdt-buy-1"
+    assert result.order.strategy_name == "ema_crossover"
     assert result.trade.order_id == result.order.id
+    assert result.trade.strategy_name == "ema_crossover"
     assert result.position.quantity == Decimal("0.00200000")
     assert result.position.average_entry_price == Decimal("50000")
+    assert result.position.strategy_name == "ema_crossover"
     assert result.realized_pnl == Decimal("0")
 
 

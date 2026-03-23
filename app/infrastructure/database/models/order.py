@@ -22,6 +22,7 @@ class OrderRecord(TimestampMixin, Base):
     status: Mapped[str] = mapped_column(String(20), nullable=False)
     trading_mode: Mapped[str] = mapped_column(String(20), nullable=False, default="SPOT")
     mode: Mapped[str] = mapped_column(String(20), nullable=False, default="paper")
+    strategy_name: Mapped[str | None] = mapped_column(String(100))
     client_order_id: Mapped[str | None] = mapped_column(String(100))
     exchange_order_id: Mapped[str | None] = mapped_column(String(100))
     quantity: Mapped[Decimal] = mapped_column(Numeric(20, 8), nullable=False)

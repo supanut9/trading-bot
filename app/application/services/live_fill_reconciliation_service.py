@@ -115,6 +115,7 @@ class LiveFillReconciliationService:
                 exchange=order.exchange,
                 symbol=order.symbol,
                 side=order.side,
+                strategy_name=order.strategy_name,
                 quantity=to_reconcile_qty,
                 price=incremental_price,
                 order_id=order.id,
@@ -175,6 +176,8 @@ class LiveFillReconciliationService:
                 symbol=order.symbol,
                 mode=order.mode,
                 side="long",
+                strategy_name=order.strategy_name
+                or (current_position.strategy_name if current_position is not None else None),
                 quantity=new_quantity,
                 average_entry_price=new_average,
                 realized_pnl=existing_realized,
@@ -196,6 +199,12 @@ class LiveFillReconciliationService:
             symbol=order.symbol,
             mode=order.mode,
             side="long",
+            strategy_name=(
+                order.strategy_name
+                or (current_position.strategy_name if current_position is not None else None)
+            )
+            if new_quantity > Decimal("0")
+            else None,
             quantity=new_quantity,
             average_entry_price=new_average,
             realized_pnl=existing_realized + realized_pnl,
