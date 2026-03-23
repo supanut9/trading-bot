@@ -19,6 +19,8 @@ from app.application.services.live_performance_review_service import (
     LivePerformanceReviewService,
 )
 from app.application.services.qualification_service import QualificationService
+from app.application.services.runtime_promotion_service import RuntimePromotionService
+from app.config import Settings
 from app.core.logger import get_logger
 
 logger = get_logger(__name__)
@@ -58,6 +60,7 @@ class StrategyIterationService:
         self._session = session
         self._review_svc = LivePerformanceReviewService(session)
         self._qual_svc = QualificationService(session)
+        self._promotion_svc = RuntimePromotionService(session, Settings())
 
     def get_iteration_plan(
         self,
@@ -72,12 +75,14 @@ class StrategyIterationService:
             review_period_days=review_period_days,
         )
         qual = self._qual_svc.evaluate(exchange=exchange, symbol=symbol)
+        promotion_state = self._promotion_svc.get_state()
 
         recommendation: IterationRecommendation = review.recommendation  # type: ignore[assignment]
         steps = self._build_steps(
             recommendation=recommendation,
             review=review,
             qual=qual,
+            current_stage=promotion_state.stage,
         )
 
         all_clear = all(s.status in ("passed", "pending") for s in steps)
@@ -106,7 +111,7 @@ class StrategyIterationService:
     # ------------------------------------------------------------------
 
     def _build_steps(
-        self, *, recommendation: str, review: object, qual: object
+        self, *, recommendation: str, review: object, qual: object, current_stage: str
     ) -> list[IterationStep]:
         from app.application.services.live_performance_review_service import LivePerformanceReview
         from app.application.services.qualification_service import QualificationReport
@@ -115,25 +120,33 @@ class StrategyIterationService:
         assert isinstance(qual, QualificationReport)
 
         if recommendation == "keep_running":
-            return self._steps_keep_running(qual)
+            return self._steps_keep_running(qual, review, current_stage)
         if recommendation == "reduce_risk":
-            return self._steps_reduce_risk(qual, review)
+            return self._steps_reduce_risk(qual, review, current_stage)
         if recommendation == "pause_and_rework":
-            return self._steps_pause_and_rework(qual, review)
+            return self._steps_pause_and_rework(qual, review, current_stage)
         # halt
-        return self._steps_halt(qual, review)
+        return self._steps_halt(qual, review, current_stage)
 
     @staticmethod
-    def _steps_keep_running(qual: object) -> list[IterationStep]:
+    def _steps_keep_running(
+        qual: object, review: object, current_stage: str
+    ) -> list[IterationStep]:
+        from app.application.services.live_performance_review_service import LivePerformanceReview
         from app.application.services.qualification_service import QualificationReport
 
         assert isinstance(qual, QualificationReport)
+        assert isinstance(review, LivePerformanceReview)
         gates_passed = qual.all_passed
         return [
             IterationStep(
                 name="performance_review",
                 status="passed",
                 description="Performance is within healthy ranges. No action required.",
+                evidence=StrategyIterationService._decision_evidence(
+                    decision=review.latest_decision,
+                    current_stage=current_stage,
+                ),
             ),
             IterationStep(
                 name="qualification_gates",
@@ -156,7 +169,7 @@ class StrategyIterationService:
         ]
 
     @staticmethod
-    def _steps_reduce_risk(qual: object, review: object) -> list[IterationStep]:
+    def _steps_reduce_risk(qual: object, review: object, current_stage: str) -> list[IterationStep]:
         from app.application.services.live_performance_review_service import LivePerformanceReview
         from app.application.services.qualification_service import QualificationReport
 
@@ -164,6 +177,11 @@ class StrategyIterationService:
         assert isinstance(review, LivePerformanceReview)
 
         steps: list[IterationStep] = [
+            StrategyIterationService._review_decision_step(
+                recommendation="reduce_risk",
+                decision=review.latest_decision,
+                current_stage=current_stage,
+            ),
             IterationStep(
                 name="reduce_position_size",
                 status="required",
@@ -175,6 +193,10 @@ class StrategyIterationService:
                     f"{review.root_cause.summary} "
                     f"Focus: {'; '.join(review.root_cause.operator_focus)}"
                 ),
+            ),
+            StrategyIterationService._runtime_stage_step(
+                recommendation="reduce_risk",
+                current_stage=current_stage,
             ),
             IterationStep(
                 name="shadow_monitoring",
@@ -201,7 +223,9 @@ class StrategyIterationService:
         return steps
 
     @staticmethod
-    def _steps_pause_and_rework(qual: object, review: object) -> list[IterationStep]:
+    def _steps_pause_and_rework(
+        qual: object, review: object, current_stage: str
+    ) -> list[IterationStep]:
         from app.application.services.live_performance_review_service import LivePerformanceReview
         from app.application.services.qualification_service import QualificationReport
 
@@ -212,6 +236,11 @@ class StrategyIterationService:
         oos_baseline = review.oos_baseline
 
         steps: list[IterationStep] = [
+            StrategyIterationService._review_decision_step(
+                recommendation="pause_and_rework",
+                decision=review.latest_decision,
+                current_stage=current_stage,
+            ),
             IterationStep(
                 name="halt_live_exposure",
                 status="required",
@@ -235,6 +264,10 @@ class StrategyIterationService:
                     f"Primary driver: {review.root_cause.primary_driver}; "
                     f"regime: {review.root_cause.regime_assessment}"
                 ),
+            ),
+            StrategyIterationService._runtime_stage_step(
+                recommendation="pause_and_rework",
+                current_stage=current_stage,
             ),
             IterationStep(
                 name="rework_strategy_params",
@@ -272,17 +305,26 @@ class StrategyIterationService:
             ),
             IterationStep(
                 name="promote_to_live",
-                status="blocked" if not qual.all_passed else "pending",
+                status=StrategyIterationService._repromotion_status(
+                    current_recommendation=review.recommendation,
+                    qual_all_passed=qual.all_passed,
+                    decision=review.latest_decision,
+                ),
                 description=(
                     "Re-enable live trading (set LIVE_TRADING_ENABLED=true and "
                     "clear the halt flag via the operator controls API)."
+                ),
+                evidence=StrategyIterationService._repromotion_evidence(
+                    current_recommendation=review.recommendation,
+                    qual=qual,
+                    decision=review.latest_decision,
                 ),
             ),
         ]
         return steps
 
     @staticmethod
-    def _steps_halt(qual: object, review: object) -> list[IterationStep]:
+    def _steps_halt(qual: object, review: object, current_stage: str) -> list[IterationStep]:
         from app.application.services.live_performance_review_service import LivePerformanceReview
         from app.application.services.qualification_service import QualificationReport
 
@@ -301,6 +343,11 @@ class StrategyIterationService:
         )
 
         steps: list[IterationStep] = [
+            StrategyIterationService._review_decision_step(
+                recommendation="halt",
+                decision=review.latest_decision,
+                current_stage=current_stage,
+            ),
             IterationStep(
                 name="immediate_halt",
                 status="required",
@@ -309,6 +356,10 @@ class StrategyIterationService:
                     f"Consecutive losses: {health.consecutive_losses}. {drawdown_note}"
                 ).strip(),
                 evidence="; ".join(review.recommendation_reasons),
+            ),
+            StrategyIterationService._runtime_stage_step(
+                recommendation="halt",
+                current_stage=current_stage,
             ),
             IterationStep(
                 name="incident_review",
@@ -356,14 +407,172 @@ class StrategyIterationService:
             ),
             IterationStep(
                 name="promote_to_live",
-                status="blocked" if not qual.all_passed else "pending",
+                status=StrategyIterationService._repromotion_status(
+                    current_recommendation=review.recommendation,
+                    qual_all_passed=qual.all_passed,
+                    decision=review.latest_decision,
+                ),
                 description=(
                     "Re-enable live trading only after all gates are green and "
                     "canary rollout is confirmed."
                 ),
+                evidence=StrategyIterationService._repromotion_evidence(
+                    current_recommendation=review.recommendation,
+                    qual=qual,
+                    decision=review.latest_decision,
+                ),
             ),
         ]
         return steps
+
+    @staticmethod
+    def _review_decision_step(
+        *,
+        recommendation: str,
+        decision: object | None,
+        current_stage: str,
+    ) -> IterationStep:
+        evidence = StrategyIterationService._decision_evidence(
+            decision=decision,
+            current_stage=current_stage,
+        )
+        if decision is None:
+            return IterationStep(
+                name="record_operator_decision",
+                status="required",
+                description=(
+                    "Persist the operator performance-review decision so the iteration "
+                    "workflow has auditable context before rollback or re-promotion."
+                ),
+                evidence=evidence,
+            )
+        if getattr(decision, "stale", False):
+            return IterationStep(
+                name="record_operator_decision",
+                status="required",
+                description=(
+                    "Record a fresh operator performance-review decision before acting "
+                    "on the iteration workflow."
+                ),
+                evidence=evidence,
+            )
+        if getattr(decision, "operator_decision", None) != recommendation:
+            return IterationStep(
+                name="record_operator_decision",
+                status="required",
+                description=(
+                    "Update the persisted operator performance-review decision so it "
+                    "matches the current review recommendation."
+                ),
+                evidence=evidence,
+            )
+        return IterationStep(
+            name="record_operator_decision",
+            status="passed",
+            description=(
+                "The persisted operator review decision matches the current recommendation."
+            ),
+            evidence=evidence,
+        )
+
+    @staticmethod
+    def _runtime_stage_step(*, recommendation: str, current_stage: str) -> IterationStep:
+        if recommendation == "reduce_risk":
+            if current_stage == "live":
+                return IterationStep(
+                    name="adjust_runtime_promotion",
+                    status="required",
+                    description=(
+                        "Roll runtime promotion back from full live to canary while "
+                        "reduced-risk posture is in effect."
+                    ),
+                    evidence=f"current_runtime_stage={current_stage}",
+                )
+            return IterationStep(
+                name="adjust_runtime_promotion",
+                status="passed",
+                description="Current runtime stage already avoids full live exposure.",
+                evidence=f"current_runtime_stage={current_stage}",
+            )
+
+        if current_stage in {"qualified", "canary", "live"}:
+            return IterationStep(
+                name="adjust_runtime_promotion",
+                status="required",
+                description=(
+                    "Roll runtime promotion back to shadow or paper while the strategy "
+                    "is being revalidated."
+                ),
+                evidence=f"current_runtime_stage={current_stage}",
+            )
+        return IterationStep(
+            name="adjust_runtime_promotion",
+            status="passed",
+            description="Runtime promotion stage is already at a safe pre-live posture.",
+            evidence=f"current_runtime_stage={current_stage}",
+        )
+
+    @staticmethod
+    def _repromotion_status(
+        *,
+        current_recommendation: str,
+        qual_all_passed: bool,
+        decision: object | None,
+    ) -> StepStatus:
+        if current_recommendation != "keep_running":
+            return "blocked"
+        if not qual_all_passed:
+            return "blocked"
+        if decision is None or getattr(decision, "stale", False):
+            return "blocked"
+        if getattr(decision, "operator_decision", None) != "keep_running":
+            return "blocked"
+        return "pending"
+
+    @staticmethod
+    def _repromotion_evidence(
+        *,
+        current_recommendation: str,
+        qual: object,
+        decision: object | None,
+    ) -> str | None:
+        from app.application.services.qualification_service import QualificationReport
+
+        assert isinstance(qual, QualificationReport)
+        if current_recommendation != "keep_running":
+            return (
+                "Current performance review recommendation is "
+                f"{current_recommendation}; revalidation must produce keep_running "
+                "before full live re-promotion."
+            )
+        if not qual.all_passed:
+            return "; ".join(g.reason for g in qual.gates if not g.passed)  # type: ignore[union-attr]
+        if decision is None:
+            return "Record a fresh keep_running performance-review decision after revalidation."
+        if getattr(decision, "stale", False):
+            return (
+                "Latest performance-review decision is stale; record a fresh keep_running decision."
+            )
+        if getattr(decision, "operator_decision", None) != "keep_running":
+            return (
+                "Latest persisted performance-review decision is "
+                f"{getattr(decision, 'operator_decision', 'unknown')}; "
+                "full live re-promotion requires keep_running."
+            )
+        return StrategyIterationService._decision_evidence(
+            decision=decision,
+            current_stage="shadow",
+        )
+
+    @staticmethod
+    def _decision_evidence(*, decision: object | None, current_stage: str) -> str:
+        if decision is None:
+            return f"current_runtime_stage={current_stage}; no persisted review decision"
+        return (
+            f"current_runtime_stage={current_stage}; "
+            f"operator_decision={getattr(decision, 'operator_decision', 'unknown')}; "
+            f"stale={getattr(decision, 'stale', 'unknown')}"
+        )
 
 
 # ---------------------------------------------------------------------------
