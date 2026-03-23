@@ -827,6 +827,7 @@ class LiveModeMetricsResponse(BaseModel):
     trade_count: int
     win_rate_pct: Decimal | None
     expectancy: Decimal | None
+    total_return_pct: Decimal | None
     max_drawdown_pct: Decimal | None
     total_net_pnl: Decimal
     total_fees_paid: Decimal
@@ -840,6 +841,7 @@ class ShadowModeMetricsResponse(BaseModel):
     trade_count: int
     win_rate_pct: Decimal | None
     expectancy: Decimal | None
+    total_return_pct: Decimal | None
     max_drawdown_pct: Decimal | None
     total_net_pnl: Decimal
 
@@ -853,6 +855,7 @@ class OOSBaselineResponse(BaseModel):
     oos_drawdown_pct: Decimal
     oos_total_trades: int
     in_sample_return_pct: Decimal
+    modeled_slippage_pct: Decimal | None
     overfitting_warning: bool
 
     model_config = ConfigDict(from_attributes=True)

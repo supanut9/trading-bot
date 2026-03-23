@@ -30,6 +30,8 @@ def _make_trade(
     trade.fee_amount = Decimal("0")
     trade.created_at = created_at or datetime.now(UTC)
     trade.order_id = 1
+    trade.price = Decimal("100")
+    trade.quantity = Decimal("1")
     return trade, order
 
 
@@ -39,6 +41,8 @@ def _make_wf_run(
     oos_drawdown_pct: str = "10.0",
     oos_total_trades: int = 40,
     in_sample_return_pct: str = "8.0",
+    slippage_pct: str | None = None,
+    spread_pct: str | None = None,
     overfitting_warning: bool = False,
 ) -> BacktestRunRecord:
     run = MagicMock(spec=BacktestRunRecord)
@@ -48,6 +52,8 @@ def _make_wf_run(
     run.walk_forward_oos_drawdown_pct = Decimal(oos_drawdown_pct)
     run.walk_forward_oos_total_trades = oos_total_trades
     run.walk_forward_in_sample_return_pct = Decimal(in_sample_return_pct)
+    run.slippage_pct = Decimal(slippage_pct) if slippage_pct is not None else None
+    run.spread_pct = Decimal(spread_pct) if spread_pct is not None else None
     run.walk_forward_overfitting_warning = overfitting_warning
     return run
 
@@ -172,6 +178,8 @@ def test_high_slippage_triggers_pause_and_rework(session, monkeypatch):
     # Provide shadow trades so shadow_metrics has a win_rate
     shadow_trade = MagicMock()
     shadow_trade.net_pnl = Decimal("100")
+    shadow_trade.quantity = Decimal("1")
+    shadow_trade.simulated_fill_price = Decimal("100")
     mock_shadow_repo.list_closed.return_value = [shadow_trade] * 5
 
     mock_trade_repo = MagicMock()
@@ -191,6 +199,8 @@ def test_high_slippage_triggers_pause_and_rework(session, monkeypatch):
     live_trade.realized_pnl = Decimal("50")
     live_trade.fee_amount = Decimal("1")
     live_trade.created_at = datetime.now(UTC)
+    live_trade.price = Decimal("100")
+    live_trade.quantity = Decimal("1")
 
     scalars_result = MagicMock()
     scalars_result.scalars.return_value = iter([live_trade, live_trade])
@@ -228,6 +238,8 @@ def test_moderate_slippage_triggers_reduce_risk(session, monkeypatch):
     mock_shadow_repo = MagicMock()
     shadow_trade = MagicMock()
     shadow_trade.net_pnl = Decimal("100")
+    shadow_trade.quantity = Decimal("1")
+    shadow_trade.simulated_fill_price = Decimal("100")
     mock_shadow_repo.list_closed.return_value = [shadow_trade] * 5
 
     mock_trade_repo = MagicMock()
@@ -246,6 +258,8 @@ def test_moderate_slippage_triggers_reduce_risk(session, monkeypatch):
     live_trade.realized_pnl = Decimal("50")
     live_trade.fee_amount = Decimal("1")
     live_trade.created_at = datetime.now(UTC)
+    live_trade.price = Decimal("100")
+    live_trade.quantity = Decimal("1")
 
     scalars_result = MagicMock()
     scalars_result.scalars.return_value = iter([live_trade, live_trade])
@@ -325,6 +339,8 @@ def test_healthy_live_metrics_returns_keep_running(session, monkeypatch):
     mock_shadow_repo = MagicMock()
     shadow_trade = MagicMock()
     shadow_trade.net_pnl = Decimal("80")
+    shadow_trade.quantity = Decimal("1")
+    shadow_trade.simulated_fill_price = Decimal("100")
     mock_shadow_repo.list_closed.return_value = [shadow_trade] * 10
 
     mock_trade_repo = MagicMock()
@@ -343,6 +359,8 @@ def test_healthy_live_metrics_returns_keep_running(session, monkeypatch):
     live_trade.realized_pnl = Decimal("100")
     live_trade.fee_amount = Decimal("1")
     live_trade.created_at = datetime.now(UTC)
+    live_trade.price = Decimal("100")
+    live_trade.quantity = Decimal("1")
 
     scalars_result = MagicMock()
     scalars_result.scalars.return_value = iter([live_trade, live_trade, live_trade])
@@ -367,3 +385,91 @@ def test_healthy_live_metrics_returns_keep_running(session, monkeypatch):
     assert review.recommendation == "keep_running"
     assert review.live_metrics is not None
     assert review.live_metrics.trade_count == 3
+
+
+def test_modeled_slippage_baseline_reduces_observed_overshoot(session, monkeypatch):
+    mock_shadow_repo = MagicMock()
+    shadow_trade = MagicMock()
+    shadow_trade.net_pnl = Decimal("100")
+    shadow_trade.quantity = Decimal("1")
+    shadow_trade.simulated_fill_price = Decimal("100")
+    mock_shadow_repo.list_closed.return_value = [shadow_trade] * 5
+
+    mock_trade_repo = MagicMock()
+    mock_trade_repo.get_consecutive_losses.return_value = 0
+
+    monkeypatch.setattr(
+        "app.application.services.live_performance_review_service.ShadowTradeRepository",
+        lambda session: mock_shadow_repo,
+    )
+    monkeypatch.setattr(
+        "app.application.services.live_performance_review_service.TradeRepository",
+        lambda session: mock_trade_repo,
+    )
+
+    live_trade = MagicMock(spec=TradeRecord)
+    live_trade.realized_pnl = Decimal("50")
+    live_trade.fee_amount = Decimal("1")
+    live_trade.created_at = datetime.now(UTC)
+    live_trade.price = Decimal("100")
+    live_trade.quantity = Decimal("1")
+
+    scalars_result = MagicMock()
+    scalars_result.scalars.return_value = iter([live_trade, live_trade])
+
+    all_result = MagicMock()
+    all_result.all.return_value = [
+        (Decimal("100"), Decimal("101.5")),
+        (Decimal("100"), Decimal("101.5")),
+    ]
+
+    wf_result = MagicMock()
+    wf_result.scalar_one_or_none.return_value = _make_wf_run(
+        slippage_pct="0.8",
+        spread_pct="0.4",
+    )
+
+    session.execute.side_effect = [scalars_result, all_result, wf_result]
+
+    service = LivePerformanceReviewService(session)
+    review = service.get_performance_review(exchange="binance", symbol="BTC/USDT")
+
+    assert review.oos_baseline is not None
+    assert review.oos_baseline.modeled_slippage_pct == Decimal("1.2")
+    assert review.health_indicators.slippage_vs_model_pct == Decimal("0.3")
+    assert review.recommendation == "keep_running"
+
+
+def test_shadow_vs_oos_drift_uses_return_pct_basis(session, monkeypatch):
+    mock_shadow_repo = MagicMock()
+    shadow_trade = MagicMock()
+    shadow_trade.net_pnl = Decimal("10")
+    shadow_trade.quantity = Decimal("1")
+    shadow_trade.simulated_fill_price = Decimal("100")
+    mock_shadow_repo.list_closed.return_value = [shadow_trade] * 5
+
+    mock_trade_repo = MagicMock()
+    mock_trade_repo.get_consecutive_losses.return_value = 0
+
+    monkeypatch.setattr(
+        "app.application.services.live_performance_review_service.ShadowTradeRepository",
+        lambda session: mock_shadow_repo,
+    )
+    monkeypatch.setattr(
+        "app.application.services.live_performance_review_service.TradeRepository",
+        lambda session: mock_trade_repo,
+    )
+
+    scalars_result = MagicMock()
+    scalars_result.scalars.return_value = iter([])
+
+    wf_result = MagicMock()
+    wf_result.scalar_one_or_none.return_value = _make_wf_run(oos_return_pct="20.0")
+
+    session.execute.side_effect = [scalars_result, wf_result]
+
+    service = LivePerformanceReviewService(session)
+    review = service.get_performance_review(exchange="binance", symbol="BTC/USDT")
+
+    assert review.shadow_metrics.total_return_pct == Decimal("10")
+    assert review.health_indicators.shadow_vs_oos_expectancy_drift == Decimal("-50")
