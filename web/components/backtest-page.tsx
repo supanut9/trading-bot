@@ -56,6 +56,14 @@ type BacktestFormState = {
   fast_period: string;
   slow_period: string;
   starting_equity: string;
+  slippage_pct: string;
+  fee_pct: string;
+  spread_pct: string;
+  signal_latency_bars: string;
+  allowed_weekdays_utc: string;
+  allowed_hours_utc: string;
+  max_volume_fill_pct: string;
+  allow_partial_fills: boolean;
   rules: StrategyRuleBuilderRequest;
   rsi_period: string;
   rsi_overbought: string;
@@ -385,6 +393,78 @@ function formatRunCreatedAt(value: string): string {
     dateStyle: "medium",
     timeStyle: "short",
   });
+}
+
+function parseIntegerList(value: string, minimum: number, maximum: number): number[] {
+  if (!value.trim()) {
+    return [];
+  }
+
+  return value
+    .split(",")
+    .map((entry) => Number(entry.trim()))
+    .filter(
+      (entry, index, values) =>
+        Number.isInteger(entry) &&
+        entry >= minimum &&
+        entry <= maximum &&
+        values.indexOf(entry) === index,
+    )
+    .sort((left, right) => left - right);
+}
+
+function formatIntegerList(value: number[] | null | undefined): string {
+  if (!value || value.length === 0) {
+    return "";
+  }
+  return value.join(", ");
+}
+
+function formatUtcWeekdays(value: number[]): string {
+  if (value.length === 0) {
+    return "All UTC weekdays";
+  }
+  return `UTC weekdays ${value.join(", ")}`;
+}
+
+function formatUtcHours(value: number[]): string {
+  if (value.length === 0) {
+    return "All UTC hours";
+  }
+  return `UTC hours ${value.join(", ")}`;
+}
+
+function buildAssumptionBadges({
+  slippage_pct,
+  fee_pct,
+  spread_pct,
+  signal_latency_bars,
+  allowed_weekdays_utc,
+  allowed_hours_utc,
+  max_volume_fill_pct,
+  allow_partial_fills,
+}: {
+  slippage_pct: string | null;
+  fee_pct: string | null;
+  spread_pct: string | null;
+  signal_latency_bars: number;
+  allowed_weekdays_utc: number[];
+  allowed_hours_utc: number[];
+  max_volume_fill_pct: string | null;
+  allow_partial_fills: boolean;
+}): string[] {
+  return [
+    `Slippage ${formatDecimal(slippage_pct, { maximumFractionDigits: 4 })}%`,
+    `Fees ${formatDecimal(fee_pct, { maximumFractionDigits: 4 })}%`,
+    `Spread ${formatDecimal(spread_pct, { maximumFractionDigits: 4 })}%`,
+    `Latency ${signal_latency_bars} bar${signal_latency_bars === 1 ? "" : "s"}`,
+    formatUtcWeekdays(allowed_weekdays_utc),
+    formatUtcHours(allowed_hours_utc),
+    max_volume_fill_pct !== null
+      ? `Max volume fill ${formatDecimal(Number(max_volume_fill_pct) * 100, { maximumFractionDigits: 2 })}%`
+      : "No volume cap",
+    allow_partial_fills ? "Partial fills allowed" : "Full fills required",
+  ];
 }
 
 function RuleConditionEditor({
@@ -805,6 +885,28 @@ function ResultPanel({
         </div>
       ) : null}
 
+      <div className="rounded-[1.8rem] border border-cyan-300/15 bg-cyan-300/[0.05] p-5">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p className="text-[11px] uppercase tracking-[0.2em] text-cyan-200/80">
+              Friction Assumptions
+            </p>
+            <p className="mt-2 text-sm text-slate-300">
+              Replay realism applied to this result and stored with the run history.
+            </p>
+          </div>
+          <Badge variant="info">Assumption summary</Badge>
+        </div>
+        <div className="mt-4 flex flex-wrap gap-2">
+          {buildAssumptionBadges(result).map((badge) => (
+            <Badge key={badge} variant="neutral">
+              {badge}
+            </Badge>
+          ))}
+        </div>
+        <p className="mt-4 text-xs text-slate-400">{result.assumption_summary}</p>
+      </div>
+
       <BacktestChart result={result} />
 
       <div className="rounded-[1.8rem] border border-white/10 bg-white/[0.03] p-4">
@@ -949,6 +1051,14 @@ function RecentRunsPanel({
                 <span>Return {formatSignedDecimal(run.total_return_pct)}</span>
                 <span>PnL {formatSignedDecimal(run.realized_pnl)}</span>
               </div>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {buildAssumptionBadges(run).map((badge) => (
+                  <Badge key={`${run.id}-${badge}`} variant="neutral">
+                    {badge}
+                  </Badge>
+                ))}
+              </div>
+              <p className="mt-3 text-xs text-slate-400">{run.assumption_summary}</p>
               <button
                 className="mt-4 rounded-2xl border border-cyan-300/20 px-4 py-2 text-sm font-medium text-cyan-100 transition hover:bg-cyan-300/10"
                 onClick={() => onLoadRun(run)}
@@ -974,6 +1084,14 @@ export function BacktestPage() {
     fast_period: "",
     slow_period: "",
     starting_equity: "10000",
+    slippage_pct: "0.0005",
+    fee_pct: "0.001",
+    spread_pct: "0",
+    signal_latency_bars: "0",
+    allowed_weekdays_utc: "",
+    allowed_hours_utc: "",
+    max_volume_fill_pct: "",
+    allow_partial_fills: false,
     rules: buildPresetRules("ema_crossover_equivalent", "20", "50"),
     rsi_period: "14",
     rsi_overbought: "65",
@@ -1104,6 +1222,14 @@ export function BacktestPage() {
         fast_period: inferred.fastPeriod,
         slow_period: inferred.slowPeriod,
         starting_equity: String(Number(run.starting_equity_input)),
+        slippage_pct: run.slippage_pct ?? "0.0005",
+        fee_pct: run.fee_pct ?? "0.001",
+        spread_pct: run.spread_pct ?? "0",
+        signal_latency_bars: String(run.signal_latency_bars ?? 0),
+        allowed_weekdays_utc: formatIntegerList(run.allowed_weekdays_utc),
+        allowed_hours_utc: formatIntegerList(run.allowed_hours_utc),
+        max_volume_fill_pct: run.max_volume_fill_pct ?? "",
+        allow_partial_fills: run.allow_partial_fills,
         rules: cloneRules(run.rules),
         rsi_period: "14",
         rsi_overbought: "65",
@@ -1135,6 +1261,14 @@ export function BacktestPage() {
       fast_period: run.fast_period !== null ? String(run.fast_period) : current.fast_period,
       slow_period: run.slow_period !== null ? String(run.slow_period) : current.slow_period,
       starting_equity: String(Number(run.starting_equity_input)),
+      slippage_pct: run.slippage_pct ?? current.slippage_pct,
+      fee_pct: run.fee_pct ?? current.fee_pct,
+      spread_pct: run.spread_pct ?? current.spread_pct,
+      signal_latency_bars: String(run.signal_latency_bars ?? 0),
+      allowed_weekdays_utc: formatIntegerList(run.allowed_weekdays_utc),
+      allowed_hours_utc: formatIntegerList(run.allowed_hours_utc),
+      max_volume_fill_pct: run.max_volume_fill_pct ?? "",
+      allow_partial_fills: run.allow_partial_fills,
     }));
   }
 
@@ -1147,7 +1281,18 @@ export function BacktestPage() {
       timeframe: form.timeframe.trim(),
       starting_equity: Number(form.starting_equity),
       trading_mode: form.trading_mode,
+      slippage_pct: form.slippage_pct,
+      fee_pct: form.fee_pct,
+      spread_pct: form.spread_pct,
+      signal_latency_bars: Number(form.signal_latency_bars),
+      allowed_weekdays_utc: parseIntegerList(form.allowed_weekdays_utc, 0, 6),
+      allowed_hours_utc: parseIntegerList(form.allowed_hours_utc, 0, 23),
+      allow_partial_fills: form.allow_partial_fills,
     };
+
+    if (form.max_volume_fill_pct.trim()) {
+      payload.max_volume_fill_pct = form.max_volume_fill_pct;
+    }
 
     if (form.trading_mode === "FUTURES") {
       payload.leverage = form.leverage === "" ? null : Number(form.leverage);
@@ -1334,6 +1479,129 @@ export function BacktestPage() {
                       <option value="FUTURES">FUTURES</option>
                     </select>
                   </label>
+                </div>
+
+                <div className="space-y-4 rounded-[1.8rem] border border-cyan-300/10 bg-cyan-300/[0.04] p-4">
+                  <div>
+                    <p className="text-sm font-medium text-white">Market Friction Assumptions</p>
+                    <p className="mt-1 text-sm text-slate-300">
+                      Keep replay realism explicit so recent runs and promotion evidence use the same assumptions.
+                    </p>
+                  </div>
+                  <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                    <label className="space-y-2">
+                      <span className="text-[11px] uppercase tracking-[0.18em] text-slate-400">
+                        Slippage %
+                      </span>
+                      <input
+                        aria-label="Slippage %"
+                        className="w-full rounded-2xl border border-white/10 bg-[#09121a] px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-300/40 focus:ring-2 focus:ring-cyan-300/10"
+                        min={0}
+                        onChange={(event) => updateField("slippage_pct", event.target.value)}
+                        step="any"
+                        type="number"
+                        value={form.slippage_pct}
+                      />
+                    </label>
+                    <label className="space-y-2">
+                      <span className="text-[11px] uppercase tracking-[0.18em] text-slate-400">
+                        Fee %
+                      </span>
+                      <input
+                        aria-label="Fee %"
+                        className="w-full rounded-2xl border border-white/10 bg-[#09121a] px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-300/40 focus:ring-2 focus:ring-cyan-300/10"
+                        min={0}
+                        onChange={(event) => updateField("fee_pct", event.target.value)}
+                        step="any"
+                        type="number"
+                        value={form.fee_pct}
+                      />
+                    </label>
+                    <label className="space-y-2">
+                      <span className="text-[11px] uppercase tracking-[0.18em] text-slate-400">
+                        Spread %
+                      </span>
+                      <input
+                        aria-label="Spread %"
+                        className="w-full rounded-2xl border border-white/10 bg-[#09121a] px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-300/40 focus:ring-2 focus:ring-cyan-300/10"
+                        min={0}
+                        onChange={(event) => updateField("spread_pct", event.target.value)}
+                        step="any"
+                        type="number"
+                        value={form.spread_pct}
+                      />
+                    </label>
+                    <label className="space-y-2">
+                      <span className="text-[11px] uppercase tracking-[0.18em] text-slate-400">
+                        Latency Bars
+                      </span>
+                      <input
+                        aria-label="Latency Bars"
+                        className="w-full rounded-2xl border border-white/10 bg-[#09121a] px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-300/40 focus:ring-2 focus:ring-cyan-300/10"
+                        min={0}
+                        onChange={(event) => updateField("signal_latency_bars", event.target.value)}
+                        type="number"
+                        value={form.signal_latency_bars}
+                      />
+                    </label>
+                  </div>
+                  <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                    <label className="space-y-2">
+                      <span className="text-[11px] uppercase tracking-[0.18em] text-slate-400">
+                        UTC Weekdays
+                      </span>
+                      <input
+                        aria-label="UTC Weekdays"
+                        className="w-full rounded-2xl border border-white/10 bg-[#09121a] px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-300/40 focus:ring-2 focus:ring-cyan-300/10"
+                        onChange={(event) => updateField("allowed_weekdays_utc", event.target.value)}
+                        placeholder="0,1,2,3,4"
+                        value={form.allowed_weekdays_utc}
+                      />
+                    </label>
+                    <label className="space-y-2">
+                      <span className="text-[11px] uppercase tracking-[0.18em] text-slate-400">
+                        UTC Hours
+                      </span>
+                      <input
+                        aria-label="UTC Hours"
+                        className="w-full rounded-2xl border border-white/10 bg-[#09121a] px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-300/40 focus:ring-2 focus:ring-cyan-300/10"
+                        onChange={(event) => updateField("allowed_hours_utc", event.target.value)}
+                        placeholder="8,9,10,11"
+                        value={form.allowed_hours_utc}
+                      />
+                    </label>
+                    <label className="space-y-2">
+                      <span className="text-[11px] uppercase tracking-[0.18em] text-slate-400">
+                        Max Volume Fill %
+                      </span>
+                      <input
+                        aria-label="Max Volume Fill %"
+                        className="w-full rounded-2xl border border-white/10 bg-[#09121a] px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-300/40 focus:ring-2 focus:ring-cyan-300/10"
+                        max={1}
+                        min={0}
+                        onChange={(event) => updateField("max_volume_fill_pct", event.target.value)}
+                        placeholder="Optional"
+                        step="any"
+                        type="number"
+                        value={form.max_volume_fill_pct}
+                      />
+                    </label>
+                  </div>
+                  <label className="flex cursor-pointer items-center gap-3">
+                    <input
+                      aria-label="Allow deterministic partial fills when candle volume cap is hit"
+                      checked={form.allow_partial_fills}
+                      className="h-4 w-4 rounded accent-blue-500"
+                      onChange={(event) => updateField("allow_partial_fills", event.target.checked)}
+                      type="checkbox"
+                    />
+                    <span className="text-sm text-slate-300">
+                      Allow deterministic partial fills when candle volume cap is hit
+                    </span>
+                  </label>
+                  <p className="text-xs text-slate-500">
+                    Weekdays use 0-6 for Sunday-Saturday. Hours use 0-23 UTC. Leave either field blank to allow the full session.
+                  </p>
                 </div>
 
                 {form.trading_mode === "FUTURES" && (
