@@ -419,6 +419,28 @@ Main outputs:
 - safe live-mode refusal or gating behavior
 - status visibility and tests for execution mode
 
+### 21. `feature/agent-workflow-alignment`
+
+Status:
+
+- in progress on `main`
+
+Scope:
+
+- align repo agent guidance with the current Codex structure
+- keep durable repository constraints in `AGENTS.md`
+- move reusable repo workflows into `.agents/skills`
+- document when to use repo skills versus Codex-specific custom agents
+- add bounded project-specific custom subagent profiles under `.codex/agents`
+
+Main outputs:
+
+- shortened `AGENTS.md`
+- repo skills under `.agents/skills`
+- custom agents under `.codex/agents`
+- `docs/agent-workflow.md`
+- README guidance for agent-facing repo structure
+
 ### 21. `feature/exchange-order-adapter`
 
 Status:

@@ -1,0 +1,3 @@
+display_name: Strategy Design
+short_description: Turn strategy ideas into deterministic repo-aligned specs before coding.
+default_prompt: Design or revise the requested trading strategy by documenting deterministic rules first, identifying required code changes, and preserving the repository architecture and safety constraints.

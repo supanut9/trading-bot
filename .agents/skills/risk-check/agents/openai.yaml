@@ -1,0 +1,3 @@
+display_name: Risk Check
+short_description: Guard trading and execution changes with repo-specific safety checks.
+default_prompt: Review and implement the requested trading or execution change with a safety-first pass over risk controls, fail-closed behavior, tests, and operator visibility.

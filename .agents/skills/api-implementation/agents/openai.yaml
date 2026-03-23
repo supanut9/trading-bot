@@ -1,0 +1,3 @@
+display_name: API Implementation
+short_description: Implement FastAPI endpoint and schema changes while keeping handlers thin.
+default_prompt: Implement the requested FastAPI API change in this repository by keeping route handlers thin, moving orchestration into application services, updating tests, and updating docs when behavior changes.
