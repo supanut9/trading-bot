@@ -179,6 +179,8 @@ def test_backtest_summary_report_exports_csv_rows(tmp_path: Path) -> None:
         assert len(rows) == 1
         assert rows[0]["status"] in {"completed", "skipped"}
         assert rows[0]["detail"] != ""
+        assert "benchmark_return_pct" in rows[0]
+        assert "benchmark_excess_return_pct" in rows[0]
     finally:
         teardown_client(session)
 
@@ -306,6 +308,8 @@ def test_backtest_runs_csv_export_filters_limit(tmp_path: Path) -> None:
         assert rows[0]["source"] == "cli.backtest"
         assert rows[0]["strategy_name"] == "rule_builder"
         assert rows[0]["required_candles"] == "51"
+        assert "benchmark_return_pct" in rows[0]
+        assert "benchmark_excess_return_pct" in rows[0]
     finally:
         teardown_client(session)
 
