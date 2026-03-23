@@ -26,6 +26,7 @@ class RiskLimits:
     live_max_symbol_exposure_notional: Decimal | None = None
     live_max_symbol_concentration_pct: Decimal | None = None
     live_max_concurrent_positions: int | None = None
+    live_max_strategy_exposure_notional: Decimal | None = None
     symbol_rules: SymbolRules | None = field(default=None, compare=True)
     volatility_sizing_enabled: bool = False
 
@@ -43,6 +44,7 @@ class PortfolioState:
     trading_mode: Literal["SPOT", "FUTURES"]
     total_open_exposure_notional: Decimal = Decimal("0")
     current_symbol_exposure_notional: Decimal = Decimal("0")
+    current_strategy_exposure_notional: Decimal = Decimal("0")
 
 
 @dataclass(frozen=True, slots=True)

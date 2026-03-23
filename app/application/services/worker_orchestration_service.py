@@ -94,6 +94,7 @@ class WorkerOrchestrationService:
             live_max_symbol_exposure_notional=settings.live_max_symbol_exposure_notional,
             live_max_symbol_concentration_pct=settings.live_max_symbol_concentration_pct,
             live_max_concurrent_positions=settings.live_max_concurrent_positions,
+            live_max_strategy_exposure_notional=settings.live_max_strategy_exposure_notional,
             volatility_sizing_enabled=settings.volatility_sizing_enabled,
         )
 
@@ -358,8 +359,18 @@ class WorkerOrchestrationService:
         )
         risk = self._get_risk_for_symbol(symbol)
         all_positions = self._positions.list_all()
+        active_strategy_name = (
+            self._operator_config.strategy_name
+            if self._operator_config is not None
+            else "ema_crossover"
+        )
         risk_decision = risk.evaluate(
-            portfolio=self._build_portfolio_state(symbol, current_position, all_positions),
+            portfolio=self._build_portfolio_state(
+                symbol,
+                active_strategy_name,
+                current_position,
+                all_positions,
+            ),
             trade=TradeContext(signal=signal, entry_price=latest_price, atr_value=atr_for_sizing),
         )
         if not risk_decision.approved:
@@ -426,11 +437,6 @@ class WorkerOrchestrationService:
             current_position.quantity
             if signal.action == "sell" and current_position is not None
             else (risk_decision.quantity * canary_multiplier).quantize(Decimal("0.00000001"))
-        )
-        active_strategy_name = (
-            self._operator_config.strategy_name
-            if self._operator_config is not None
-            else "ema_crossover"
         )
         try:
             execution = self._execution.execute(
@@ -607,6 +613,7 @@ class WorkerOrchestrationService:
     def _build_portfolio_state(
         self,
         symbol: str,
+        strategy_name: str,
         current_position: PositionRecord | None,
         all_positions: list[PositionRecord],
     ) -> PortfolioState:
@@ -665,6 +672,13 @@ class WorkerOrchestrationService:
             current_symbol_exposure = (
                 abs(current_position.quantity) * current_position.average_entry_price
             )
+        current_strategy_exposure = Decimal("0")
+        for pos in all_positions:
+            if pos.mode != mode or pos.quantity == Decimal("0") or pos.average_entry_price is None:
+                continue
+            if (pos.strategy_name or "").strip().lower() != strategy_name.strip().lower():
+                continue
+            current_strategy_exposure += abs(pos.quantity) * pos.average_entry_price
         open_count = sum(1 for p in all_positions if p.mode == mode and p.quantity != Decimal("0"))
 
         return PortfolioState(
@@ -679,6 +693,7 @@ class WorkerOrchestrationService:
             trading_mode=self._settings.trading_mode,  # type: ignore
             total_open_exposure_notional=total_notional,
             current_symbol_exposure_notional=current_symbol_exposure,
+            current_strategy_exposure_notional=current_strategy_exposure,
         )
 
     def _check_and_execute_stop_exit_for_symbol(

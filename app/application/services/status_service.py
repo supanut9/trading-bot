@@ -132,6 +132,11 @@ class StatusService:
                 else None
             ),
             "live_max_concurrent_positions": self._settings.live_max_concurrent_positions,
+            "live_max_strategy_exposure_notional": (
+                format(self._settings.live_max_strategy_exposure_notional, "f")
+                if self._settings.live_max_strategy_exposure_notional is not None
+                else None
+            ),
             "exchange": self._settings.exchange_name,
             "strategy_name": effective_operator_config["strategy_name"],
             "symbol": effective_operator_config["symbol"],

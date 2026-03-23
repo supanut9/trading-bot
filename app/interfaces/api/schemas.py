@@ -47,6 +47,7 @@ class StatusResponse(BaseModel):
     live_max_symbol_exposure_notional: Decimal | None = None
     live_max_symbol_concentration_pct: Decimal | None = None
     live_max_concurrent_positions: int | None = None
+    live_max_strategy_exposure_notional: Decimal | None = None
     exchange: str
     strategy_name: str
     symbol: str

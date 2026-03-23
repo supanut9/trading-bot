@@ -214,6 +214,44 @@ def test_rejects_live_entry_when_portfolio_concurrent_positions_limit_is_reached
     assert order_count == 0
 
 
+def test_rejects_live_entry_when_strategy_exposure_limit_is_reached(tmp_path: Path) -> None:
+    service, session, settings = build_service(
+        tmp_path,
+        PAPER_TRADING=False,
+        LIVE_TRADING_ENABLED=True,
+        EXCHANGE_API_KEY="key",
+        EXCHANGE_API_SECRET="secret",
+        LIVE_MAX_STRATEGY_EXPOSURE_NOTIONAL=Decimal("150"),
+        MAX_OPEN_POSITIONS=5,
+    )
+    store_closes(session, settings, [10, 10, 10, 10, 10, 9, 9, 9, 20])
+    PositionRepository(session).upsert(
+        exchange=settings.exchange_name,
+        symbol="ETH/USDT",
+        mode="live",
+        side="long",
+        quantity=Decimal("1"),
+        average_entry_price=Decimal("120"),
+        realized_pnl=Decimal("0"),
+        unrealized_pnl=Decimal("0"),
+        strategy_name="ema_crossover",
+    )
+    session.commit()
+
+    with patch(
+        "app.application.services.worker_orchestration_service.QualificationService"
+    ) as mock_qual:
+        mock_qual.return_value.evaluate.return_value = type("Report", (), {"all_passed": True})()
+        result = service.run_cycle()
+
+    order_count = session.scalar(select(func.count()).select_from(OrderRecord))
+
+    assert result.status == "auto_halted"
+    assert "live strategy exposure exceeds configured limit" in result.detail
+    assert result.risk_reason == "live strategy exposure exceeds configured limit"
+    assert order_count == 0
+
+
 def test_returns_no_signal_without_persisting_orders(tmp_path: Path) -> None:
     service, session, settings = build_service(tmp_path)
     store_closes(session, settings, [10, 11, 12, 13, 14, 15, 16, 17])
