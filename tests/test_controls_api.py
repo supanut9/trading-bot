@@ -353,6 +353,7 @@ def test_runtime_promotion_control_updates_stage(monkeypatch, tmp_path: Path) ->
                         "current_stage": "qualified",
                         "changed": True,
                         "blockers": (),
+                        "next_prerequisite": None,
                     },
                 )()
 
@@ -369,6 +370,7 @@ def test_runtime_promotion_control_updates_stage(monkeypatch, tmp_path: Path) ->
         assert payload["stage"] == "qualified"
         assert payload["changed"] is True
         assert payload["blockers"] == []
+        assert payload["next_prerequisite"] is None
         assert payload["live_recovery_summary"]["posture"] == "clear"
     finally:
         teardown_client()
@@ -397,6 +399,7 @@ def test_runtime_promotion_control_returns_failed_when_live_review_gate_blocks(
                     {
                         "stage": "canary",
                         "blockers": ("latest performance review decision is stale",),
+                        "next_prerequisite": "latest performance review decision is stale",
                     },
                 )()
 
@@ -413,6 +416,7 @@ def test_runtime_promotion_control_returns_failed_when_live_review_gate_blocks(
         assert payload["stage"] == "canary"
         assert payload["changed"] is False
         assert payload["blockers"] == ["latest performance review decision is stale"]
+        assert payload["next_prerequisite"] == "latest performance review decision is stale"
         assert payload["live_recovery_summary"]["posture"] == "clear"
         assert "cannot promote runtime stage" in payload["detail"]
     finally:

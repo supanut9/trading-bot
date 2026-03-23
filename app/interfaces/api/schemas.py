@@ -38,6 +38,7 @@ class StatusResponse(BaseModel):
     live_safety_status: str
     runtime_promotion_stage: str
     runtime_promotion_blockers: list[str] = Field(default_factory=list)
+    runtime_promotion_next_prerequisite: str | None = None
     live_readiness_status: str | None = None
     live_readiness_blocking_reasons: list[str] = Field(default_factory=list)
     live_max_order_notional: Decimal | None = None
@@ -775,6 +776,7 @@ class RuntimePromotionControlResponse(BaseModel):
     stage: str
     changed: bool
     blockers: list[str] = Field(default_factory=list)
+    next_prerequisite: str | None = None
     live_recovery_summary: RecoverySummaryResponse | None = None
 
     model_config = ConfigDict(from_attributes=True)

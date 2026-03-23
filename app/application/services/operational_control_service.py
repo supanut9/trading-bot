@@ -406,6 +406,7 @@ class RuntimePromotionControlResult:
     stage: str
     changed: bool
     blockers: tuple[str, ...]
+    next_prerequisite: str | None = None
     live_recovery_summary: RecoverySummaryView | None = None
 
 
@@ -1287,6 +1288,7 @@ class OperationalControlService:
             stage=state.stage,
             changed=False,
             blockers=state.blockers,
+            next_prerequisite=state.next_prerequisite,
             live_recovery_summary=live_recovery_summary,
         )
 
@@ -1309,6 +1311,11 @@ class OperationalControlService:
                     stage=state.stage,
                     changed=False,
                     blockers=state.blockers,
+                    next_prerequisite=getattr(
+                        state,
+                        "next_prerequisite",
+                        state.blockers[0] if state.blockers else None,
+                    ),
                     live_recovery_summary=live_recovery_summary,
                 )
                 self._audit.record_control_result(
@@ -1334,6 +1341,7 @@ class OperationalControlService:
                 stage=update.current_stage,
                 changed=update.changed,
                 blockers=update.blockers,
+                next_prerequisite=getattr(update, "next_prerequisite", None),
                 live_recovery_summary=live_recovery_summary,
             )
             self._audit.record_control_result(

@@ -57,7 +57,7 @@ Iteration and strategy improvement (current focus):
 2. `feature/live-readiness-gate` — explicit go/no-go report before any live resume or promotion path is trusted (completed)
 3. `feature/portfolio-risk-governor` — add portfolio-level exposure, concentration, and concurrent-position caps (completed)
 4. `feature/execution-reconciliation-recovery` — turn restart and reconciliation tooling into one trusted recovery workflow (completed)
-5. `feature/runtime-promotion-workflow` — make paper → shadow → qualified → canary → live progression explicit and auditable (in progress)
+5. `feature/runtime-promotion-workflow` — make paper → shadow → qualified → canary → live progression explicit and auditable (completed)
 6. `feature/strategy-iteration-workflow` — re-validate and re-promote when live results fall short (planned)
 
 Profitability improvements (what separates this bot from better real-world bots):
@@ -97,7 +97,7 @@ Profitability improvements (what separates this bot from better real-world bots)
 - expose exchange-side base and quote asset balances for the configured live symbol through the status surface
 - expose live readiness status and blocking reasons through the status surface
 - expose configured portfolio risk caps through the status surface for operator review before enabling live mode
-- expose the persisted runtime promotion stage and its blockers through the status surface
+- expose the persisted runtime promotion stage, blockers, and next missing prerequisite through status and control surfaces
 - expose the latest persisted performance-review decision and its stale/not-stale posture through the status and reporting surfaces
 - require a fresh persisted `keep_running` performance-review decision before promoting from `canary` to full `live`
 - block new live entries when live trading is halted by configuration while leaving recovery controls available

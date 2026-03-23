@@ -73,6 +73,9 @@ test("hydrates defaults and runs worker and live control actions", async () => {
             live_trading_enabled: true,
             live_trading_halted: false,
             live_safety_status: "ready",
+            runtime_promotion_stage: "shadow",
+            runtime_promotion_blockers: ["qualification gates are not all passing"],
+            runtime_promotion_next_prerequisite: "qualification gates are not all passing",
             live_max_order_notional: "250.00",
             live_max_position_quantity: "0.0200",
             exchange: "binance",
@@ -113,6 +116,65 @@ test("hydrates defaults and runs worker and live control actions", async () => {
           JSON.stringify({
             all_passed: false,
             gates: [],
+          }),
+        ),
+      );
+    }
+
+    if (url.endsWith("/controls/runtime-promotion") && !init?.method) {
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            status: "completed",
+            detail: "runtime promotion stage evaluated",
+            stage: "shadow",
+            changed: false,
+            blockers: ["qualification gates are not all passing"],
+            next_prerequisite: "qualification gates are not all passing",
+            live_recovery_summary: {
+              posture: "clear",
+              dominant_recovery_state: "resolved",
+              next_action: "none",
+              summary: "No unresolved live recovery work remains.",
+              unresolved_order_count: 0,
+              awaiting_exchange_count: 0,
+              partial_fill_in_flight_count: 0,
+              stale_open_order_count: 0,
+              stale_partial_fill_count: 0,
+              manual_review_required_count: 0,
+              requires_operator_review_count: 0,
+              stale_order_count: 0,
+            },
+          }),
+        ),
+      );
+    }
+
+    if (url.endsWith("/controls/runtime-promotion") && init?.method === "POST") {
+      expect(init.body).toBe(JSON.stringify({ stage: "qualified" }));
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            status: "completed",
+            detail: "runtime promotion stage updated",
+            stage: "qualified",
+            changed: true,
+            blockers: [],
+            next_prerequisite: null,
+            live_recovery_summary: {
+              posture: "clear",
+              dominant_recovery_state: "resolved",
+              next_action: "none",
+              summary: "No unresolved live recovery work remains.",
+              unresolved_order_count: 0,
+              awaiting_exchange_count: 0,
+              partial_fill_in_flight_count: 0,
+              stale_open_order_count: 0,
+              stale_partial_fill_count: 0,
+              manual_review_required_count: 0,
+              requires_operator_review_count: 0,
+              stale_order_count: 0,
+            },
           }),
         ),
       );
@@ -222,8 +284,18 @@ test("hydrates defaults and runs worker and live control actions", async () => {
 
   // Wait for operator config to load (strategy name appears in the runtime strip)
   await waitFor(() => expect(screen.getByText("ema_crossover")).toBeInTheDocument());
-  expect(screen.getByText("Posture clear")).toBeInTheDocument();
-  expect(screen.getByText("No unresolved live recovery work remains.")).toBeInTheDocument();
+  expect(screen.getAllByText("Posture clear")).toHaveLength(2);
+  expect(screen.getAllByText("No unresolved live recovery work remains.")).toHaveLength(2);
+  expect(screen.getByText("Stage shadow")).toBeInTheDocument();
+  expect(screen.getAllByText("qualification gates are not all passing")).toHaveLength(2);
+
+  fireEvent.change(screen.getByDisplayValue("shadow"), {
+    target: { value: "qualified" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Apply stage" }));
+
+  await waitFor(() => expect(screen.getByText("Stage qualified")).toBeInTheDocument());
+  expect(screen.getByText("Ready for next move")).toBeInTheDocument();
 
   fireEvent.click(screen.getByRole("button", { name: "Run worker cycle" }));
 
