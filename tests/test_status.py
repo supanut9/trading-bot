@@ -9,6 +9,7 @@ from app.application.services.status_service import StatusService
 from app.config import Settings, get_settings
 from app.infrastructure.database.base import Base
 from app.infrastructure.database.models.operator_config import OperatorConfigRecord
+from app.infrastructure.database.models.order import OrderRecord
 from app.infrastructure.database.models.performance_review_decision import (
     PerformanceReviewDecisionRecord,
 )
@@ -63,6 +64,10 @@ def test_status_endpoint_returns_bootstrap_configuration(tmp_path: Path) -> None
     assert payload["live_max_position_quantity"] is None
     assert payload["database_status"] in {"available", "unavailable"}
     assert payload["latest_price_status"] in {"available", "unavailable"}
+    assert payload["live_recovery_summary"]["posture"] == "clear"
+    assert payload["live_recovery_summary"]["dominant_recovery_state"] == "resolved"
+    assert payload["live_recovery_summary"]["next_action"] == "none"
+    assert payload["live_recovery_summary"]["unresolved_order_count"] == 0
     assert payload["account_balance_status"] == "simulated"
     assert len(payload["account_balances"]) == 1
     assert payload["account_balances"][0]["asset"] == "USDT"
@@ -254,6 +259,60 @@ def test_status_endpoint_returns_portfolio_risk_limit_configuration(tmp_path: Pa
     assert payload["live_max_symbol_exposure_notional"] == "400"
     assert payload["live_max_symbol_concentration_pct"] == "0.35"
     assert payload["live_max_concurrent_positions"] == 3
+
+
+def test_status_endpoint_surfaces_recovery_summary(tmp_path: Path) -> None:
+    settings = Settings(
+        DATABASE_URL=f"sqlite:///{tmp_path / 'status_recovery.db'}",
+        PAPER_TRADING=False,
+        LIVE_TRADING_ENABLED=True,
+        EXCHANGE_API_KEY="key",
+        EXCHANGE_API_SECRET="secret",
+        STALE_LIVE_ORDER_THRESHOLD_MINUTES=30,
+    )
+    engine = create_engine_from_settings(settings)
+    Base.metadata.create_all(bind=engine)
+    session_factory = create_session_factory(settings)
+    session = session_factory()
+    session.add(
+        OrderRecord(
+            exchange=settings.exchange_name,
+            symbol="BTC/USDT",
+            side="buy",
+            order_type="limit",
+            status="review_required",
+            trading_mode="SPOT",
+            mode="live",
+            quantity=Decimal("0.01000000"),
+            client_order_id="status-review-order",
+        )
+    )
+    session.commit()
+
+    def override_get_session():
+        try:
+            yield session
+        finally:
+            pass
+
+    app.dependency_overrides[get_settings] = lambda: settings
+    app.dependency_overrides[get_session] = override_get_session
+
+    try:
+        client = TestClient(app)
+        response = client.get("/status")
+    finally:
+        app.dependency_overrides.clear()
+        session.close()
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["live_recovery_summary"]["posture"] == "manual_review_required"
+    assert payload["live_recovery_summary"]["dominant_recovery_state"] == "manual_review_required"
+    assert payload["live_recovery_summary"]["next_action"] == "inspect_exchange_state"
+    assert payload["live_recovery_summary"]["manual_review_required_count"] == 1
+    assert payload["live_recovery_summary"]["requires_operator_review_count"] == 1
+    assert payload["live_recovery_summary"]["unresolved_order_count"] == 1
 
 
 def test_status_endpoint_prefers_runtime_operator_config_when_present(tmp_path: Path) -> None:

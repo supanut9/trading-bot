@@ -236,6 +236,7 @@ Live order recovery report:
 - `GET /reports` now includes a compact recovery summary over unresolved live orders and recent recovery events
 - the Next.js `/reports` route now consumes `GET /reports/recovery` for recovery queue, stale-order, and timeline visibility
 - `GET /reports` also includes a recovery queue with `recovery_state`, `review_required`, and `next_action` columns plus a recovery timeline of recent live reconcile and live cancel events
+- `GET /reports/recovery` and `GET /status` now also expose one aggregate recovery posture, the dominant recovery state, and the next recommended operator action
 - the recovery timeline now includes a context column derived from audit payloads such as reconcile counts or cancel identifiers
 - `/reports` now supports recovery filters for order status, review-required state, event type, and free-text search
 - `GET /reports/live-recovery.csv` exports unresolved live orders with the latest recovery-event context, `requires_operator_review`, `recovery_state`, and `next_action`

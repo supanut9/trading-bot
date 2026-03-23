@@ -490,6 +490,10 @@ def test_recovery_dashboard_returns_filtered_recovery_data(tmp_path: Path) -> No
         assert payload["live_trading_enabled"] is True
         assert payload["live_trading_halted"] is True
         assert payload["live_safety_status"] == "halted"
+        assert payload["summary"]["posture"] == "manual_review_required"
+        assert payload["summary"]["dominant_recovery_state"] == "manual_review_required"
+        assert payload["summary"]["next_action"] == "inspect_exchange_state"
+        assert payload["summary"]["manual_review_required_count"] == 1
         assert payload["unresolved_live_orders"] == 1
         assert payload["recovery_event_count"] == 1
         assert payload["filters"]["requires_review"] is True

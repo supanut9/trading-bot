@@ -11,6 +11,23 @@ class AccountBalanceResponse(BaseModel):
     locked: Decimal
 
 
+class RecoverySummaryResponse(BaseModel):
+    posture: str
+    dominant_recovery_state: str
+    next_action: str
+    summary: str
+    unresolved_order_count: int
+    awaiting_exchange_count: int
+    partial_fill_in_flight_count: int
+    stale_open_order_count: int
+    stale_partial_fill_count: int
+    manual_review_required_count: int
+    requires_operator_review_count: int
+    stale_order_count: int
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class StatusResponse(BaseModel):
     app: str
     environment: str
@@ -42,6 +59,7 @@ class StatusResponse(BaseModel):
     latest_price_status: str
     latest_price: Decimal | None = None
     latest_performance_review_decision: "PerformanceReviewDecisionResponse | None" = None
+    live_recovery_summary: RecoverySummaryResponse | None = None
     account_balance_status: str
     account_balances: list[AccountBalanceResponse] = Field(default_factory=list)
 
@@ -648,6 +666,7 @@ class RecoveryDashboardResponse(BaseModel):
     live_trading_halted: bool
     live_safety_status: str
     stale_threshold_minutes: int
+    summary: RecoverySummaryResponse
     stale_live_orders: list[StaleLiveOrderResponse]
     unresolved_orders: list[RecoveryOrderResponse]
     recovery_events: list[RecoveryEventResponse]

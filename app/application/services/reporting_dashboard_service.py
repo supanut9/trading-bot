@@ -14,6 +14,7 @@ from app.application.services.live_order_recovery_report_service import (
     RecoveryEventView,
     RecoveryOrderView,
     RecoveryReportFilters,
+    RecoverySummaryView,
 )
 from app.application.services.operational_control_service import (
     BacktestControlResult,
@@ -61,6 +62,7 @@ class ReportingDashboard:
     positions: list[PositionView]
     trades: list[TradeView]
     stale_live_orders: list[StaleLiveOrderView]
+    recovery_summary: RecoverySummaryView
     recovery_orders: list[RecoveryOrderView]
     recovery_events: list[RecoveryEventView]
     unresolved_live_orders: int
@@ -195,6 +197,7 @@ class ReportingDashboardService:
             positions=positions,
             trades=trades,
             stale_live_orders=stale_live_orders,
+            recovery_summary=recovery_report.summary,
             recovery_orders=recovery_report.unresolved_orders[:10],
             recovery_events=recovery_report.recovery_events,
             unresolved_live_orders=len(recovery_report.unresolved_orders),

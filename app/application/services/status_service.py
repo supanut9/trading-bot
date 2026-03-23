@@ -4,6 +4,9 @@ from sqlalchemy.orm import Session
 
 from app.application.services.exchange_balance_service import ExchangeBalanceService
 from app.application.services.live_operator_control_service import LiveOperatorControlService
+from app.application.services.live_order_recovery_report_service import (
+    LiveOrderRecoveryReportService,
+)
 from app.application.services.live_readiness_service import LiveReadinessService
 from app.application.services.operator_runtime_config_service import OperatorRuntimeConfigService
 from app.application.services.performance_review_decision_service import (
@@ -33,6 +36,7 @@ class StatusService:
             exchange=self._settings.exchange_name,
             symbol=str(effective_operator_config["symbol"]),
         )
+        live_recovery_summary = self._live_recovery_summary()
         latest_price_status = "unavailable"
         latest_price: str | None = None
         try:
@@ -140,6 +144,7 @@ class StatusService:
             "latest_price_status": latest_price_status,
             "latest_price": latest_price,
             "latest_performance_review_decision": latest_performance_review_decision,
+            "live_recovery_summary": live_recovery_summary,
             "account_balance_status": balance_status,
             "account_balances": account_balances,
         }
@@ -254,6 +259,36 @@ class StatusService:
                 "decided_by": decision.decided_by,
                 "age_days": decision.age_days,
                 "stale": decision.stale,
+            }
+        except SQLAlchemyError:
+            self._session.rollback()
+            return None
+
+    def _live_recovery_summary(self) -> dict[str, object] | None:
+        if self._session is None:
+            return None
+        try:
+            summary = (
+                LiveOrderRecoveryReportService(
+                    self._session,
+                    self._settings,
+                )
+                .build_report(order_limit=50, audit_limit=1)
+                .summary
+            )
+            return {
+                "posture": summary.posture,
+                "dominant_recovery_state": summary.dominant_recovery_state,
+                "next_action": summary.next_action,
+                "summary": summary.summary,
+                "unresolved_order_count": summary.unresolved_order_count,
+                "awaiting_exchange_count": summary.awaiting_exchange_count,
+                "partial_fill_in_flight_count": summary.partial_fill_in_flight_count,
+                "stale_open_order_count": summary.stale_open_order_count,
+                "stale_partial_fill_count": summary.stale_partial_fill_count,
+                "manual_review_required_count": summary.manual_review_required_count,
+                "requires_operator_review_count": summary.requires_operator_review_count,
+                "stale_order_count": summary.stale_order_count,
             }
         except SQLAlchemyError:
             self._session.rollback()

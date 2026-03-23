@@ -21,6 +21,7 @@ export type StatusResponse = {
   latest_price_status: string;
   latest_price: string | null;
   latest_performance_review_decision: PerformanceReviewDecisionResponse | null;
+  live_recovery_summary: RecoverySummaryResponse | null;
   account_balance_status: string;
   account_balances: Array<{
     asset: string;
@@ -391,6 +392,21 @@ export type StaleLiveOrderResponse = {
   age_minutes: number;
 };
 
+export type RecoverySummaryResponse = {
+  posture: string;
+  dominant_recovery_state: string;
+  next_action: string;
+  summary: string;
+  unresolved_order_count: number;
+  awaiting_exchange_count: number;
+  partial_fill_in_flight_count: number;
+  stale_open_order_count: number;
+  stale_partial_fill_count: number;
+  manual_review_required_count: number;
+  requires_operator_review_count: number;
+  stale_order_count: number;
+};
+
 export type RecoveryOrderResponse = {
   id: number;
   symbol: string;
@@ -419,6 +435,7 @@ export type RecoveryDashboardResponse = {
   live_trading_halted: boolean;
   live_safety_status: string;
   stale_threshold_minutes: number;
+  summary: RecoverySummaryResponse;
   stale_live_orders: StaleLiveOrderResponse[];
   unresolved_orders: RecoveryOrderResponse[];
   recovery_events: RecoveryEventResponse[];

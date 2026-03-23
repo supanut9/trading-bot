@@ -112,6 +112,7 @@ Profitability improvements (what separates this bot from better real-world bots)
 - expose a compact recovery report for unresolved live orders and recent reconciliation or cancel context
 - render a recovery queue and recovery timeline inside the reporting surface so operators can inspect unresolved live state without correlating raw audit rows manually
 - classify unresolved live orders into operator-readable recovery states such as awaiting, partial-fill, stale, or manual-review-required
+- expose one aggregate recovery posture with the dominant recovery state and next recommended action through reporting and status surfaces
 - persist an operator-controlled promotion stage across paper, shadow, qualified, canary, and live states
 - render recovery timeline context from audit payloads so operators can see reconcile counts and cancel identifiers inline
 - allow operators to filter recovery queue and timeline views by status, review state, event type, and search terms
