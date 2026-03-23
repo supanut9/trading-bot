@@ -329,6 +329,8 @@ export type LiveReconcileControlResponse = {
   reconciled_count: number;
   filled_count: number;
   review_required_count: number;
+  recovery_summary: string;
+  live_recovery_summary: RecoverySummaryResponse | null;
   notified: boolean;
 };
 
@@ -341,6 +343,7 @@ export type LiveHaltControlResponse = {
   detail: string;
   live_trading_halted: boolean;
   changed: boolean;
+  live_recovery_summary: RecoverySummaryResponse | null;
   notified: boolean;
 };
 

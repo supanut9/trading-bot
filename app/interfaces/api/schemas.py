@@ -578,6 +578,7 @@ class LiveReconcileControlResponse(BaseModel):
     filled_count: int
     review_required_count: int
     recovery_summary: str = "-"
+    live_recovery_summary: RecoverySummaryResponse | None = None
     notified: bool
 
     model_config = ConfigDict(from_attributes=True)
@@ -592,6 +593,7 @@ class LiveHaltControlResponse(BaseModel):
     detail: str
     live_trading_halted: bool
     changed: bool
+    live_recovery_summary: RecoverySummaryResponse | None = None
     notified: bool
 
     model_config = ConfigDict(from_attributes=True)
