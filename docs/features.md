@@ -1710,7 +1710,7 @@ Why: A system can pass single-order validation and still take unacceptable portf
 
 Status:
 
-- planned
+- partially implemented on `main`; completion pass needed
 
 Scope:
 
@@ -1726,6 +1726,12 @@ Main outputs:
 - recovery queue rows that distinguish waiting, stale, partial-fill, and manual-review cases without requiring raw status interpretation
 - safer idempotency rules for replays and restarts when exchange state is uncertain
 - runbook and reporting updates for recovery actions and expected operator decisions
+
+Current completion slice:
+
+- expose one aggregate recovery posture over unresolved live orders so operators can see whether recovery is clear, waiting, stale, or blocked by manual review without scanning the full queue
+- surface the dominant recovery state, next recommended action, and state counts through reporting and status surfaces
+- keep the slice read-only and bounded to operator trust in recovery state, not new execution controls
 
 Why: Real systems usually fail at the recovery boundary, not the happy path. If restart and reconciliation outcomes are ambiguous, operators either over-trust stale local state or halt more often than necessary.
 

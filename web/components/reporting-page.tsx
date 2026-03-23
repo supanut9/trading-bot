@@ -612,6 +612,15 @@ export function ReportingPage() {
               <div className="space-y-5">
                 <div className="rounded-[1.8rem] border border-white/10 bg-white/[0.03] p-4">
                   <div className="flex flex-wrap items-center gap-2">
+                    <Badge variant="info">
+                      Posture {recovery?.summary.posture ?? "clear"}
+                    </Badge>
+                    <Badge variant="neutral">
+                      Next {recovery?.summary.next_action ?? "none"}
+                    </Badge>
+                    <Badge variant="warning">
+                      Unresolved {recovery?.summary.unresolved_order_count ?? 0}
+                    </Badge>
                     <Badge variant="warning">
                       Latest {recovery?.latest_recovery_event_type ?? "none"}
                     </Badge>
@@ -624,6 +633,12 @@ export function ReportingPage() {
                         : "No recent event"}
                     </Badge>
                   </div>
+                  <p className="mt-3 text-sm text-slate-300">
+                    {recovery?.summary.summary ?? "No unresolved live recovery work remains."}
+                  </p>
+                  <p className="mt-2 text-xs uppercase tracking-[0.18em] text-slate-500">
+                    Dominant state {recovery?.summary.dominant_recovery_state ?? "resolved"}
+                  </p>
                   <p className="mt-3 text-sm text-slate-300">
                     {recovery?.latest_recovery_event_context ?? "No recovery context yet."}
                   </p>

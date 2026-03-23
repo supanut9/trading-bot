@@ -28,6 +28,7 @@ class RecoveryOrderView:
 
 @dataclass(frozen=True, slots=True)
 class LiveOrderRecoveryReport:
+    summary: "RecoverySummaryView"
     unresolved_orders: list[RecoveryOrderView]
     recovery_events: list["RecoveryEventView"]
 
@@ -48,6 +49,22 @@ class RecoveryEventView:
     status: str
     detail: str
     context: str
+
+
+@dataclass(frozen=True, slots=True)
+class RecoverySummaryView:
+    posture: str
+    dominant_recovery_state: str
+    next_action: str
+    summary: str
+    unresolved_order_count: int
+    awaiting_exchange_count: int
+    partial_fill_in_flight_count: int
+    stale_open_order_count: int
+    stale_partial_fill_count: int
+    manual_review_required_count: int
+    requires_operator_review_count: int
+    stale_order_count: int
 
 
 class LiveOrderRecoveryReportService:
@@ -81,6 +98,7 @@ class LiveOrderRecoveryReportService:
             for order in unresolved_records
         ]
         unresolved_orders = self._filter_orders(unresolved_orders, active_filters)
+        summary = self._build_summary(unresolved_orders)
         recovery_events = [
             self._to_recovery_event_view(event)
             for event in self._audit.list_recent(limit=50)
@@ -89,6 +107,7 @@ class LiveOrderRecoveryReportService:
         ][:audit_limit]
         recovery_events = self._filter_events(recovery_events, active_filters)
         return LiveOrderRecoveryReport(
+            summary=summary,
             unresolved_orders=unresolved_orders,
             recovery_events=recovery_events,
         )
@@ -207,6 +226,93 @@ class LiveOrderRecoveryReportService:
             updated_at=order.updated_at,
             stale_threshold_minutes=self._settings.stale_live_order_threshold_minutes,
         )
+
+    @staticmethod
+    def _build_summary(orders: list[RecoveryOrderView]) -> RecoverySummaryView:
+        counts = {
+            "awaiting_exchange": 0,
+            "partial_fill_in_flight": 0,
+            "stale_open_order": 0,
+            "stale_partial_fill": 0,
+            "manual_review_required": 0,
+        }
+        for order in orders:
+            if order.recovery_state in counts:
+                counts[order.recovery_state] += 1
+
+        stale_order_count = counts["stale_open_order"] + counts["stale_partial_fill"]
+        unresolved_order_count = len(orders)
+        requires_operator_review_count = sum(
+            1 for order in orders if order.requires_operator_review
+        )
+
+        dominant_recovery_state = "resolved"
+        posture = "clear"
+        if counts["manual_review_required"] > 0:
+            dominant_recovery_state = "manual_review_required"
+            posture = "manual_review_required"
+        elif counts["stale_partial_fill"] > 0:
+            dominant_recovery_state = "stale_partial_fill"
+            posture = "stale_orders"
+        elif counts["stale_open_order"] > 0:
+            dominant_recovery_state = "stale_open_order"
+            posture = "stale_orders"
+        elif counts["partial_fill_in_flight"] > 0:
+            dominant_recovery_state = "partial_fill_in_flight"
+            posture = "awaiting_exchange"
+        elif counts["awaiting_exchange"] > 0:
+            dominant_recovery_state = "awaiting_exchange"
+            posture = "awaiting_exchange"
+
+        next_action = next_action_for_recovery_state(dominant_recovery_state)
+        summary = LiveOrderRecoveryReportService._summary_text(
+            posture=posture,
+            unresolved_order_count=unresolved_order_count,
+            stale_order_count=stale_order_count,
+            manual_review_required_count=counts["manual_review_required"],
+            awaiting_exchange_count=(
+                counts["awaiting_exchange"] + counts["partial_fill_in_flight"]
+            ),
+        )
+        return RecoverySummaryView(
+            posture=posture,
+            dominant_recovery_state=dominant_recovery_state,
+            next_action=next_action,
+            summary=summary,
+            unresolved_order_count=unresolved_order_count,
+            awaiting_exchange_count=counts["awaiting_exchange"],
+            partial_fill_in_flight_count=counts["partial_fill_in_flight"],
+            stale_open_order_count=counts["stale_open_order"],
+            stale_partial_fill_count=counts["stale_partial_fill"],
+            manual_review_required_count=counts["manual_review_required"],
+            requires_operator_review_count=requires_operator_review_count,
+            stale_order_count=stale_order_count,
+        )
+
+    @staticmethod
+    def _summary_text(
+        *,
+        posture: str,
+        unresolved_order_count: int,
+        stale_order_count: int,
+        manual_review_required_count: int,
+        awaiting_exchange_count: int,
+    ) -> str:
+        if posture == "manual_review_required":
+            return (
+                f"{manual_review_required_count} unresolved live order(s) require manual "
+                "exchange-state review before trusting local recovery state"
+            )
+        if posture == "stale_orders":
+            return f"{stale_order_count} stale live order(s) require reconcile or cancel review"
+        if posture == "awaiting_exchange":
+            return (
+                f"{awaiting_exchange_count} unresolved live order(s) are still awaiting "
+                "exchange resolution"
+            )
+        if unresolved_order_count == 0:
+            return "No unresolved live recovery work remains."
+        return f"{unresolved_order_count} unresolved live order(s) remain."
 
     @staticmethod
     def latest_event_summary(

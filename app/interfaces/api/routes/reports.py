@@ -28,6 +28,7 @@ from app.interfaces.api.schemas import (
     RecoveryEventResponse,
     RecoveryOrderResponse,
     RecoveryReportFiltersResponse,
+    RecoverySummaryResponse,
     ShadowQualityReportResponse,
     StaleLiveOrderResponse,
     StrategyRuleBuilderRequest,
@@ -208,6 +209,7 @@ def get_recovery_dashboard(
         live_trading_halted=dashboard.live_trading_halted,
         live_safety_status=str(status["live_safety_status"]),
         stale_threshold_minutes=settings.stale_live_order_threshold_minutes,
+        summary=RecoverySummaryResponse.model_validate(dashboard.recovery_summary),
         stale_live_orders=[
             StaleLiveOrderResponse.model_validate(order) for order in dashboard.stale_live_orders
         ],
