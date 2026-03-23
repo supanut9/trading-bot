@@ -112,7 +112,7 @@ Recommended next bounded implementation sequence from the current codebase:
 - 2. `feature/portfolio-risk-governor` (completed) — add portfolio-level exposure, concentration, and concurrent-position controls on top of the existing live hard gates
 - 3. `feature/execution-reconciliation-recovery` (completed) — turn the current restart, reconcile, and stale-order tools into one trusted recovery workflow
 - 4. `feature/runtime-promotion-workflow` (completed) — make paper → shadow → qualified → canary → live progression explicit, durable, and operator-auditable
-- 5. `feature/backtest-market-friction-hardening` (in progress) — close more of the gap between replay assumptions and live-market behavior
+- 5. `feature/backtest-market-friction-hardening` (completed) — close more of the gap between replay assumptions and live-market behavior
 
 Profitability improvements — what separates this bot from better real-world bots:
 

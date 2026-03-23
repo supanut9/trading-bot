@@ -1631,12 +1631,11 @@ Why: Entries that align with the higher timeframe trend have historically higher
 
 ## Current Recommended Queue
 
-Features 59–81 are complete on `main`. The system now has ATR stops, ADX regime detection, volatility-adjusted sizing, multi-symbol trading, auto-sync backtest, and multi-timeframe trend confirmation.
+Features 59–87 are complete on `main`. The system now has ATR stops, ADX regime detection, volatility-adjusted sizing, multi-symbol trading, auto-sync backtest, multi-timeframe trend confirmation, and hardened replay friction plus benchmark reporting.
 
 Next bounded features:
 
-1. `feature/strategy-iteration-workflow` — close the re-validation loop when live results fall short
-2. `feature/xgboost-signal-strategy` — ML-based signal generation using XGBoost trained on technical indicator features
+1. `feature/xgboost-signal-strategy` — ML-based signal generation using XGBoost trained on technical indicator features
 
 ### 83. `feature/xgboost-signal-strategy`
 
@@ -1757,7 +1756,7 @@ Why: The repo already has many ingredients for safe rollout, but without one exp
 
 Status:
 
-- in progress
+- implemented on `main`
 
 Scope:
 
@@ -1765,7 +1764,7 @@ Scope:
 - reduce the gap between walk-forward evidence and observed live or shadow behavior
 - keep the feature bounded to simulation assumptions and reporting rather than new alpha models
 
-Main outputs:
+Implemented on `main`:
 
 - configurable spread and latency assumptions in replay execution
 - persisted spread and latency assumptions in backtest run history and reports
