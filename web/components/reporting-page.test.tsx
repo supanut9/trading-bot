@@ -62,8 +62,87 @@ test("renders reporting analytics, recovery data, and export links", async () =>
             database_status: "ready",
             latest_price_status: "ready",
             latest_price: "101250.25",
+            runtime_promotion_stage: "shadow",
+            runtime_promotion_blockers: [],
+            runtime_promotion_next_prerequisite: null,
             account_balance_status: "not_available",
             account_balances: [],
+          }),
+        ),
+      );
+    }
+
+    if (url.includes("/reports/performance-review")) {
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            live_metrics: null,
+            shadow_metrics: {
+              trade_count: 12,
+              win_rate_pct: "58.0",
+              expectancy: "14.0",
+              total_return_pct: "6.5",
+              max_drawdown_pct: "8.0",
+              total_net_pnl: "125.0",
+            },
+            oos_baseline: {
+              backtest_run_id: 91,
+              run_date: "2026-03-19T00:00:00Z",
+              oos_return_pct: "5.0",
+              oos_drawdown_pct: "9.0",
+              oos_total_trades: 42,
+              in_sample_return_pct: "7.5",
+              modeled_slippage_pct: "0.30",
+              overfitting_warning: false,
+            },
+            health_indicators: {
+              slippage_vs_model_pct: null,
+              shadow_vs_oos_expectancy_drift: "30.0",
+              live_vs_shadow_win_rate_drift: null,
+              consecutive_losses: 0,
+              signal_frequency_per_week: null,
+            },
+            root_cause: {
+              primary_driver: "insufficient_live_data",
+              regime_assessment: "insufficient_live_sample",
+              summary: "Live evidence is still too thin for a strong edge-decay call.",
+              operator_focus: ["Keep collecting shadow and live review evidence."],
+            },
+            latest_decision: null,
+            recommendation: "keep_running",
+            recommendation_reasons: ["No live trades yet; keep collecting sample data."],
+            review_period_days: 30,
+            generated_at: "2026-03-20T00:00:00Z",
+          }),
+        ),
+      );
+    }
+
+    if (url.includes("/performance/iteration-plan")) {
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            recommendation: "pause_and_rework",
+            recommendation_reasons: ["Shadow drift remains above the accepted range."],
+            all_steps_clear: false,
+            generated_at: "2026-03-20T00:00:00Z",
+            exchange: "binance",
+            symbol: "BTC/USDT",
+            review_period_days: 30,
+            steps: [
+              {
+                name: "record_operator_decision",
+                status: "required",
+                description: "Record a fresh operator review decision before acting on the plan.",
+                evidence: "current_runtime_stage=shadow; no persisted review decision",
+              },
+              {
+                name: "adjust_runtime_promotion",
+                status: "passed",
+                description: "Runtime promotion stage is already at a safe pre-live posture.",
+                evidence: "current_runtime_stage=shadow",
+              },
+            ],
           }),
         ),
       );
@@ -272,4 +351,6 @@ test("renders reporting analytics, recovery data, and export links", async () =>
   expect(screen.getByText("Notification delivery")).toBeInTheDocument();
   expect(screen.getByText("Audit feed")).toBeInTheDocument();
   expect(screen.getByText("Daily Rollup")).toBeInTheDocument();
+  expect(screen.getByText("Performance Review")).toBeInTheDocument();
+  expect(screen.getByText("Strategy Iteration Plan")).toBeInTheDocument();
 });

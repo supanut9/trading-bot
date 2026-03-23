@@ -883,10 +883,36 @@ export type LivePerformanceReviewResponse = {
   generated_at: string;
 };
 
+export type IterationStepResponse = {
+  name: string;
+  status: string;
+  description: string;
+  evidence: string | null;
+};
+
+export type StrategyIterationPlanResponse = {
+  recommendation: string;
+  recommendation_reasons: string[];
+  steps: IterationStepResponse[];
+  all_steps_clear: boolean;
+  generated_at: string;
+  exchange: string;
+  symbol: string;
+  review_period_days: number;
+};
+
 export function getPerformanceReview(
   review_period_days = 30,
 ): Promise<LivePerformanceReviewResponse> {
   return request<LivePerformanceReviewResponse>(
     `/reports/performance-review?review_period_days=${review_period_days}`,
+  );
+}
+
+export function getStrategyIterationPlan(
+  review_period_days = 30,
+): Promise<StrategyIterationPlanResponse> {
+  return request<StrategyIterationPlanResponse>(
+    `/performance/iteration-plan?review_period_days=${review_period_days}`,
   );
 }
