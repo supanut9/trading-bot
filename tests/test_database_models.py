@@ -72,6 +72,9 @@ def test_init_database_reconciles_backtest_run_columns(tmp_path) -> None:
 
     columns = {column["name"] for column in inspect(engine).get_columns("backtest_runs")}
     assert {
+        "benchmark_realized_pnl",
+        "benchmark_return_pct",
+        "benchmark_excess_return_pct",
         "spread_pct",
         "signal_latency_bars",
         "allowed_weekdays_utc",

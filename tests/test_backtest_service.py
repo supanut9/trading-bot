@@ -217,6 +217,12 @@ def test_backtest_cost_modeling_reduces_pnl() -> None:
     assert result_with_cost.fee_pct == Decimal("0.001")
     assert result_with_cost.spread_pct == Decimal("0")
     assert result_with_cost.signal_latency_bars == 0
+    assert result_with_cost.benchmark_realized_pnl is not None
+    assert result_with_cost.benchmark_return_pct is not None
+    assert (
+        result_with_cost.benchmark_excess_return_pct
+        == result_with_cost.total_return_pct - result_with_cost.benchmark_return_pct
+    )
 
 
 def test_backtest_cost_modeling_records_fill_price_and_fee_per_execution() -> None:
@@ -280,6 +286,25 @@ def test_backtest_spread_and_latency_reduce_pnl() -> None:
     assert result_with_extra_friction.signal_latency_bars == 1
     assert "spread_pct=0.002" in result_with_extra_friction.assumption_summary
     assert "signal_latency_bars=1" in result_with_extra_friction.assumption_summary
+
+
+def test_backtest_benchmark_uses_same_friction_model() -> None:
+    service = BacktestService(
+        strategy=StubStrategy(),
+        starting_equity=Decimal("10000"),
+        slippage_pct=Decimal("0.001"),
+        fee_pct=Decimal("0.001"),
+        spread_pct=Decimal("0.002"),
+    )
+
+    result = service.run(build_candles([10, 12, 20, 30]))
+
+    assert result.benchmark_realized_pnl > Decimal("0")
+    assert result.benchmark_return_pct > Decimal("0")
+    assert result.benchmark_return_pct < Decimal("200")
+    assert (
+        result.benchmark_excess_return_pct == result.total_return_pct - result.benchmark_return_pct
+    )
 
 
 def test_backtest_session_constraints_limit_trading_hours() -> None:

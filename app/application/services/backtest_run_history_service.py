@@ -33,6 +33,9 @@ class BacktestRunView:
     ending_equity: Decimal | None
     realized_pnl: Decimal | None
     total_return_pct: Decimal | None
+    benchmark_realized_pnl: Decimal | None
+    benchmark_return_pct: Decimal | None
+    benchmark_excess_return_pct: Decimal | None
     max_drawdown_pct: Decimal | None
     total_trades: int | None
     winning_trades: int | None
@@ -84,6 +87,9 @@ class BacktestRunHistoryService:
                 ending_equity=result.ending_equity,
                 realized_pnl=result.realized_pnl,
                 total_return_pct=result.total_return_pct,
+                benchmark_realized_pnl=getattr(result, "benchmark_realized_pnl", None),
+                benchmark_return_pct=getattr(result, "benchmark_return_pct", None),
+                benchmark_excess_return_pct=getattr(result, "benchmark_excess_return_pct", None),
                 max_drawdown_pct=result.max_drawdown_pct,
                 total_trades=result.total_trades,
                 winning_trades=result.winning_trades,
@@ -186,6 +192,9 @@ class BacktestRunHistoryService:
             ending_equity=record.ending_equity,
             realized_pnl=record.realized_pnl,
             total_return_pct=record.total_return_pct,
+            benchmark_realized_pnl=getattr(record, "benchmark_realized_pnl", None),
+            benchmark_return_pct=getattr(record, "benchmark_return_pct", None),
+            benchmark_excess_return_pct=getattr(record, "benchmark_excess_return_pct", None),
             max_drawdown_pct=record.max_drawdown_pct,
             total_trades=record.total_trades,
             winning_trades=record.winning_trades,

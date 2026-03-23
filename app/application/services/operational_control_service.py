@@ -299,6 +299,9 @@ class BacktestControlResult:
     ending_equity: Decimal | None = None
     realized_pnl: Decimal | None = None
     total_return_pct: Decimal | None = None
+    benchmark_realized_pnl: Decimal | None = None
+    benchmark_return_pct: Decimal | None = None
+    benchmark_excess_return_pct: Decimal | None = None
     max_drawdown_pct: Decimal | None = None
     total_trades: int | None = None
     winning_trades: int | None = None
@@ -936,6 +939,11 @@ class OperationalControlService:
             ending_equity=self._quantize_decimal(backtest_result.ending_equity),
             realized_pnl=self._quantize_decimal(backtest_result.realized_pnl),
             total_return_pct=self._quantize_decimal(backtest_result.total_return_pct),
+            benchmark_realized_pnl=self._quantize_decimal(backtest_result.benchmark_realized_pnl),
+            benchmark_return_pct=self._quantize_decimal(backtest_result.benchmark_return_pct),
+            benchmark_excess_return_pct=self._quantize_decimal(
+                backtest_result.benchmark_excess_return_pct
+            ),
             max_drawdown_pct=self._quantize_decimal(backtest_result.max_drawdown_pct),
             total_trades=backtest_result.total_trades,
             winning_trades=backtest_result.winning_trades,

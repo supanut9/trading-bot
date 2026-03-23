@@ -139,6 +139,9 @@ test("hydrates defaults and runs ema backtest", async () => {
             ending_equity: "15320.50000000",
             realized_pnl: "320.50000000",
             total_return_pct: "2.14000000",
+            benchmark_realized_pnl: "180.00000000",
+            benchmark_return_pct: "1.20000000",
+            benchmark_excess_return_pct: "0.94000000",
             max_drawdown_pct: "1.25000000",
             total_trades: 4,
             winning_trades: 2,
@@ -206,6 +209,9 @@ test("hydrates defaults and runs ema backtest", async () => {
   expect(screen.getByText("EMA 12/26")).toBeInTheDocument();
   expect(screen.getByText("Slippage 0.0005%")).toBeInTheDocument();
   expect(screen.getByText("All UTC weekdays")).toBeInTheDocument();
+  expect(screen.getByText("Buy and Hold")).toBeInTheDocument();
+  expect(screen.getByText("Excess Return")).toBeInTheDocument();
+  expect(screen.getAllByText(/\+1\.2/).length).toBeGreaterThan(0);
 });
 
 test("submits rule-builder preset payload", async () => {

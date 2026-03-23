@@ -201,6 +201,9 @@ def test_backtest_control_returns_summary_for_completed_run(tmp_path: Path) -> N
         assert payload["total_fees_paid"] is not None
         assert payload["slippage_pct"] is not None
         assert payload["fee_pct"] is not None
+        assert payload["benchmark_realized_pnl"] is not None
+        assert payload["benchmark_return_pct"] is not None
+        assert payload["benchmark_excess_return_pct"] is not None
         assert payload["spread_pct"] is not None
         assert payload["signal_latency_bars"] == 0
         assert "signal_latency_bars=0" in payload["assumption_summary"]
