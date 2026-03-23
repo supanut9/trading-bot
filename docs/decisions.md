@@ -1123,3 +1123,15 @@ An iteration checklist is not actionable if it ignores the already-authoritative
 ### Consequence
 
 The iteration plan now includes explicit steps for persisted review-decision alignment and runtime-stage rollback when the current rollout posture is too aggressive for the latest recommendation. Full live re-promotion stays blocked in the plan until the active review cycle returns to `keep_running`.
+
+### Decision
+
+Keep `feature/portfolio-risk-governor` bounded to portfolio- and symbol-level caps, and defer any per-strategy exposure cap to a later feature that first adds durable strategy identity to live orders and positions.
+
+### Reason
+
+The current runtime persists market, mode, and quantity state for live positions and orders, but it does not persist enough strategy identity to enforce a real per-strategy live exposure cap without coupling risk decisions to transient operator configuration. Shipping a per-strategy cap on top of that gap would create a misleading safety guarantee.
+
+### Consequence
+
+The portfolio-risk feature is now considered complete with total exposure, per-symbol exposure, symbol concentration, concurrent-position caps, and machine-readable reject reasons. Any future per-strategy governor will need its own bounded feature and schema support before it is treated as an enforceable live-risk control.
