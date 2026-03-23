@@ -35,6 +35,7 @@ Operator-facing paper-trading platform with backtesting, reporting, performance 
 ## Important Files
 
 - `AGENTS.md`
+- `docs/agent-workflow.md`
 - `docs/product-spec.md`
 - `docs/architecture.md`
 - `docs/data-model.md`
@@ -42,6 +43,21 @@ Operator-facing paper-trading platform with backtesting, reporting, performance 
 - `docs/roadmap.md`
 - `docs/runbook.md`
 - `docs/testing.md`
+
+## Agent Guidance
+
+The repository follows the current Codex split between durable repo guidance, reusable skills, and optional Codex-specific custom agents:
+
+- `AGENTS.md`: durable repository constraints
+- `.agents/skills/`: repo-specific reusable skills
+- `.codex/agents/`: optional Codex-specific custom subagent profiles
+- `docs/agent-workflow.md`: human-facing explanation of the structure
+
+Current custom agents:
+
+- `repo_explorer`
+- `trading_reviewer`
+- `operator_ui_reviewer`
 
 ## Commands
 

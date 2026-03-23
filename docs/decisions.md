@@ -1061,3 +1061,29 @@ Backtests that always assume a full fill on every signal remain too optimistic e
 ### Consequence
 
 Backtest controls and reports now accept `max_volume_fill_pct` and `allow_partial_fills`. Replay execution can skip fills entirely when the requested size exceeds allowed participation, or partially fill the signal when that mode is enabled, and the applied assumption is surfaced in the backtest summary.
+
+## 2026-03-23
+
+### Decision
+
+Align repository agent guidance with the current Codex layout by keeping durable repo rules in `AGENTS.md`, moving reusable repo workflows into `.agents/skills`, and reserving `.codex/agents` for optional Codex-specific custom subagent profiles.
+
+### Reason
+
+The prior repo layout mixed durable instructions, detailed workflow guidance, and repo skills in a way that did not match the current Codex conventions. A shorter root `AGENTS.md` reduces duplication with `docs/`, while repo-scoped skills remain versioned and reusable without being tied to Codex-specific runtime configuration.
+
+### Consequence
+
+Repository skills now live under `.agents/skills`, `AGENTS.md` is limited to durable repository constraints, and `docs/agent-workflow.md` explains how repo guidance, skills, and optional Codex-specific custom agents should be used together.
+
+### Decision
+
+Add three project-scoped custom Codex agents under `.codex/agents` for explicit delegated work: a read-only code mapper, a safety-focused trading reviewer, and a read-only operator UI reviewer.
+
+### Reason
+
+This repository has recurring parallelizable review and exploration work that benefits from bounded read-only subagents, especially for safety-sensitive runtime changes and UI-to-API contract checks. Defining those roles once keeps delegated work consistent without turning subagents into the default workflow.
+
+### Consequence
+
+Codex can now spawn `repo_explorer`, `trading_reviewer`, and `operator_ui_reviewer` as project-scoped custom agents when explicitly requested, while ordinary implementation still defaults to the main agent plus repo skills.
