@@ -9,6 +9,10 @@ from sqlalchemy.orm import Session
 
 from app.application.services.canary_rollout_service import CanaryRolloutService
 from app.application.services.live_readiness_service import LiveReadinessService
+from app.application.services.operator_runtime_config_service import OperatorRuntimeConfigService
+from app.application.services.performance_review_decision_service import (
+    PerformanceReviewDecisionService,
+)
 from app.application.services.qualification_service import QualificationService
 from app.config import Settings
 from app.infrastructure.database.repositories.runtime_control_repository import (
@@ -101,10 +105,11 @@ class RuntimePromotionService:
 
     def _evaluate_stage_blockers(self, stage: PromotionStage) -> tuple[str, ...]:
         blockers: list[str] = []
+        exchange, symbol = self._active_market()
         if stage in {"qualified", "canary", "live"}:
             report = QualificationService(self._session).evaluate(
-                exchange=self._settings.exchange_name,
-                symbol=self._settings.default_symbol,
+                exchange=exchange,
+                symbol=symbol,
             )
             if not report.all_passed:
                 blockers.append("qualification gates are not all passing")
@@ -121,8 +126,39 @@ class RuntimePromotionService:
             ).get_exposure_multiplier()
             if multiplier < Decimal("1.0"):
                 blockers.append("canary rollout has not reached full exposure")
+            blockers.extend(
+                self._evaluate_live_review_decision_blockers(
+                    exchange=exchange,
+                    symbol=symbol,
+                )
+            )
 
         return tuple(blockers)
+
+    def _active_market(self) -> tuple[str, str]:
+        config = OperatorRuntimeConfigService(
+            self._session,
+            self._settings,
+        ).get_effective_config()
+        return self._settings.exchange_name, config.symbol
+
+    def _evaluate_live_review_decision_blockers(
+        self,
+        *,
+        exchange: str,
+        symbol: str,
+    ) -> list[str]:
+        decision = PerformanceReviewDecisionService(self._session).get_latest_decision(
+            exchange=exchange,
+            symbol=symbol,
+        )
+        if decision is None:
+            return ["no persisted performance review decision is available"]
+        if decision.stale:
+            return ["latest performance review decision is stale"]
+        if decision.operator_decision != "keep_running":
+            return ["latest performance review decision does not approve full live promotion"]
+        return []
 
     def _default_stage(self) -> PromotionStage:
         if self._settings.shadow_trading_enabled:

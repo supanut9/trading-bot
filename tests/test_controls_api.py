@@ -371,6 +371,50 @@ def test_runtime_promotion_control_updates_stage(monkeypatch, tmp_path: Path) ->
         teardown_client()
 
 
+def test_runtime_promotion_control_returns_failed_when_live_review_gate_blocks(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    client, settings = build_client(tmp_path)
+    try:
+
+        class FakeRuntimePromotionService:
+            def __init__(self, _session, _settings) -> None:
+                pass
+
+            def set_stage(self, *, stage: str, updated_by: str):
+                assert stage == "live"
+                assert updated_by == "api.control"
+                raise ValueError("latest performance review decision is stale")
+
+            def get_state(self):
+                return type(
+                    "State",
+                    (),
+                    {
+                        "stage": "canary",
+                        "blockers": ("latest performance review decision is stale",),
+                    },
+                )()
+
+        monkeypatch.setattr(
+            "app.application.services.operational_control_service.RuntimePromotionService",
+            FakeRuntimePromotionService,
+        )
+
+        response = client.post("/controls/runtime-promotion", json={"stage": "live"})
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["status"] == "failed"
+        assert payload["stage"] == "canary"
+        assert payload["changed"] is False
+        assert payload["blockers"] == ["latest performance review decision is stale"]
+        assert "cannot promote runtime stage" in payload["detail"]
+    finally:
+        teardown_client()
+
+
 def test_get_performance_review_decision_returns_latest_record(tmp_path: Path) -> None:
     client, settings = build_client(tmp_path)
     try:

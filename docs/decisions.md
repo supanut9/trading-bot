@@ -1099,3 +1099,15 @@ The performance review now produces recommendation logic and root-cause analysis
 ### Consequence
 
 The system now stores `performance_review_decisions`, exposes the latest decision and staleness through `GET /status` and reporting, and records decision submissions through a bounded controls API and audit events. Later promotion gating can consume that evidence without re-encoding operator intent in ad hoc runtime flags.
+
+### Decision
+
+Gate promotion from `canary` to full `live` on a fresh persisted operator performance-review decision with `operator_decision=keep_running`.
+
+### Reason
+
+Readiness, qualification, and canary exposure cover infrastructure and rollout posture, but they do not prove the operator has explicitly reviewed recent live-vs-shadow evidence before broadening exposure. Full `live` promotion should require that explicit audited approval, and stale or negative review outcomes should block escalation.
+
+### Consequence
+
+Runtime promotion now treats missing, stale, or non-`keep_running` review decisions as blockers for the `live` stage. Operators can still reach `canary` without that gate, but broad live promotion remains blocked until a fresh favorable review is recorded.
