@@ -31,16 +31,18 @@ import {
   apiUrl,
   getAuditDashboard,
   getNotificationDashboard,
-  getPerformanceSummary,
   getPerformanceReview,
+  getPerformanceSummary,
   getRecoveryDashboard,
   getStatus,
+  getStrategyIterationPlan,
   type AuditDashboardResponse,
   type LivePerformanceReviewResponse,
   type NotificationDashboardResponse,
   type PerformanceAnalyticsResponse,
   type RecoveryDashboardResponse,
   type StatusResponse,
+  type StrategyIterationPlanResponse,
 } from "@/lib/api";
 import { formatDecimal, formatSignedDecimal, formatTimestamp } from "@/lib/format";
 
@@ -261,6 +263,7 @@ export function ReportingPage() {
     notificationQuery,
     auditQuery,
     performanceReviewQuery,
+    iterationPlanQuery,
   ] = useQueries({
     queries: [
       { queryKey: ["status"], queryFn: getStatus },
@@ -281,6 +284,10 @@ export function ReportingPage() {
         queryKey: ["performance-review"],
         queryFn: () => getPerformanceReview(30),
       },
+      {
+        queryKey: ["strategy-iteration-plan"],
+        queryFn: () => getStrategyIterationPlan(30),
+      },
     ],
   });
 
@@ -290,6 +297,7 @@ export function ReportingPage() {
   const notifications = notificationQuery.data as NotificationDashboardResponse | undefined;
   const audit = auditQuery.data as AuditDashboardResponse | undefined;
   const performanceReview = performanceReviewQuery.data as LivePerformanceReviewResponse | undefined;
+  const iterationPlan = iterationPlanQuery.data as StrategyIterationPlanResponse | undefined;
   const latestPerformanceReviewDecision =
     performanceReview?.latest_decision ?? status?.latest_performance_review_decision;
   const summary = performance?.summaries[0];
@@ -766,6 +774,97 @@ export function ReportingPage() {
                 )}
               </CardContent>
             </Card>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <div>
+              <CardTitle>Strategy Iteration Plan</CardTitle>
+              <CardDescription>
+                Ordered operator checklist for rollback, revalidation, and re-promotion after the
+                latest performance review.
+              </CardDescription>
+            </div>
+            <div className="rounded-2xl bg-amber-300/10 p-3 text-amber-100">
+              <NotebookTabs className="h-5 w-5" />
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-5">
+            {iterationPlanQuery.isLoading ? (
+              <Skeleton className="h-72" />
+            ) : iterationPlan ? (
+              <>
+                <div className="rounded-[1.8rem] border border-white/10 bg-white/[0.03] p-5">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <p className="text-lg font-semibold uppercase tracking-wide text-white">
+                      {iterationPlan.recommendation.replace(/_/g, " ")}
+                    </p>
+                    <span className="text-xs text-slate-400">
+                      Review window: {iterationPlan.review_period_days} days
+                    </span>
+                    <span
+                      className={[
+                        "rounded-full border px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em]",
+                        iterationPlan.all_steps_clear
+                          ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-200"
+                          : "border-amber-400/30 bg-amber-400/10 text-amber-100",
+                      ].join(" ")}
+                    >
+                      {iterationPlan.all_steps_clear ? "Plan clear" : "Action required"}
+                    </span>
+                  </div>
+                  <ul className="mt-3 space-y-1">
+                    {iterationPlan.recommendation_reasons.map((reason) => (
+                      <li key={reason} className="text-sm text-slate-300">
+                        &bull; {reason}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                <div className="space-y-3">
+                  {iterationPlan.steps.map((step) => (
+                    <div
+                      key={step.name}
+                      className="rounded-[1.6rem] border border-white/10 bg-white/[0.03] p-4"
+                    >
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-medium text-white">
+                            {step.name.replace(/_/g, " ")}
+                          </p>
+                          <p className="mt-2 text-sm text-slate-300">{step.description}</p>
+                        </div>
+                        <span
+                          className={[
+                            "rounded-full border px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em]",
+                            step.status === "passed"
+                              ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-200"
+                              : step.status === "blocked"
+                                ? "border-rose-400/30 bg-rose-400/10 text-rose-200"
+                                : step.status === "required"
+                                  ? "border-amber-400/30 bg-amber-400/10 text-amber-100"
+                                  : "border-sky-400/30 bg-sky-400/10 text-sky-200",
+                          ].join(" ")}
+                        >
+                          {step.status}
+                        </span>
+                      </div>
+                      {step.evidence ? (
+                        <div className="mt-3 rounded-2xl border border-slate-700/60 bg-slate-950/40 p-3 text-sm text-slate-400">
+                          {step.evidence}
+                        </div>
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <div className="flex min-h-48 items-center justify-center rounded-[1.8rem] border border-dashed border-white/10 bg-white/[0.02] px-6 text-center text-sm text-slate-400">
+                Strategy iteration plan unavailable.
+              </div>
+            )}
           </CardContent>
         </Card>
 

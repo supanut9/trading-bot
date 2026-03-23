@@ -58,7 +58,7 @@ Iteration and strategy improvement (current focus):
 3. `feature/portfolio-risk-governor` — add portfolio-level exposure, concentration, and concurrent-position caps (completed)
 4. `feature/execution-reconciliation-recovery` — turn restart and reconciliation tooling into one trusted recovery workflow (completed)
 5. `feature/runtime-promotion-workflow` — make paper → shadow → qualified → canary → live progression explicit and auditable (completed)
-6. `feature/strategy-iteration-workflow` — re-validate and re-promote when live results fall short (planned)
+6. `feature/strategy-iteration-workflow` — re-validate and re-promote when live results fall short (completed)
 
 Profitability improvements (what separates this bot from better real-world bots):
 
@@ -124,6 +124,7 @@ Profitability improvements (what separates this bot from better real-world bots)
 - emit optional notifications for worker execution, risk rejection, backtest outcomes, and market sync outcomes
 - persist operator review decisions taken against the live performance review through a bounded controls API with audit evidence
 - include review-decision alignment and runtime-stage rollback steps in the strategy iteration plan when live results fall short
+- render the strategy iteration checklist in reporting so operators can review rollback, revalidation, and re-promotion steps in one place
 - persist bot state and logs
 - expose minimal operational API for health, status, positions, trades, candle ingestion, and bounded manual controls
 - load deterministic local demo candle scenarios for no-action, buy-crossover, and sell-crossover operator workflows
