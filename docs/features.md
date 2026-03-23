@@ -1824,7 +1824,7 @@ Why: Per-strategy exposure caps are not trustworthy until the runtime stores str
 
 Status:
 
-- in progress
+- completed on `main`
 
 Scope:
 
