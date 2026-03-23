@@ -1774,6 +1774,7 @@ Main outputs:
 - optional UTC weekday and hour constraints for backtests
 - deterministic partial-fill and missed-fill assumptions via candle-volume participation caps
 - benchmark comparison in replay results, recent-run reporting, and CSV exports for cost-adjusted return context
+- explicit friction-assumption columns in CSV exports so operators can compare runs without parsing the summary string
 - explicit “assumption summary” included in backtest output so operators know what realism model was applied
 
 Why: Even a cost-adjusted backtest can still overstate live viability if it assumes immediate fills, zero spread pressure, and perfect market availability. Hardening the friction model makes strategy promotion decisions more honest.

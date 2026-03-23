@@ -181,6 +181,12 @@ def test_backtest_summary_report_exports_csv_rows(tmp_path: Path) -> None:
         assert rows[0]["detail"] != ""
         assert "benchmark_return_pct" in rows[0]
         assert "benchmark_excess_return_pct" in rows[0]
+        assert rows[0]["slippage_pct"] != ""
+        assert rows[0]["fee_pct"] != ""
+        assert rows[0]["spread_pct"] != ""
+        assert rows[0]["signal_latency_bars"] != ""
+        assert "allow_partial_fills" in rows[0]
+        assert "assumption_summary" in rows[0]
     finally:
         teardown_client(session)
 
@@ -310,6 +316,14 @@ def test_backtest_runs_csv_export_filters_limit(tmp_path: Path) -> None:
         assert rows[0]["required_candles"] == "51"
         assert "benchmark_return_pct" in rows[0]
         assert "benchmark_excess_return_pct" in rows[0]
+        assert "slippage_pct" in rows[0]
+        assert "fee_pct" in rows[0]
+        assert "spread_pct" in rows[0]
+        assert "signal_latency_bars" in rows[0]
+        assert "allowed_weekdays_utc" in rows[0]
+        assert "allowed_hours_utc" in rows[0]
+        assert "max_volume_fill_pct" in rows[0]
+        assert "allow_partial_fills" in rows[0]
     finally:
         teardown_client(session)
 
