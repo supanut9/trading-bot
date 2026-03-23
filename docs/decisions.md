@@ -1135,3 +1135,15 @@ The current runtime persists market, mode, and quantity state for live positions
 ### Consequence
 
 The portfolio-risk feature is now considered complete with total exposure, per-symbol exposure, symbol concentration, concurrent-position caps, and machine-readable reject reasons. Any future per-strategy governor will need its own bounded feature and schema support before it is treated as an enforceable live-risk control.
+
+### Decision
+
+Implement the first per-strategy live governor as one aggregate notional exposure cap keyed by persisted `positions.strategy_name`.
+
+### Reason
+
+The newly stored strategy identity is now durable enough to support a real safety control, but the runtime still keeps one live position per symbol and one active execution strategy at a time. The next safe step is a narrow cap that sums open live exposure for the active strategy and blocks only new entries that would exceed that bound.
+
+### Consequence
+
+Live risk evaluation now gains one optional per-strategy notional cap without changing the current one-position-per-symbol model. Operators can see the configured cap through status, and any future multi-strategy or per-strategy position-partitioning work remains a separate bounded feature.

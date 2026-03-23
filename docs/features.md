@@ -1803,7 +1803,7 @@ Why: Recommendation logic and root-cause analysis now exist, but without a durab
 
 Status:
 
-- in progress
+- completed on `main`
 
 Scope:
 
@@ -1819,3 +1819,25 @@ Main outputs:
 - tests proving strategy identity survives paper execution, live submission, and live fill reconciliation
 
 Why: Per-strategy exposure caps are not trustworthy until the runtime stores strategy identity durably on the records those caps would inspect. Without that, any future “per-strategy” live governor would silently depend on the current operator config rather than the order or position that actually exists.
+
+### 90. `feature/per-strategy-live-risk-caps`
+
+Status:
+
+- in progress
+
+Scope:
+
+- enforce one additional live risk gate that limits notional exposure per persisted `strategy_name`
+- use stored position identity rather than transient runtime config as the source of truth for current strategy exposure
+- keep the feature bounded to one aggregate per-strategy cap and operator visibility, not multi-strategy netting or per-strategy position partitioning
+
+Main outputs:
+
+- configurable live per-strategy exposure cap in runtime settings
+- worker portfolio state that computes current live exposure for the active strategy from persisted positions
+- live risk rejection when the next entry would exceed the configured per-strategy notional cap
+- status visibility for the configured per-strategy cap
+- tests proving the cap blocks only the intended live entry path
+
+Why: Durable strategy identity is now stored on execution records, so the system can finally enforce a real per-strategy live exposure cap using the positions that actually exist. This closes the specific safety gap intentionally deferred when the broader portfolio-risk feature was shipped.

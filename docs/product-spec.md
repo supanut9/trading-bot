@@ -65,7 +65,8 @@ Profitability improvements (what separates this bot from better real-world bots)
 
 7. `feature/backtest-market-friction-hardening` — add spread, latency, partial-fill, assumption-summary, explicit export columns, and buy-and-hold benchmark realism to replay results, run history, reporting exports, and operator controls (completed)
 8. `feature/xgboost-signal-strategy` — ML-based signal using XGBoost trained on indicator features (completed)
-9. `feature/durable-strategy-identity` — persist strategy identity on orders, trades, and positions before enforcing any per-strategy live-risk governor (in progress)
+9. `feature/durable-strategy-identity` — persist strategy identity on orders, trades, and positions before enforcing any per-strategy live-risk governor (completed)
+10. `feature/per-strategy-live-risk-caps` — enforce live per-strategy notional exposure limits using persisted position strategy identity (in progress)
 
 ## Initial Market And Strategy
 
@@ -106,7 +107,7 @@ Profitability improvements (what separates this bot from better real-world bots)
 - allow operators to halt or resume live entry through a bounded persisted control without restarting the runtime
 - fail closed on live resume attempts when readiness checks are still blocked
 - bound live entries by configured max order notional and max position quantity limits
-- bound live entries by aggregate exposure, per-symbol exposure, concentration, and concurrent-position caps
+- bound live entries by aggregate exposure, per-symbol exposure, concentration, concurrent-position, and per-strategy exposure caps
 - optionally run recurring live reconciliation jobs so local runtime state can catch up with exchange fills without manual control calls
 - run startup live reconciliation before new live worker execution so restarts fail closed on uncertain exchange state
 - allow bounded manual cancellation of recent live orders through the controls surface

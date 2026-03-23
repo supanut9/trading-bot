@@ -154,6 +154,19 @@ class RiskService:
         if (
             is_entry
             and portfolio.execution_mode == "live"
+            and self._limits.live_max_strategy_exposure_notional is not None
+            and portfolio.current_strategy_exposure_notional + order_notional
+            > self._limits.live_max_strategy_exposure_notional
+        ):
+            return RiskDecision(
+                approved=False,
+                reason="live strategy exposure exceeds configured limit",
+                is_hard_violation=True,
+            )
+
+        if (
+            is_entry
+            and portfolio.execution_mode == "live"
             and self._limits.live_max_symbol_concentration_pct is not None
         ):
             new_total_exposure = portfolio.total_open_exposure_notional + order_notional

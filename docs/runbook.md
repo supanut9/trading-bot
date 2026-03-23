@@ -283,7 +283,7 @@ Reconciliation alerting:
 Live balance visibility:
 
 - `GET /status` includes `account_balance_status` and `account_balances`
-- `GET /status` also includes `live_safety_status`, `live_trading_halted`, `live_max_order_notional`, `live_max_position_quantity`, `live_max_total_exposure_notional`, `live_max_symbol_exposure_notional`, `live_max_symbol_concentration_pct`, and `live_max_concurrent_positions`
+- `GET /status` also includes `live_safety_status`, `live_trading_halted`, `live_max_order_notional`, `live_max_position_quantity`, `live_max_total_exposure_notional`, `live_max_symbol_exposure_notional`, `live_max_symbol_concentration_pct`, `live_max_concurrent_positions`, and `live_max_strategy_exposure_notional`
 - balance visibility is read-only and only attempts exchange lookup when live trading is enabled
 - the snapshot is filtered to the configured symbol's base and quote assets so operators can verify funded live mode quickly
 
