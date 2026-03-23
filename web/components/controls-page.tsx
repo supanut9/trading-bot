@@ -41,6 +41,29 @@ type LiveCancelFormState = {
   value: string;
 };
 
+function RecoverySummaryInline({
+  summary,
+}: {
+  summary: StatusResponse["live_recovery_summary"] | LiveHaltControlResponse["live_recovery_summary"] | LiveReconcileControlResponse["live_recovery_summary"];
+}) {
+  if (!summary) {
+    return (
+      <p className="mt-2 text-sm text-slate-400">Recovery posture unavailable.</p>
+    );
+  }
+
+  return (
+    <div className="space-y-3 rounded-2xl border border-white/10 bg-white/[0.02] p-4">
+      <div className="flex flex-wrap gap-2">
+        <Badge variant="info">Posture {summary.posture}</Badge>
+        <Badge variant="neutral">State {summary.dominant_recovery_state}</Badge>
+        <Badge variant="warning">Next {summary.next_action}</Badge>
+      </div>
+      <p className="text-sm text-slate-300">{summary.summary}</p>
+    </div>
+  );
+}
+
 function RuntimeConfigStrip({
   operatorConfig,
   status,
@@ -92,6 +115,12 @@ function RuntimeConfigStrip({
         <p className="mt-2 text-sm text-slate-300">
           Live controls remain operator-triggered and bounded to current backend policies.
         </p>
+      </div>
+      <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-4 xl:col-span-5">
+        <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Recovery Posture</p>
+        <div className="mt-3">
+          <RecoverySummaryInline summary={status?.live_recovery_summary ?? null} />
+        </div>
       </div>
     </div>
   );
@@ -172,6 +201,7 @@ function LiveHaltResultPanel({ result }: { result: LiveHaltControlResponse | nul
           {result.notified ? "Notification sent" : "No notification"}
         </Badge>
       </div>
+      <RecoverySummaryInline summary={result.live_recovery_summary} />
     </div>
   );
 }
@@ -212,6 +242,7 @@ function LiveReconcileResultPanel({
           {result.notified ? "Notification sent" : "No notification"}
         </Badge>
       </div>
+      <RecoverySummaryInline summary={result.live_recovery_summary} />
     </div>
   );
 }
