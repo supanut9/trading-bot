@@ -110,7 +110,7 @@ Recommended next bounded implementation sequence from the current codebase:
 
 - 1. `feature/live-readiness-gate` (completed) — make live enablement depend on one explicit readiness report spanning qualification, reconciliation health, stale-order state, runtime halt posture, and configured live limits
 - 2. `feature/portfolio-risk-governor` (in progress) — add portfolio-level exposure, concentration, and concurrent-position controls on top of the existing live hard gates
-- 3. `feature/execution-reconciliation-recovery` (in progress) — turn the current restart, reconcile, and stale-order tools into one trusted recovery workflow
+- 3. `feature/execution-reconciliation-recovery` (completed) — turn the current restart, reconcile, and stale-order tools into one trusted recovery workflow
 - 4. `feature/runtime-promotion-workflow` (in progress) — make paper → shadow → qualified → canary → live progression explicit, durable, and operator-auditable
 - 5. `feature/backtest-market-friction-hardening` (in progress) — close more of the gap between replay assumptions and live-market behavior
 

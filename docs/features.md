@@ -1710,7 +1710,7 @@ Why: A system can pass single-order validation and still take unacceptable portf
 
 Status:
 
-- partially implemented on `main`; completion pass needed
+- completed on `main`
 
 Scope:
 
@@ -1727,14 +1727,13 @@ Main outputs:
 - safer idempotency rules for replays and restarts when exchange state is uncertain
 - runbook and reporting updates for recovery actions and expected operator decisions
 
-Current completion slice:
+Implemented on `main`:
 
-- expose one aggregate recovery posture over unresolved live orders so operators can see whether recovery is clear, waiting, stale, or blocked by manual review without scanning the full queue
-- surface the dominant recovery state, next recommended action, and state counts through reporting and status surfaces
-- reuse the same recovery-posture wording in live readiness, promotion blockers, and live-resume failures so control paths match reporting
-- attach the post-action recovery posture to live reconcile and live halt control responses plus audit payloads so operators can inspect recovery state immediately after acting
-- expose the same structured recovery posture through live-readiness and runtime-promotion control responses so control polling does not depend on parsing blocker text alone
-- keep the slice read-only and bounded to operator trust in recovery state, not new execution controls
+- unresolved live orders are classified into operator-readable recovery states with explicit next actions
+- startup sync, scheduled reconcile, manual reconcile, and manual cancel flows all feed one coherent recovery reporting path
+- recovery queue, stale-order reporting, recovery posture summary, and recovery timeline are exposed through reporting and status surfaces
+- live readiness, runtime promotion, live resume, live reconcile, and live halt now reuse or return the same structured recovery posture so control paths match reporting
+- control audit payloads now carry post-action recovery posture for reconcile, halt, and runtime-promotion events
 
 Why: Real systems usually fail at the recovery boundary, not the happy path. If restart and reconciliation outcomes are ambiguous, operators either over-trust stale local state or halt more often than necessary.
 

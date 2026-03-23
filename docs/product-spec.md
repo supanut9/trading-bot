@@ -56,7 +56,7 @@ Iteration and strategy improvement (current focus):
 1. `feature/live-performance-review-loop` — compare live vs walk-forward OOS to detect edge decay (partially implemented on `main`; completion pass needed)
 2. `feature/live-readiness-gate` — explicit go/no-go report before any live resume or promotion path is trusted (completed)
 3. `feature/portfolio-risk-governor` — add portfolio-level exposure, concentration, and concurrent-position caps (in progress)
-4. `feature/execution-reconciliation-recovery` — turn restart and reconciliation tooling into one trusted recovery workflow (in progress)
+4. `feature/execution-reconciliation-recovery` — turn restart and reconciliation tooling into one trusted recovery workflow (completed)
 5. `feature/runtime-promotion-workflow` — make paper → shadow → qualified → canary → live progression explicit and auditable (in progress)
 6. `feature/strategy-iteration-workflow` — re-validate and re-promote when live results fall short (planned)
 
