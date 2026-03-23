@@ -1446,7 +1446,7 @@ Suggested readiness checks:
 
 Status:
 
-- in progress
+- completed
 
 Scope:
 
@@ -1747,20 +1747,14 @@ Scope:
 - reuse existing qualification, canary, and halt controls while adding one durable promotion workflow
 - keep the feature bounded to runtime state transitions rather than new strategy evidence generation
 
-Main outputs:
+Implemented on `main`:
 
-- persisted promotion stage for the active runtime
-- explicit operator approval path from paper → shadow → qualified → canary live
-- blocking prerequisites for each stage tied to readiness, qualification, and recovery health
-- read/write control surface for the current stage plus blocker visibility in status
-- audit trail of who promoted, paused, resumed, or rolled back runtime state
-- operator-visible status summary that explains the current stage and the next missing prerequisite
-
-Current completion slice:
-
-- require a fresh persisted performance-review decision before promoting from canary to full `live`
-- block full `live` promotion when the latest operator decision is stale, missing, or not favorable
-- surface the review-decision blocker through the existing runtime promotion state and control responses
+- persisted runtime promotion stage across paper, shadow, qualified, canary, and live
+- explicit bounded control path for stage reads and updates
+- stage blockers tied to qualification, readiness, recovery posture, canary exposure, and review-decision posture
+- audit trail for runtime promotion updates and failed promotion attempts
+- status and control responses that expose both blockers and the next missing prerequisite
+- operator controls UI panel that shows the current stage and lets operators request bounded stage changes
 
 Why: The repo already has many ingredients for safe rollout, but without one explicit promotion workflow, the safety model is spread across env flags, qualification reports, controls, and runbook rules. Real-world use needs one coherent operator path.
 

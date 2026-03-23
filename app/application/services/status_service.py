@@ -103,6 +103,7 @@ class StatusService:
             "live_safety_status": self._live_safety_status(effective_live_halt),
             "runtime_promotion_stage": runtime_promotion["stage"],
             "runtime_promotion_blockers": runtime_promotion["blockers"],
+            "runtime_promotion_next_prerequisite": runtime_promotion["next_prerequisite"],
             "live_readiness_status": live_readiness["status"],
             "live_readiness_blocking_reasons": live_readiness["blocking_reasons"],
             "live_max_order_notional": (
@@ -222,15 +223,19 @@ class StatusService:
             self._session.rollback()
             return {"status": None, "blocking_reasons": []}
 
-    def _runtime_promotion_state(self) -> dict[str, str | list[str]]:
+    def _runtime_promotion_state(self) -> dict[str, str | list[str] | None]:
         if self._session is None:
-            return {"stage": "paper", "blockers": []}
+            return {"stage": "paper", "blockers": [], "next_prerequisite": None}
         try:
             state = RuntimePromotionService(self._session, self._settings).get_state()
-            return {"stage": state.stage, "blockers": list(state.blockers)}
+            return {
+                "stage": state.stage,
+                "blockers": list(state.blockers),
+                "next_prerequisite": state.next_prerequisite,
+            }
         except SQLAlchemyError:
             self._session.rollback()
-            return {"stage": "paper", "blockers": []}
+            return {"stage": "paper", "blockers": [], "next_prerequisite": None}
 
     def _latest_performance_review_decision(
         self,

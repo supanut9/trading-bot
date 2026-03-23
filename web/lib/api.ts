@@ -6,6 +6,9 @@ export type StatusResponse = {
   live_trading_enabled: boolean;
   live_trading_halted: boolean;
   live_safety_status: string;
+  runtime_promotion_stage: string;
+  runtime_promotion_blockers: string[];
+  runtime_promotion_next_prerequisite: string | null;
   live_max_order_notional: string | null;
   live_max_position_quantity: string | null;
   exchange: string;
@@ -363,6 +366,20 @@ export type LiveCancelControlResponse = {
   notified: boolean;
 };
 
+export type RuntimePromotionControlRequest = {
+  stage: "paper" | "shadow" | "qualified" | "canary" | "live";
+};
+
+export type RuntimePromotionControlResponse = {
+  status: string;
+  detail: string;
+  stage: string;
+  changed: boolean;
+  blockers: string[];
+  next_prerequisite: string | null;
+  live_recovery_summary: RecoverySummaryResponse | null;
+};
+
 export type QualificationGateResponse = {
   name: string;
   passed: boolean;
@@ -696,6 +713,19 @@ export function runLiveCancel(
   payload: LiveCancelControlRequest,
 ): Promise<LiveCancelControlResponse> {
   return request<LiveCancelControlResponse>("/controls/live-cancel", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function getRuntimePromotion(): Promise<RuntimePromotionControlResponse> {
+  return request<RuntimePromotionControlResponse>("/controls/runtime-promotion");
+}
+
+export function updateRuntimePromotion(
+  payload: RuntimePromotionControlRequest,
+): Promise<RuntimePromotionControlResponse> {
+  return request<RuntimePromotionControlResponse>("/controls/runtime-promotion", {
     method: "POST",
     body: JSON.stringify(payload),
   });

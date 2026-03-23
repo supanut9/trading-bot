@@ -35,6 +35,7 @@ class RuntimePromotionState:
     stage: PromotionStage
     source: str
     blockers: tuple[str, ...]
+    next_prerequisite: str | None = None
     updated_at: datetime | None = None
     updated_by: str | None = None
 
@@ -46,6 +47,7 @@ class RuntimePromotionUpdate:
     changed: bool
     source: str
     blockers: tuple[str, ...]
+    next_prerequisite: str | None = None
     updated_at: datetime | None = None
     updated_by: str | None = None
 
@@ -64,12 +66,14 @@ class RuntimePromotionService:
                 stage=stage,
                 source="settings",
                 blockers=self._evaluate_stage_blockers(stage),
+                next_prerequisite=self._next_prerequisite_for_stage(stage),
             )
         stage = self._normalize_stage(record.string_value)
         return RuntimePromotionState(
             stage=stage,
             source="runtime_control",
             blockers=self._evaluate_stage_blockers(stage),
+            next_prerequisite=self._next_prerequisite_for_stage(stage),
             updated_at=record.updated_at,
             updated_by=record.updated_by,
         )
@@ -99,6 +103,7 @@ class RuntimePromotionService:
             changed=previous.stage != stage,
             source="runtime_control",
             blockers=blockers,
+            next_prerequisite=self._next_prerequisite_for_blockers(blockers),
             updated_at=record.updated_at,
             updated_by=record.updated_by,
         )
@@ -164,6 +169,15 @@ class RuntimePromotionService:
         if decision.operator_decision != "keep_running":
             return ["latest performance review decision does not approve full live promotion"]
         return []
+
+    def _next_prerequisite_for_stage(self, stage: PromotionStage) -> str | None:
+        return self._next_prerequisite_for_blockers(self._evaluate_stage_blockers(stage))
+
+    @staticmethod
+    def _next_prerequisite_for_blockers(blockers: tuple[str, ...]) -> str | None:
+        if not blockers:
+            return None
+        return blockers[0]
 
     def _default_stage(self) -> PromotionStage:
         if self._settings.shadow_trading_enabled:

@@ -23,6 +23,7 @@ def test_runtime_promotion_defaults_to_paper_stage(tmp_path: Path) -> None:
         assert state.stage == "paper"
         assert state.source == "settings"
         assert state.blockers == ()
+        assert state.next_prerequisite is None
     finally:
         session.close()
 
@@ -139,6 +140,7 @@ def test_runtime_promotion_promotes_to_live_when_prerequisites_pass(
         assert update.current_stage == "live"
         assert update.changed is True
         assert update.blockers == ()
+        assert update.next_prerequisite is None
     finally:
         session.close()
 

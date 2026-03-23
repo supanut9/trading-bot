@@ -58,6 +58,7 @@ def test_status_endpoint_returns_bootstrap_configuration(tmp_path: Path) -> None
     assert payload["live_safety_status"] == "disabled"
     assert payload["runtime_promotion_stage"] == "paper"
     assert payload["runtime_promotion_blockers"] == []
+    assert payload["runtime_promotion_next_prerequisite"] is None
     assert payload["live_readiness_status"] == "blocked"
     assert payload["live_readiness_blocking_reasons"]
     assert payload["live_max_order_notional"] is None
@@ -398,6 +399,9 @@ def test_status_endpoint_prefers_runtime_promotion_stage_when_present(tmp_path: 
     assert response.status_code == 200
     payload = response.json()
     assert payload["runtime_promotion_stage"] == "qualified"
+    assert (
+        payload["runtime_promotion_next_prerequisite"] == "qualification gates are not all passing"
+    )
 
 
 def test_status_endpoint_returns_latest_performance_review_decision(tmp_path: Path) -> None:

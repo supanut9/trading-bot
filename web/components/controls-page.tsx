@@ -1,7 +1,7 @@
 "use client";
 
 import type { FormEvent } from "react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AlertTriangle,
@@ -19,16 +19,19 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
   getOperatorConfig,
   getQualification,
+  getRuntimePromotion,
   getStatus,
   runLiveCancel,
   runLiveHalt,
   runLiveReconcile,
   runWorkerCycle,
+  updateRuntimePromotion,
   type LiveCancelControlResponse,
   type LiveHaltControlResponse,
   type LiveReconcileControlResponse,
   type OperatorConfigResponse,
   type QualificationReportResponse,
+  type RuntimePromotionControlResponse,
   type StatusResponse,
   type WorkerControlResponse,
 } from "@/lib/api";
@@ -40,6 +43,8 @@ type LiveCancelFormState = {
   identifierType: CancelIdentifierType;
   value: string;
 };
+
+type PromotionStage = "paper" | "shadow" | "qualified" | "canary" | "live";
 
 function RecoverySummaryInline({
   summary,
@@ -282,6 +287,60 @@ function LiveCancelResultPanel({ result }: { result: LiveCancelControlResponse |
   );
 }
 
+function RuntimePromotionPanel({
+  status,
+  result,
+  isLoading,
+}: {
+  status: StatusResponse | undefined;
+  result: RuntimePromotionControlResponse | undefined;
+  isLoading: boolean;
+}) {
+  if (isLoading && !result) {
+    return <Skeleton className="h-56" />;
+  }
+
+  const currentStage = result?.stage ?? status?.runtime_promotion_stage ?? "paper";
+  const blockers = result?.blockers ?? status?.runtime_promotion_blockers ?? [];
+  const nextPrerequisite =
+    result?.next_prerequisite ?? status?.runtime_promotion_next_prerequisite ?? null;
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center gap-3">
+        <Badge variant="info">Stage {currentStage}</Badge>
+        <Badge variant={blockers.length === 0 ? "success" : "warning"}>
+          {blockers.length === 0 ? "Ready for next move" : `${blockers.length} blocker${blockers.length === 1 ? "" : "s"}`}
+        </Badge>
+      </div>
+
+      <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+        <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400">
+          Next Prerequisite
+        </p>
+        <p className="mt-3 text-sm text-white">
+          {nextPrerequisite ?? "No blocking prerequisite for the current stage."}
+        </p>
+      </div>
+
+      {blockers.length > 0 ? (
+        <div className="space-y-2">
+          {blockers.map((blocker) => (
+            <div
+              key={blocker}
+              className="rounded-2xl border border-amber-300/20 bg-amber-300/10 px-4 py-3 text-sm text-amber-50"
+            >
+              {blocker}
+            </div>
+          ))}
+        </div>
+      ) : null}
+
+      <RecoverySummaryInline summary={result?.live_recovery_summary ?? null} />
+    </div>
+  );
+}
+
 function QualificationReportPanel({
   report,
   isLoading,
@@ -351,6 +410,7 @@ export function ControlsPage() {
     identifierType: "order_id",
     value: "",
   });
+  const [selectedPromotionStage, setSelectedPromotionStage] = useState<PromotionStage>("paper");
 
   const operatorConfigQuery = useQuery({
     queryKey: ["operator-config"],
@@ -367,9 +427,15 @@ export function ControlsPage() {
     queryFn: getQualification,
   });
 
+  const runtimePromotionQuery = useQuery({
+    queryKey: ["runtime-promotion"],
+    queryFn: getRuntimePromotion,
+  });
+
   async function invalidateOperationalQueries() {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ["status"] }),
+      queryClient.invalidateQueries({ queryKey: ["runtime-promotion"] }),
       queryClient.invalidateQueries({ queryKey: ["positions"] }),
       queryClient.invalidateQueries({ queryKey: ["trades"] }),
       queryClient.invalidateQueries({ queryKey: ["performance"] }),
@@ -399,6 +465,11 @@ export function ControlsPage() {
     },
   });
 
+  const runtimePromotionMutation = useMutation({
+    mutationFn: updateRuntimePromotion,
+    onSuccess: invalidateOperationalQueries,
+  });
+
   function handleLiveCancelSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
@@ -425,6 +496,12 @@ export function ControlsPage() {
   }
 
   const status = statusQuery.data;
+  const runtimePromotion = runtimePromotionQuery.data;
+  const effectivePromotionStage = runtimePromotion?.stage ?? status?.runtime_promotion_stage ?? "paper";
+
+  useEffect(() => {
+    setSelectedPromotionStage(effectivePromotionStage as PromotionStage);
+  }, [effectivePromotionStage]);
 
   return (
     <OperatorShell>
@@ -490,6 +567,79 @@ export function ControlsPage() {
                 <QualificationReportPanel
                   isLoading={qualificationQuery.isLoading}
                   report={qualificationQuery.data}
+                />
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <div>
+                  <CardTitle>Runtime Promotion</CardTitle>
+                  <CardDescription>
+                    Keep paper, shadow, qualified, canary, and live rollout transitions explicit
+                    and operator-driven.
+                  </CardDescription>
+                </div>
+                <div className="rounded-2xl bg-amber-300/10 p-3 text-amber-100">
+                  <ShieldCheck className="h-5 w-5" />
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-sm text-slate-300">
+                  Promotion requests use the same backend qualification, readiness, canary, review,
+                  and recovery checks that guard runtime control paths.
+                </div>
+
+                {runtimePromotionMutation.error instanceof Error ? (
+                  <div className="rounded-2xl border border-rose-400/25 bg-rose-400/10 px-4 py-3 text-sm text-rose-100">
+                    {runtimePromotionMutation.error.message}
+                  </div>
+                ) : null}
+
+                <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_auto]">
+                  <label className="space-y-2">
+                    <span className="text-[11px] uppercase tracking-[0.18em] text-slate-400">
+                      Desired Stage
+                    </span>
+                    <select
+                      className="w-full rounded-2xl border border-white/10 bg-[#09121a] px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-300/40 focus:ring-2 focus:ring-cyan-300/10"
+                      onChange={(event) =>
+                        setSelectedPromotionStage(event.target.value as PromotionStage)
+                      }
+                      value={selectedPromotionStage}
+                    >
+                      <option value="paper">paper</option>
+                      <option value="shadow">shadow</option>
+                      <option value="qualified">qualified</option>
+                      <option value="canary">canary</option>
+                      <option value="live">live</option>
+                    </select>
+                  </label>
+
+                  <button
+                    className="inline-flex items-center justify-center gap-2 self-end rounded-2xl bg-amber-300 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-amber-200 disabled:cursor-not-allowed disabled:bg-slate-600 disabled:text-slate-300"
+                    disabled={
+                      runtimePromotionMutation.isPending ||
+                      selectedPromotionStage === effectivePromotionStage
+                    }
+                    onClick={() =>
+                      runtimePromotionMutation.mutate({ stage: selectedPromotionStage })
+                    }
+                    type="button"
+                  >
+                    {runtimePromotionMutation.isPending ? (
+                      <RefreshCcw className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <ShieldCheck className="h-4 w-4" />
+                    )}
+                    Apply stage
+                  </button>
+                </div>
+
+                <RuntimePromotionPanel
+                  isLoading={runtimePromotionQuery.isLoading}
+                  result={runtimePromotionMutation.data ?? runtimePromotion}
+                  status={status}
                 />
               </CardContent>
             </Card>
