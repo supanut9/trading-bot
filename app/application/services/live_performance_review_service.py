@@ -66,11 +66,20 @@ class StrategyHealthIndicators:
 
 
 @dataclass(frozen=True, slots=True)
+class RootCauseAnalysis:
+    primary_driver: str
+    regime_assessment: str
+    summary: str
+    operator_focus: list[str]
+
+
+@dataclass(frozen=True, slots=True)
 class LivePerformanceReview:
     live_metrics: LiveModeMetrics | None
     shadow_metrics: ShadowModeMetrics
     oos_baseline: OOSBaseline | None
     health_indicators: StrategyHealthIndicators
+    root_cause: RootCauseAnalysis
     recommendation: str
     recommendation_reasons: list[str]
     review_period_days: int
@@ -121,6 +130,12 @@ class LivePerformanceReviewService:
             consecutive_losses=consecutive_losses,
             signal_frequency_per_week=signal_frequency,
         )
+        root_cause = self._derive_root_cause(
+            live_metrics=live_metrics,
+            shadow_metrics=shadow_metrics,
+            oos_baseline=oos_baseline,
+            health_indicators=health_indicators,
+        )
 
         recommendation, reasons = self._derive_recommendation(
             live_metrics=live_metrics,
@@ -132,6 +147,7 @@ class LivePerformanceReviewService:
             shadow_metrics=shadow_metrics,
             oos_baseline=oos_baseline,
             health_indicators=health_indicators,
+            root_cause=root_cause,
             recommendation=recommendation,
             recommendation_reasons=reasons,
             review_period_days=review_period_days,
@@ -399,6 +415,116 @@ class LivePerformanceReviewService:
         if not components:
             return None
         return sum(components, Decimal("0"))
+
+    @staticmethod
+    def _derive_root_cause(
+        *,
+        live_metrics: LiveModeMetrics | None,
+        shadow_metrics: ShadowModeMetrics,
+        oos_baseline: OOSBaseline | None,
+        health_indicators: StrategyHealthIndicators,
+    ) -> RootCauseAnalysis:
+        shadow_drift = health_indicators.shadow_vs_oos_expectancy_drift
+        overfit_warning = bool(oos_baseline and oos_baseline.overfitting_warning)
+
+        if shadow_drift is not None and shadow_drift < Decimal("-15"):
+            return RootCauseAnalysis(
+                primary_driver="strategy_or_regime_drift",
+                regime_assessment="shadow_underperforms_walk_forward_oos",
+                summary=(
+                    "Shadow results are materially weaker than the latest "
+                    "walk-forward OOS baseline, which points to strategy decay "
+                    "or a market regime mismatch rather than execution alone."
+                ),
+                operator_focus=[
+                    "Inspect recent market regime changes before adjusting strategy parameters.",
+                    "Run a fresh walk-forward backtest on the latest candle "
+                    "window to confirm edge decay.",
+                ],
+            )
+
+        if live_metrics is None:
+            return RootCauseAnalysis(
+                primary_driver="insufficient_live_data",
+                regime_assessment="insufficient_live_sample",
+                summary=(
+                    "No live trades are available yet, so the review can only "
+                    "rely on shadow and walk-forward evidence."
+                ),
+                operator_focus=[
+                    "Keep collecting shadow or live sample data before changing strategy posture.",
+                    "Confirm qualification and readiness gates remain healthy "
+                    "while the sample grows.",
+                ],
+            )
+
+        slippage_drift = health_indicators.slippage_vs_model_pct
+        live_shadow_drift = health_indicators.live_vs_shadow_win_rate_drift
+
+        if slippage_drift is not None and slippage_drift > _REDUCE_SLIPPAGE_OVERSHOOT:
+            return RootCauseAnalysis(
+                primary_driver="execution_cost_overshoot",
+                regime_assessment=(
+                    "shadow_holds_if_costs_are_controlled"
+                    if shadow_drift is None or shadow_drift >= Decimal("0")
+                    else "shadow_is_softening_while_execution_costs_are_high"
+                ),
+                summary=(
+                    "Observed live slippage is above the modeled replay baseline, "
+                    "so execution friction is the clearest source of performance drag."
+                ),
+                operator_focus=[
+                    "Review fill quality, limit-order offsets, timeout fallbacks, "
+                    "and fee assumptions.",
+                    "Check whether current market conditions require more "
+                    "conservative execution settings.",
+                ],
+            )
+
+        if live_shadow_drift is not None and live_shadow_drift < _REDUCE_WIN_RATE_DRIFT:
+            return RootCauseAnalysis(
+                primary_driver="live_execution_divergence",
+                regime_assessment="shadow_outperforms_live_in_current_regime",
+                summary=(
+                    "Live win rate is trailing shadow despite the same signal stream, "
+                    "which suggests a live-only divergence in fills, timing, or runtime posture."
+                ),
+                operator_focus=[
+                    "Compare live order timing and fills against shadow "
+                    "assumptions for the same signals.",
+                    "Check runtime controls, halt posture, and symbol-rule "
+                    "behavior for live-only drift.",
+                ],
+            )
+
+        if overfit_warning:
+            return RootCauseAnalysis(
+                primary_driver="model_fragility",
+                regime_assessment="walk_forward_overfitting_warning",
+                summary=(
+                    "The latest walk-forward baseline already warns about overfitting, "
+                    "so current softness may reflect a fragile parameter set."
+                ),
+                operator_focus=[
+                    "Reduce confidence in the current baseline and rerun "
+                    "walk-forward validation on newer data.",
+                    "Prefer simpler parameter changes over aggressive "
+                    "optimization until the baseline stabilizes.",
+                ],
+            )
+
+        return RootCauseAnalysis(
+            primary_driver="within_expected_variation",
+            regime_assessment="current_metrics_are_within_expected_ranges",
+            summary=(
+                "Current live, shadow, and walk-forward signals do not point "
+                "to a single abnormal failure mode."
+            ),
+            operator_focus=[
+                "Continue monitoring for more sample depth before changing strategy posture.",
+                "Use the next review window to confirm that drift and slippage remain bounded.",
+            ],
+        )
 
     @staticmethod
     def _derive_recommendation(

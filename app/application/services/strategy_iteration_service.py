@@ -171,7 +171,10 @@ class StrategyIterationService:
                     "Reduce live position size or canary multiplier "
                     "while signals are underperforming vs shadow."
                 ),
-                evidence="; ".join(review.recommendation_reasons),
+                evidence=(
+                    f"{review.root_cause.summary} "
+                    f"Focus: {'; '.join(review.root_cause.operator_focus)}"
+                ),
             ),
             IterationStep(
                 name="shadow_monitoring",
@@ -216,7 +219,10 @@ class StrategyIterationService:
                     "Pause live trading. Significant divergence detected between "
                     "live and shadow metrics."
                 ),
-                evidence="; ".join(review.recommendation_reasons),
+                evidence=(
+                    f"{review.root_cause.summary} "
+                    f"Focus: {'; '.join(review.root_cause.operator_focus)}"
+                ),
             ),
             IterationStep(
                 name="diagnose_underperformance",
@@ -224,6 +230,10 @@ class StrategyIterationService:
                 description=(
                     "Diagnose the performance gap: check cost overshoot, "
                     "signal decay, or regime change using the live performance report."
+                ),
+                evidence=(
+                    f"Primary driver: {review.root_cause.primary_driver}; "
+                    f"regime: {review.root_cause.regime_assessment}"
                 ),
             ),
             IterationStep(

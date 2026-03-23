@@ -48,6 +48,12 @@ def _make_review(recommendation: str, reasons: list, shadow_count: int = 0):
         shadow_metrics=shadow,
         oos_baseline=None,
         health_indicators=health,
+        root_cause=MagicMock(
+            primary_driver="insufficient_live_data",
+            regime_assessment="insufficient_live_sample",
+            summary="No live trades yet.",
+            operator_focus=["Collect more sample data."],
+        ),
         recommendation=recommendation,
         recommendation_reasons=reasons,
         review_period_days=30,
