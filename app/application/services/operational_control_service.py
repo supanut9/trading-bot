@@ -16,6 +16,10 @@ from app.application.services.live_fill_reconciliation_service import (
     LiveFillReconciliationService,
 )
 from app.application.services.live_operator_control_service import LiveOperatorControlService
+from app.application.services.live_order_recovery_report_service import (
+    LiveOrderRecoveryReportService,
+    RecoverySummaryView,
+)
 from app.application.services.live_order_state import (
     CANCELABLE_LIVE_ORDER_STATUSES,
     resolve_cancellation_state,
@@ -352,6 +356,7 @@ class LiveReconcileControlResult:
     filled_count: int
     review_required_count: int
     recovery_summary: str = "-"
+    live_recovery_summary: RecoverySummaryView | None = None
     notified: bool = False
 
 
@@ -372,6 +377,7 @@ class LiveHaltControlResult:
     detail: str
     live_trading_halted: bool
     changed: bool
+    live_recovery_summary: RecoverySummaryView | None = None
     notified: bool = False
 
 
@@ -1024,7 +1030,9 @@ class OperationalControlService:
                     self._settings,
                     client=build_live_order_exchange_client(self._settings),
                 ).reconcile_recent_live_orders()
+                live_recovery_summary = self._build_live_recovery_summary(session)
         except Exception:
+            live_recovery_summary = self._load_live_recovery_summary()
             control_result = LiveReconcileControlResult(
                 status="failed",
                 detail="live reconciliation failed",
@@ -1032,6 +1040,7 @@ class OperationalControlService:
                 filled_count=0,
                 review_required_count=0,
                 recovery_summary="reconciliation_failed",
+                live_recovery_summary=live_recovery_summary,
                 notified=False,
             )
             if audit:
@@ -1046,6 +1055,9 @@ class OperationalControlService:
                         "filled_count": control_result.filled_count,
                         "review_required_count": control_result.review_required_count,
                         "recovery_summary": control_result.recovery_summary,
+                        "live_recovery_summary": self._recovery_summary_payload(
+                            control_result.live_recovery_summary
+                        ),
                     },
                 )
             return control_result
@@ -1076,6 +1088,7 @@ class OperationalControlService:
             filled_count=filled_count,
             review_required_count=review_required_count,
             recovery_summary=recovery_summary,
+            live_recovery_summary=live_recovery_summary,
             notified=False,
         )
         if audit:
@@ -1090,6 +1103,9 @@ class OperationalControlService:
                     "filled_count": control_result.filled_count,
                     "review_required_count": control_result.review_required_count,
                     "recovery_summary": control_result.recovery_summary,
+                    "live_recovery_summary": self._recovery_summary_payload(
+                        control_result.live_recovery_summary
+                    ),
                 },
             )
         return control_result
@@ -1115,6 +1131,44 @@ class OperationalControlService:
             parts.append("state=awaiting_exchange")
         return " ".join(parts)
 
+    def _build_live_recovery_summary(self, session: Session) -> RecoverySummaryView:
+        return (
+            LiveOrderRecoveryReportService(
+                session,
+                self._settings,
+            )
+            .build_report(order_limit=50, audit_limit=1)
+            .summary
+        )
+
+    def _load_live_recovery_summary(self) -> RecoverySummaryView | None:
+        try:
+            with self._session_factory() as session:
+                return self._build_live_recovery_summary(session)
+        except Exception:
+            return None
+
+    @staticmethod
+    def _recovery_summary_payload(
+        summary: RecoverySummaryView | None,
+    ) -> dict[str, object] | None:
+        if summary is None:
+            return None
+        return {
+            "posture": summary.posture,
+            "dominant_recovery_state": summary.dominant_recovery_state,
+            "next_action": summary.next_action,
+            "summary": summary.summary,
+            "unresolved_order_count": summary.unresolved_order_count,
+            "awaiting_exchange_count": summary.awaiting_exchange_count,
+            "partial_fill_in_flight_count": summary.partial_fill_in_flight_count,
+            "stale_open_order_count": summary.stale_open_order_count,
+            "stale_partial_fill_count": summary.stale_partial_fill_count,
+            "manual_review_required_count": summary.manual_review_required_count,
+            "requires_operator_review_count": summary.requires_operator_review_count,
+            "stale_order_count": summary.stale_order_count,
+        }
+
     def run_live_halt(
         self,
         *,
@@ -1131,11 +1185,13 @@ class OperationalControlService:
                         if readiness.blocking_reasons
                         else "readiness checks failed"
                     )
+                    live_recovery_summary = self._build_live_recovery_summary(session)
                     control_result = LiveHaltControlResult(
                         status="failed",
                         detail=f"cannot resume live trading: {blocker}",
                         live_trading_halted=True,
                         changed=False,
+                        live_recovery_summary=live_recovery_summary,
                     )
                     if audit:
                         self._audit.record_control_result(
@@ -1149,6 +1205,9 @@ class OperationalControlService:
                                 "changed": control_result.changed,
                                 "reason": "live_readiness_failed",
                                 "blocking_reasons": readiness.blocking_reasons,
+                                "live_recovery_summary": self._recovery_summary_payload(
+                                    control_result.live_recovery_summary
+                                ),
                             },
                         )
                     return control_result
@@ -1162,6 +1221,7 @@ class OperationalControlService:
                 updated_by=source,
             )
             session.commit()
+            live_recovery_summary = self._build_live_recovery_summary(session)
 
         detail = "live entry halted" if halted else "live entry resumed"
         if not control_update.changed:
@@ -1172,6 +1232,7 @@ class OperationalControlService:
             detail=detail,
             live_trading_halted=control_update.current_halted,
             changed=control_update.changed,
+            live_recovery_summary=live_recovery_summary,
             notified=False,
         )
         if audit:
@@ -1186,6 +1247,9 @@ class OperationalControlService:
                     "live_trading_halted": control_result.live_trading_halted,
                     "changed": control_result.changed,
                     "updated_by": control_update.updated_by,
+                    "live_recovery_summary": self._recovery_summary_payload(
+                        control_result.live_recovery_summary
+                    ),
                 },
             )
         return control_result

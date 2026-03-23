@@ -1061,6 +1061,8 @@ def test_live_halt_control_updates_runtime_state_and_status(tmp_path: Path) -> N
         assert payload["detail"] == "live entry halted"
         assert payload["live_trading_halted"] is True
         assert payload["changed"] is True
+        assert payload["live_recovery_summary"]["posture"] == "clear"
+        assert payload["live_recovery_summary"]["next_action"] == "none"
 
         status_response = client.get("/status")
         assert status_response.status_code == 200
@@ -1225,6 +1227,8 @@ def test_live_reconcile_control_returns_completed_summary(tmp_path: Path) -> Non
         assert payload["filled_count"] == 1
         assert payload["review_required_count"] == 0
         assert payload["recovery_summary"] == "orders=1 filled=1"
+        assert payload["live_recovery_summary"]["posture"] == "clear"
+        assert payload["live_recovery_summary"]["unresolved_order_count"] == 0
     finally:
         teardown_client()
 

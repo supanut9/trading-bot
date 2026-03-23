@@ -238,6 +238,7 @@ Live order recovery report:
 - `GET /reports` also includes a recovery queue with `recovery_state`, `review_required`, and `next_action` columns plus a recovery timeline of recent live reconcile and live cancel events
 - `GET /reports/recovery` and `GET /status` now also expose one aggregate recovery posture, the dominant recovery state, and the next recommended operator action
 - live-resume and runtime-promotion failures now reuse the same recovery-posture wording when unresolved live state is the blocker
+- `POST /controls/live-reconcile` and `POST /controls/live-halt` now also return the post-action recovery posture and include it in the audit payload
 - the recovery timeline now includes a context column derived from audit payloads such as reconcile counts or cancel identifiers
 - `/reports` now supports recovery filters for order status, review-required state, event type, and free-text search
 - `GET /reports/live-recovery.csv` exports unresolved live orders with the latest recovery-event context, `requires_operator_review`, `recovery_state`, and `next_action`

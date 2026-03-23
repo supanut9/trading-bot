@@ -6,7 +6,6 @@ from app.application.services.market_data_sync_service import MarketDataSyncResu
 from app.application.services.operational_control_service import (
     BacktestRunOptions,
     LiveCancelControlResult,
-    LiveReconcileControlResult,
     MarketSyncControlResult,
     MarketSyncRunOptions,
     OperationalControlService,
@@ -328,6 +327,28 @@ def test_live_reconcile_control_returns_completed_result(monkeypatch) -> None:
         "app.application.services.operational_control_service.build_live_order_exchange_client",
         lambda _settings: object(),
     )
+    monkeypatch.setattr(
+        OperationalControlService,
+        "_build_live_recovery_summary",
+        lambda self, session: type(
+            "Summary",
+            (),
+            {
+                "posture": "manual_review_required",
+                "dominant_recovery_state": "manual_review_required",
+                "next_action": "inspect_exchange_state",
+                "summary": "1 unresolved live order requires manual exchange-state review",
+                "unresolved_order_count": 1,
+                "awaiting_exchange_count": 0,
+                "partial_fill_in_flight_count": 0,
+                "stale_open_order_count": 0,
+                "stale_partial_fill_count": 0,
+                "manual_review_required_count": 1,
+                "requires_operator_review_count": 1,
+                "stale_order_count": 0,
+            },
+        )(),
+    )
 
     service = OperationalControlService(
         settings,
@@ -337,18 +358,21 @@ def test_live_reconcile_control_returns_completed_result(monkeypatch) -> None:
 
     result = service.run_live_reconcile(source="job.live_reconcile")
 
-    assert result == LiveReconcileControlResult(
-        status="completed",
-        detail="live orders require operator review",
-        reconciled_count=2,
-        filled_count=1,
-        review_required_count=1,
-        recovery_summary="orders=2 filled=1 review_required=1",
-        notified=False,
-    )
+    assert result.status == "completed"
+    assert result.detail == "live orders require operator review"
+    assert result.reconciled_count == 2
+    assert result.filled_count == 1
+    assert result.review_required_count == 1
+    assert result.recovery_summary == "orders=2 filled=1 review_required=1"
+    assert result.live_recovery_summary is not None
+    assert result.live_recovery_summary.posture == "manual_review_required"
+    assert result.live_recovery_summary.next_action == "inspect_exchange_state"
     assert len(audit.entries) == 1
     assert audit.entries[0]["control_type"] == "live_reconcile"
     assert audit.entries[0]["source"] == "job.live_reconcile"
+    assert (
+        audit.entries[0]["payload"]["live_recovery_summary"]["posture"] == "manual_review_required"
+    )
 
 
 def test_live_reconcile_control_returns_failed_result_on_client_error(monkeypatch) -> None:
@@ -365,6 +389,28 @@ def test_live_reconcile_control_returns_failed_result_on_client_error(monkeypatc
         "app.application.services.operational_control_service.build_live_order_exchange_client",
         lambda _settings: (_ for _ in ()).throw(RuntimeError("boom")),
     )
+    monkeypatch.setattr(
+        OperationalControlService,
+        "_load_live_recovery_summary",
+        lambda self: type(
+            "Summary",
+            (),
+            {
+                "posture": "stale_orders",
+                "dominant_recovery_state": "stale_open_order",
+                "next_action": "reconcile_or_cancel",
+                "summary": "1 stale live order requires reconcile or cancel review",
+                "unresolved_order_count": 1,
+                "awaiting_exchange_count": 0,
+                "partial_fill_in_flight_count": 0,
+                "stale_open_order_count": 1,
+                "stale_partial_fill_count": 0,
+                "manual_review_required_count": 0,
+                "requires_operator_review_count": 0,
+                "stale_order_count": 1,
+            },
+        )(),
+    )
 
     service = OperationalControlService(
         settings,
@@ -374,17 +420,18 @@ def test_live_reconcile_control_returns_failed_result_on_client_error(monkeypatc
 
     result = service.run_live_reconcile(source="job.live_reconcile")
 
-    assert result == LiveReconcileControlResult(
-        status="failed",
-        detail="live reconciliation failed",
-        reconciled_count=0,
-        filled_count=0,
-        review_required_count=0,
-        recovery_summary="reconciliation_failed",
-        notified=False,
-    )
+    assert result.status == "failed"
+    assert result.detail == "live reconciliation failed"
+    assert result.reconciled_count == 0
+    assert result.filled_count == 0
+    assert result.review_required_count == 0
+    assert result.recovery_summary == "reconciliation_failed"
+    assert result.live_recovery_summary is not None
+    assert result.live_recovery_summary.posture == "stale_orders"
+    assert result.live_recovery_summary.next_action == "reconcile_or_cancel"
     assert len(audit.entries) == 1
     assert audit.entries[0]["status"] == "failed"
+    assert audit.entries[0]["payload"]["live_recovery_summary"]["posture"] == "stale_orders"
 
 
 def test_live_cancel_control_returns_failed_when_identifier_missing() -> None:
@@ -505,6 +552,28 @@ def test_live_halt_rejects_resume_when_readiness_checks_fail(monkeypatch) -> Non
         "app.application.services.operational_control_service.LiveReadinessService",
         FakeLiveReadinessService,
     )
+    monkeypatch.setattr(
+        OperationalControlService,
+        "_build_live_recovery_summary",
+        lambda self, session: type(
+            "Summary",
+            (),
+            {
+                "posture": "manual_review_required",
+                "dominant_recovery_state": "manual_review_required",
+                "next_action": "inspect_exchange_state",
+                "summary": "1 unresolved live order requires manual exchange-state review",
+                "unresolved_order_count": 1,
+                "awaiting_exchange_count": 0,
+                "partial_fill_in_flight_count": 0,
+                "stale_open_order_count": 0,
+                "stale_partial_fill_count": 0,
+                "manual_review_required_count": 1,
+                "requires_operator_review_count": 1,
+                "stale_order_count": 0,
+            },
+        )(),
+    )
 
     service = OperationalControlService(
         settings,
@@ -520,8 +589,13 @@ def test_live_halt_rejects_resume_when_readiness_checks_fail(monkeypatch) -> Non
         "1 unresolved live order(s) require manual exchange-state review before "
         "trusting local recovery state (next action: inspect_exchange_state)"
     )
+    assert result.live_recovery_summary is not None
+    assert result.live_recovery_summary.posture == "manual_review_required"
     assert len(audit.entries) == 1
     assert audit.entries[0]["payload"]["reason"] == "live_readiness_failed"
+    assert (
+        audit.entries[0]["payload"]["live_recovery_summary"]["posture"] == "manual_review_required"
+    )
 
 
 def test_runtime_promotion_rejects_update_when_prerequisites_fail(monkeypatch) -> None:
