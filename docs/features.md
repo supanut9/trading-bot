@@ -1675,21 +1675,22 @@ Why: Rule-based EMA crossover produces too many false signals in ranging markets
 
 Status:
 
-- partially implemented on `main`
+- completed on `main`
 
 Scope:
 
 - extend the existing live risk hard gates from per-trade blocking into portfolio-level capital governance
-- bound aggregate exposure across symbols and strategies instead of relying only on single-order checks
+- bound aggregate exposure across symbols instead of relying only on single-order checks
 - keep the feature bounded to account-level risk control rather than execution routing or strategy generation
 
 Main outputs:
 
 - total live notional exposure cap across all open positions
-- per-symbol and per-strategy exposure caps
+- per-symbol exposure cap
 - max concurrent live positions limit
-- concentration guard that blocks excessive allocation to one symbol or one strategy
-- machine-readable reject reasons surfaced in controls, status, and audit events
+- concentration guard that blocks excessive allocation to one symbol
+- machine-readable reject reasons surfaced in worker controls and audit events
+- portfolio cap visibility through the status surface
 
 Implemented on `main`:
 
@@ -1697,12 +1698,9 @@ Implemented on `main`:
 - per-symbol live exposure cap
 - live symbol concentration guard
 - max concurrent live positions limit
+- machine-readable portfolio-risk reject reasons in worker control responses
+- worker-cycle audit payloads carry the same machine-readable reject reason
 - portfolio cap visibility through the status surface
-
-Current completion slice:
-
-- surface machine-readable portfolio-risk reject reasons in worker control responses
-- carry the same reject reason into worker-cycle audit payloads for operator review
 
 Why: A system can pass single-order validation and still take unacceptable portfolio risk. Real-world deployment needs account-level controls that remain understandable to operators and fail closed before capital concentration becomes dangerous.
 
