@@ -1111,3 +1111,15 @@ Readiness, qualification, and canary exposure cover infrastructure and rollout p
 ### Consequence
 
 Runtime promotion now treats missing, stale, or non-`keep_running` review decisions as blockers for the `live` stage. Operators can still reach `canary` without that gate, but broad live promotion remains blocked until a fresh favorable review is recorded.
+
+### Decision
+
+Make the strategy iteration plan consume both the persisted operator review decision and the current runtime promotion stage.
+
+### Reason
+
+An iteration checklist is not actionable if it ignores the already-authoritative operator decision record and the current rollout stage. After a negative review outcome, operators need the plan to say whether they must first record a fresh decision, roll back promotion, or keep full live blocked until the review recovers.
+
+### Consequence
+
+The iteration plan now includes explicit steps for persisted review-decision alignment and runtime-stage rollback when the current rollout posture is too aggressive for the latest recommendation. Full live re-promotion stays blocked in the plan until the active review cycle returns to `keep_running`.

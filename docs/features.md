@@ -1460,6 +1460,12 @@ Main outputs:
 - operator-driven promotion path from halt-for-rework back through walk-forward, shadow, and qualification gates
 - changelog of strategy versions with their qualification evidence and live outcome summaries
 
+Current completion slice:
+
+- include persisted operator review-decision state in the iteration checklist
+- include runtime promotion rollback or alignment steps when the current stage is too aggressive for the latest review outcome
+- keep full live re-promotion blocked in the iteration plan until the review cycle returns to `keep_running`
+
 ### 75. `feature/futures-leverage-backtest`
 
 Status:
