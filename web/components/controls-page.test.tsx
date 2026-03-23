@@ -86,6 +86,20 @@ test("hydrates defaults and runs worker and live control actions", async () => {
             database_status: "ready",
             latest_price_status: "ready",
             latest_price: "101250.25",
+            live_recovery_summary: {
+              posture: "clear",
+              dominant_recovery_state: "resolved",
+              next_action: "none",
+              summary: "No unresolved live recovery work remains.",
+              unresolved_order_count: 0,
+              awaiting_exchange_count: 0,
+              partial_fill_in_flight_count: 0,
+              stale_open_order_count: 0,
+              stale_partial_fill_count: 0,
+              manual_review_required_count: 0,
+              requires_operator_review_count: 0,
+              stale_order_count: 0,
+            },
             account_balance_status: "ready",
             account_balances: [],
           }),
@@ -132,6 +146,20 @@ test("hydrates defaults and runs worker and live control actions", async () => {
             detail: "live entry halted",
             live_trading_halted: true,
             changed: true,
+            live_recovery_summary: {
+              posture: "manual_review_required",
+              dominant_recovery_state: "manual_review_required",
+              next_action: "inspect_exchange_state",
+              summary: "1 unresolved live order requires manual exchange-state review",
+              unresolved_order_count: 1,
+              awaiting_exchange_count: 0,
+              partial_fill_in_flight_count: 0,
+              stale_open_order_count: 0,
+              stale_partial_fill_count: 0,
+              manual_review_required_count: 1,
+              requires_operator_review_count: 1,
+              stale_order_count: 0,
+            },
             notified: false,
           }),
         ),
@@ -148,6 +176,21 @@ test("hydrates defaults and runs worker and live control actions", async () => {
             reconciled_count: 2,
             filled_count: 1,
             review_required_count: 1,
+            recovery_summary: "orders=2 filled=1 review_required=1",
+            live_recovery_summary: {
+              posture: "stale_orders",
+              dominant_recovery_state: "stale_open_order",
+              next_action: "reconcile_or_cancel",
+              summary: "1 stale live order requires reconcile or cancel review",
+              unresolved_order_count: 1,
+              awaiting_exchange_count: 0,
+              partial_fill_in_flight_count: 0,
+              stale_open_order_count: 1,
+              stale_partial_fill_count: 0,
+              manual_review_required_count: 0,
+              requires_operator_review_count: 0,
+              stale_order_count: 1,
+            },
             notified: true,
           }),
         ),
@@ -179,6 +222,8 @@ test("hydrates defaults and runs worker and live control actions", async () => {
 
   // Wait for operator config to load (strategy name appears in the runtime strip)
   await waitFor(() => expect(screen.getByText("ema_crossover")).toBeInTheDocument());
+  expect(screen.getByText("Posture clear")).toBeInTheDocument();
+  expect(screen.getByText("No unresolved live recovery work remains.")).toBeInTheDocument();
 
   fireEvent.click(screen.getByRole("button", { name: "Run worker cycle" }));
 
@@ -191,12 +236,20 @@ test("hydrates defaults and runs worker and live control actions", async () => {
 
   await waitFor(() => expect(screen.getByText("live entry halted")).toBeInTheDocument());
   expect(screen.getByText("State changed")).toBeInTheDocument();
+  expect(screen.getByText("Posture manual_review_required")).toBeInTheDocument();
+  expect(
+    screen.getByText("1 unresolved live order requires manual exchange-state review"),
+  ).toBeInTheDocument();
 
   fireEvent.click(screen.getByRole("button", { name: "Run live reconcile" }));
 
   await waitFor(() => expect(screen.getByText("live reconcile completed")).toBeInTheDocument());
   expect(screen.getByText("Reconciled 2")).toBeInTheDocument();
   expect(screen.getByText("Filled 1")).toBeInTheDocument();
+  expect(screen.getByText("Posture stale_orders")).toBeInTheDocument();
+  expect(
+    screen.getByText("1 stale live order requires reconcile or cancel review"),
+  ).toBeInTheDocument();
 
   fireEvent.change(screen.getByPlaceholderText("123"), {
     target: { value: "44" },
