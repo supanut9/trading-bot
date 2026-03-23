@@ -20,12 +20,27 @@ export type StatusResponse = {
   database_status: string;
   latest_price_status: string;
   latest_price: string | null;
+  latest_performance_review_decision: PerformanceReviewDecisionResponse | null;
   account_balance_status: string;
   account_balances: Array<{
     asset: string;
     free: string;
     locked: string;
   }>;
+};
+
+export type PerformanceReviewDecisionResponse = {
+  recommendation: string;
+  operator_decision: string;
+  rationale: string;
+  review_period_days: number;
+  root_cause_driver: string;
+  root_cause_regime: string;
+  review_generated_at: string;
+  decided_at: string;
+  decided_by: string;
+  age_days: number;
+  stale: boolean;
 };
 
 export type PerformanceAnalyticsResponse = {
@@ -764,6 +779,7 @@ export type LiveModeMetricsResponse = {
   trade_count: number;
   win_rate_pct: string | null;
   expectancy: string | null;
+  total_return_pct: string | null;
   max_drawdown_pct: string | null;
   total_net_pnl: string;
   total_fees_paid: string;
@@ -775,6 +791,7 @@ export type ShadowModeMetricsResponse = {
   trade_count: number;
   win_rate_pct: string | null;
   expectancy: string | null;
+  total_return_pct: string | null;
   max_drawdown_pct: string | null;
   total_net_pnl: string;
 };
@@ -786,6 +803,7 @@ export type OOSBaselineResponse = {
   oos_drawdown_pct: string;
   oos_total_trades: number;
   in_sample_return_pct: string;
+  modeled_slippage_pct: string | null;
   overfitting_warning: boolean;
 };
 
@@ -808,6 +826,7 @@ export type LivePerformanceReviewResponse = {
     summary: string;
     operator_focus: string[];
   };
+  latest_decision: PerformanceReviewDecisionResponse | null;
   recommendation: string;
   recommendation_reasons: string[];
   review_period_days: number;

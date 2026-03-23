@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
@@ -13,6 +14,9 @@ from app.infrastructure.database.base import Base
 from app.infrastructure.database.models.audit_event import AuditEventRecord
 from app.infrastructure.database.models.backtest_run import BacktestRunRecord
 from app.infrastructure.database.models.order import OrderRecord
+from app.infrastructure.database.models.performance_review_decision import (
+    PerformanceReviewDecisionRecord,
+)
 from app.infrastructure.database.models.runtime_control import RuntimeControlRecord
 from app.infrastructure.database.models.trade import TradeRecord
 from app.infrastructure.database.session import (
@@ -363,6 +367,134 @@ def test_runtime_promotion_control_updates_stage(monkeypatch, tmp_path: Path) ->
         assert payload["stage"] == "qualified"
         assert payload["changed"] is True
         assert payload["blockers"] == []
+    finally:
+        teardown_client()
+
+
+def test_get_performance_review_decision_returns_latest_record(tmp_path: Path) -> None:
+    client, settings = build_client(tmp_path)
+    try:
+        session = create_session_factory(settings)()
+        try:
+            session.add(
+                PerformanceReviewDecisionRecord(
+                    exchange=settings.exchange_name,
+                    symbol=settings.default_symbol,
+                    review_period_days=30,
+                    recommendation="reduce_risk",
+                    operator_decision="pause_and_rework",
+                    rationale="execution costs are above the modeled baseline",
+                    root_cause_driver="execution_cost_overshoot",
+                    root_cause_regime="market_structure_unchanged",
+                    review_generated_at="2026-03-20T00:00:00+00:00",
+                    decided_by="test.controls",
+                    snapshot_json="{}",
+                )
+            )
+            session.commit()
+        finally:
+            session.close()
+
+        response = client.get("/controls/performance-review-decision")
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["recommendation"] == "reduce_risk"
+        assert payload["operator_decision"] == "pause_and_rework"
+        assert payload["decided_by"] == "test.controls"
+        assert payload["stale"] is False
+    finally:
+        teardown_client()
+
+
+def test_record_performance_review_decision_persists_and_audits(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    client, settings = build_client(tmp_path)
+    try:
+
+        @dataclass(frozen=True, slots=True)
+        class FakeDecision:
+            recommendation: str
+            operator_decision: str
+            rationale: str
+            review_period_days: int
+            root_cause_driver: str
+            root_cause_regime: str
+            review_generated_at: datetime
+            decided_at: datetime
+            decided_by: str
+            age_days: int
+            stale: bool
+
+        class FakePerformanceReviewDecisionService:
+            def __init__(self, _session) -> None:
+                pass
+
+            def record_decision(
+                self,
+                *,
+                exchange: str,
+                symbol: str,
+                operator_decision: str,
+                rationale: str,
+                review_period_days: int,
+                decided_by: str,
+            ) -> FakeDecision:
+                assert exchange == settings.exchange_name
+                assert symbol == settings.default_symbol
+                assert operator_decision == "reduce_risk"
+                assert rationale == "reviewing elevated slippage"
+                assert review_period_days == 21
+                assert decided_by == "api.control"
+                return FakeDecision(
+                    recommendation="reduce_risk",
+                    operator_decision=operator_decision,
+                    rationale=rationale,
+                    review_period_days=review_period_days,
+                    root_cause_driver="execution_cost_overshoot",
+                    root_cause_regime="market_structure_unchanged",
+                    review_generated_at=datetime(2026, 3, 20, tzinfo=UTC),
+                    decided_at=datetime(2026, 3, 21, tzinfo=UTC),
+                    decided_by=decided_by,
+                    age_days=1,
+                    stale=False,
+                )
+
+        monkeypatch.setattr(
+            "app.application.services.operational_control_service.PerformanceReviewDecisionService",
+            FakePerformanceReviewDecisionService,
+        )
+
+        response = client.post(
+            "/controls/performance-review-decision",
+            json={
+                "operator_decision": "reduce_risk",
+                "rationale": "reviewing elevated slippage",
+                "review_period_days": 21,
+            },
+        )
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["recommendation"] == "reduce_risk"
+        assert payload["operator_decision"] == "reduce_risk"
+        assert payload["review_period_days"] == 21
+        assert payload["root_cause_driver"] == "execution_cost_overshoot"
+
+        session = create_session_factory(settings)()
+        try:
+            event = session.scalars(
+                select(AuditEventRecord).order_by(AuditEventRecord.id.desc())
+            ).first()
+        finally:
+            session.close()
+
+        assert event is not None
+        assert event.event_type == "performance_review_decision"
+        assert event.source == "api.control"
+        assert event.status == "completed"
     finally:
         teardown_client()
 

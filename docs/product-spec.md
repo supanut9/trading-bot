@@ -36,6 +36,7 @@ Current baseline on `main`:
 - automatic slippage tracking for live fills using signal-time price and final average fill price
 - automated fallback mechanism for timed-out live limit orders that cancels and resubmits as market orders
 - ATR hard stop and trailing stop, ADX regime filter, ATR volatility-adjusted sizing, multi-symbol worker loop, auto-sync before backtest, and multi-timeframe HTF trend confirmation
+- persisted operator performance-review decisions with audit logging plus status and reporting visibility for latest decision freshness
 
 Current production boundary:
 
@@ -97,6 +98,7 @@ Profitability improvements (what separates this bot from better real-world bots)
 - expose live readiness status and blocking reasons through the status surface
 - expose configured portfolio risk caps through the status surface for operator review before enabling live mode
 - expose the persisted runtime promotion stage and its blockers through the status surface
+- expose the latest persisted performance-review decision and its stale/not-stale posture through the status and reporting surfaces
 - block new live entries when live trading is halted by configuration while leaving recovery controls available
 - allow operators to halt or resume live entry through a bounded persisted control without restarting the runtime
 - fail closed on live resume attempts when readiness checks are still blocked
@@ -115,6 +117,7 @@ Profitability improvements (what separates this bot from better real-world bots)
 - emit optional live-operations alerts for failed startup sync, failed scheduled reconciliation, and stale live orders
 - document deployment, restart, rollback, backup, and alert-response expectations before live-capable operation
 - emit optional notifications for worker execution, risk rejection, backtest outcomes, and market sync outcomes
+- persist operator review decisions taken against the live performance review through a bounded controls API with audit evidence
 - persist bot state and logs
 - expose minimal operational API for health, status, positions, trades, candle ingestion, and bounded manual controls
 - load deterministic local demo candle scenarios for no-action, buy-crossover, and sell-crossover operator workflows

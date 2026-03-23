@@ -33,6 +33,8 @@ from app.interfaces.api.schemas import (
     ModelStatusResponse,
     OperatorConfigRequest,
     OperatorConfigResponse,
+    PerformanceReviewDecisionRequest,
+    PerformanceReviewDecisionResponse,
     QualificationGateResponse,
     QualificationReportResponse,
     RuntimePromotionControlRequest,
@@ -283,6 +285,46 @@ def update_runtime_promotion(
         source="api.control",
     )
     return RuntimePromotionControlResponse.model_validate(result)
+
+
+@router.get(
+    "/performance-review-decision",
+    response_model=PerformanceReviewDecisionResponse | None,
+    status_code=status.HTTP_200_OK,
+)
+def get_performance_review_decision(
+    settings: Settings = settings_dependency,
+    session_factory: sessionmaker[Session] = session_factory_dependency,
+) -> PerformanceReviewDecisionResponse | None:
+    result = OperationalControlService(
+        settings,
+        session_factory=session_factory,
+    ).get_performance_review_decision()
+    if result is None:
+        return None
+    return PerformanceReviewDecisionResponse.model_validate(result)
+
+
+@router.post(
+    "/performance-review-decision",
+    response_model=PerformanceReviewDecisionResponse,
+    status_code=status.HTTP_200_OK,
+)
+def record_performance_review_decision(
+    request: PerformanceReviewDecisionRequest,
+    settings: Settings = settings_dependency,
+    session_factory: sessionmaker[Session] = session_factory_dependency,
+) -> PerformanceReviewDecisionResponse:
+    result = OperationalControlService(
+        settings,
+        session_factory=session_factory,
+    ).run_record_performance_review_decision(
+        operator_decision=request.operator_decision,
+        rationale=request.rationale,
+        review_period_days=request.review_period_days,
+        source="api.control",
+    )
+    return PerformanceReviewDecisionResponse.model_validate(result)
 
 
 @router.get(

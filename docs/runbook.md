@@ -211,6 +211,13 @@ Runtime promotion control:
 - moving to `live` requires passing qualification gates, a green live-readiness report, and full canary rollout exposure
 - stage changes do not automatically switch `execution_mode`; they record operator-approved rollout state
 
+Performance review decision control:
+
+- `GET /controls/performance-review-decision` returns the latest persisted operator decision for the active market, if one exists
+- `POST /controls/performance-review-decision` records an operator decision, rationale, review window, and current live-review snapshot as audit evidence
+- use this control after reviewing the live-performance report when the recommendation leads to an explicit operator action
+- treat stale review decisions as historical context only; record a fresh decision before using the evidence in later promotion or restart discussions
+
 Next.js controls route:
 
 - `/controls` shows the current live posture from `GET /status`

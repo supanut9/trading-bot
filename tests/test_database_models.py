@@ -8,9 +8,15 @@ from app.infrastructure.database.session import create_engine_from_settings
 
 
 def test_expected_tables_are_registered() -> None:
-    assert {"audit_events", "backtest_runs", "candles", "orders", "positions", "trades"}.issubset(
-        Base.metadata.tables
-    )
+    assert {
+        "audit_events",
+        "backtest_runs",
+        "candles",
+        "orders",
+        "performance_review_decisions",
+        "positions",
+        "trades",
+    }.issubset(Base.metadata.tables)
 
 
 def test_init_database_reconciles_backtest_run_columns(tmp_path) -> None:

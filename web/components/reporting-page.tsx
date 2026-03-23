@@ -290,6 +290,8 @@ export function ReportingPage() {
   const notifications = notificationQuery.data as NotificationDashboardResponse | undefined;
   const audit = auditQuery.data as AuditDashboardResponse | undefined;
   const performanceReview = performanceReviewQuery.data as LivePerformanceReviewResponse | undefined;
+  const latestPerformanceReviewDecision =
+    performanceReview?.latest_decision ?? status?.latest_performance_review_decision;
   const summary = performance?.summaries[0];
 
   function updateRecoveryFilter<Key extends keyof RecoveryFilterState>(
@@ -1160,6 +1162,39 @@ export function ReportingPage() {
                         </li>
                       ))}
                     </ul>
+                  </div>
+                  <div className="mt-4 rounded-2xl border border-slate-700/60 bg-slate-950/40 p-4">
+                    <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">
+                      Latest Operator Decision
+                    </p>
+                    {latestPerformanceReviewDecision ? (
+                      <>
+                        <div className="mt-2 flex flex-wrap items-center gap-3">
+                          <p className="text-sm font-semibold uppercase tracking-wide text-slate-100">
+                            {latestPerformanceReviewDecision.operator_decision.replace(/_/g, " ")}
+                          </p>
+                          <span className="text-xs text-slate-400">
+                            recommendation:{" "}
+                            {latestPerformanceReviewDecision.recommendation.replace(/_/g, " ")}
+                          </span>
+                        </div>
+                        <p className="mt-2 text-sm text-slate-300">
+                          {latestPerformanceReviewDecision.rationale}
+                        </p>
+                        <div className="mt-3 flex flex-wrap gap-3 text-xs text-slate-400">
+                          <span>by: {latestPerformanceReviewDecision.decided_by}</span>
+                          <span>age: {latestPerformanceReviewDecision.age_days}d</span>
+                          <span>
+                            state:{" "}
+                            {latestPerformanceReviewDecision.stale ? "stale review" : "fresh review"}
+                          </span>
+                        </div>
+                      </>
+                    ) : (
+                      <p className="mt-2 text-sm text-slate-400">
+                        No persisted operator decision has been recorded yet.
+                      </p>
+                    )}
                   </div>
                 </div>
 

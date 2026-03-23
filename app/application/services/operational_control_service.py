@@ -37,6 +37,9 @@ from app.application.services.operator_runtime_config_service import (
     OperatorRuntimeConfig,
     OperatorRuntimeConfigService,
 )
+from app.application.services.performance_review_decision_service import (
+    PerformanceReviewDecisionService,
+)
 from app.application.services.runtime_promotion_service import RuntimePromotionService
 from app.application.services.symbol_rules_service import SymbolRulesService
 from app.application.services.worker_orchestration_service import WorkerOrchestrationService
@@ -395,6 +398,23 @@ class RuntimePromotionControlResult:
     stage: str
     changed: bool
     blockers: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class PerformanceReviewDecisionControlResult:
+    status: str
+    detail: str
+    recommendation: str
+    operator_decision: str
+    rationale: str
+    review_period_days: int
+    root_cause_driver: str
+    root_cause_regime: str
+    review_generated_at: datetime
+    decided_at: datetime
+    decided_by: str
+    age_days: int
+    stale: bool
 
 
 @dataclass(frozen=True, slots=True)
@@ -1237,6 +1257,85 @@ class OperationalControlService:
                 payload={"stage": update.current_stage, "changed": update.changed},
             )
             return control_result
+
+    def get_performance_review_decision(self) -> PerformanceReviewDecisionControlResult | None:
+        operator_config = self._get_effective_operator_config()
+        with self._session_factory() as session:
+            decision = PerformanceReviewDecisionService(session).get_latest_decision(
+                exchange=self._settings.exchange_name,
+                symbol=operator_config.symbol,
+            )
+        if decision is None:
+            return None
+        return PerformanceReviewDecisionControlResult(
+            status="completed",
+            detail="latest performance review decision loaded",
+            recommendation=decision.recommendation,
+            operator_decision=decision.operator_decision,
+            rationale=decision.rationale,
+            review_period_days=decision.review_period_days,
+            root_cause_driver=decision.root_cause_driver,
+            root_cause_regime=decision.root_cause_regime,
+            review_generated_at=decision.review_generated_at,
+            decided_at=decision.decided_at,
+            decided_by=decision.decided_by,
+            age_days=decision.age_days,
+            stale=decision.stale,
+        )
+
+    def run_record_performance_review_decision(
+        self,
+        *,
+        operator_decision: str,
+        rationale: str,
+        review_period_days: int,
+        source: str = "internal",
+    ) -> PerformanceReviewDecisionControlResult:
+        operator_config = self._get_effective_operator_config()
+        with self._session_factory() as session:
+            decision = PerformanceReviewDecisionService(session).record_decision(
+                exchange=self._settings.exchange_name,
+                symbol=operator_config.symbol,
+                operator_decision=operator_decision,  # type: ignore[arg-type]
+                rationale=rationale,
+                review_period_days=review_period_days,
+                decided_by=source,
+            )
+            session.commit()
+
+        control_result = PerformanceReviewDecisionControlResult(
+            status="completed",
+            detail="performance review decision recorded",
+            recommendation=decision.recommendation,
+            operator_decision=decision.operator_decision,
+            rationale=decision.rationale,
+            review_period_days=decision.review_period_days,
+            root_cause_driver=decision.root_cause_driver,
+            root_cause_regime=decision.root_cause_regime,
+            review_generated_at=decision.review_generated_at,
+            decided_at=decision.decided_at,
+            decided_by=decision.decided_by,
+            age_days=decision.age_days,
+            stale=decision.stale,
+        )
+        self._audit.record_control_result(
+            control_type="performance_review_decision",
+            source=source,
+            status=control_result.status,
+            detail=control_result.detail,
+            settings=self._settings,
+            payload={
+                "symbol": operator_config.symbol,
+                "recommendation": control_result.recommendation,
+                "operator_decision": control_result.operator_decision,
+                "review_period_days": control_result.review_period_days,
+                "root_cause_driver": control_result.root_cause_driver,
+                "root_cause_regime": control_result.root_cause_regime,
+                "stale": control_result.stale,
+                "decided_by": control_result.decided_by,
+            },
+        )
+        return control_result
 
     def get_operator_config(self) -> OperatorConfigControlResult:
         config = self._get_effective_operator_config()

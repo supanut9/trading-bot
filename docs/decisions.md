@@ -1087,3 +1087,15 @@ This repository has recurring parallelizable review and exploration work that be
 ### Consequence
 
 Codex can now spawn `repo_explorer`, `trading_reviewer`, and `operator_ui_reviewer` as project-scoped custom agents when explicitly requested, while ordinary implementation still defaults to the main agent plus repo skills.
+
+### Decision
+
+Persist operator decisions taken against the live-performance review as bounded control records with an attached review snapshot, rather than treating them as transient UI state.
+
+### Reason
+
+The performance review now produces recommendation logic and root-cause analysis, but that evidence is not operationally useful if the operator's final action disappears after the page refreshes. Promotion, restart, and later review workflows need a durable, auditable record of what the operator decided and why.
+
+### Consequence
+
+The system now stores `performance_review_decisions`, exposes the latest decision and staleness through `GET /status` and reporting, and records decision submissions through a bounded controls API and audit events. Later promotion gating can consume that evidence without re-encoding operator intent in ad hoc runtime flags.

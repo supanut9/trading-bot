@@ -281,7 +281,7 @@ Main outputs:
 
 Status:
 
-- in progress
+- completed
 
 Scope:
 
@@ -1414,7 +1414,7 @@ Remaining to complete:
 
 Status:
 
-- in progress
+- completed
 
 Scope:
 
@@ -1756,3 +1756,24 @@ Main outputs:
 - explicit “assumption summary” included in backtest output so operators know what realism model was applied
 
 Why: Even a cost-adjusted backtest can still overstate live viability if it assumes immediate fills, zero spread pressure, and perfect market availability. Hardening the friction model makes strategy promotion decisions more honest.
+
+### 88. `feature/performance-review-decision-log`
+
+Status:
+
+- in progress
+
+Scope:
+
+- persist operator decisions taken after reviewing the live performance report
+- expose the latest review decision and its staleness through status and reporting surfaces
+- keep the feature bounded to operator evidence and auditability rather than new promotion gating
+
+Main outputs:
+
+- durable `performance_review_decisions` persistence with review snapshot context
+- bounded control API for recording and reading the latest operator decision
+- status and reporting visibility for the latest decision, rationale, and stale/not-stale posture
+- audit events for recorded performance review decisions
+
+Why: Recommendation logic and root-cause analysis now exist, but without a durable operator decision record there is no trustworthy evidence trail for later promotion gating or review accountability.
