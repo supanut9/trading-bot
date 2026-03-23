@@ -238,6 +238,9 @@ export type BacktestControlResponse = {
   ending_equity: string | null;
   realized_pnl: string | null;
   total_return_pct: string | null;
+  benchmark_realized_pnl: string | null;
+  benchmark_return_pct: string | null;
+  benchmark_excess_return_pct: string | null;
   max_drawdown_pct: string | null;
   total_trades: number | null;
   winning_trades: number | null;
@@ -289,6 +292,9 @@ export type BacktestRunResponse = {
   ending_equity: string | null;
   realized_pnl: string | null;
   total_return_pct: string | null;
+  benchmark_realized_pnl: string | null;
+  benchmark_return_pct: string | null;
+  benchmark_excess_return_pct: string | null;
   max_drawdown_pct: string | null;
   total_trades: number | null;
   winning_trades: number | null;

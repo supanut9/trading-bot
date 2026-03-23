@@ -205,6 +205,9 @@ def test_backtest_runs_dashboard_returns_recent_runs(tmp_path: Path) -> None:
                 ending_equity=Decimal("10250"),
                 realized_pnl=Decimal("250"),
                 total_return_pct=Decimal("2.5"),
+                benchmark_realized_pnl=Decimal("180"),
+                benchmark_return_pct=Decimal("1.8"),
+                benchmark_excess_return_pct=Decimal("0.7"),
                 max_drawdown_pct=Decimal("1.1"),
                 total_trades=4,
                 winning_trades=3,
@@ -222,6 +225,8 @@ def test_backtest_runs_dashboard_returns_recent_runs(tmp_path: Path) -> None:
         assert payload["runs"][0]["strategy_name"] == "ema_crossover"
         assert payload["runs"][0]["fast_period"] == 12
         assert payload["runs"][0]["total_return_pct"] == "2.50000000"
+        assert payload["runs"][0]["benchmark_return_pct"] == "1.80000000"
+        assert payload["runs"][0]["benchmark_excess_return_pct"] == "0.70000000"
         assert "signal_latency_bars=0" in payload["runs"][0]["assumption_summary"]
         assert payload["runs"][0]["allowed_weekdays_utc"] == []
         assert payload["runs"][0]["allowed_hours_utc"] == []
@@ -254,6 +259,9 @@ def test_backtest_runs_csv_export_filters_limit(tmp_path: Path) -> None:
                 ending_equity=Decimal("10250"),
                 realized_pnl=Decimal("250"),
                 total_return_pct=Decimal("2.5"),
+                benchmark_realized_pnl=Decimal("180"),
+                benchmark_return_pct=Decimal("1.8"),
+                benchmark_excess_return_pct=Decimal("0.7"),
                 max_drawdown_pct=Decimal("1.1"),
                 total_trades=4,
                 winning_trades=3,

@@ -811,7 +811,7 @@ function ResultPanel({
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-4">
           <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Candles</p>
           <p className="mt-3 text-3xl font-semibold tracking-tight text-white">
@@ -844,6 +844,17 @@ function ResultPanel({
           <p className="mt-2 text-sm text-slate-400">Percentage return on starting equity.</p>
         </div>
         <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-4">
+          <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">
+            Buy and Hold
+          </p>
+          <p className="mt-3 text-3xl font-semibold tracking-tight text-white">
+            {formatSignedDecimal(result.benchmark_return_pct)}
+          </p>
+          <p className="mt-2 text-sm text-slate-400">
+            Cost-adjusted baseline over the same replay window.
+          </p>
+        </div>
+        <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-4">
           <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Ending Equity</p>
           <p className="mt-3 text-3xl font-semibold tracking-tight text-white">
             {formatDecimal(result.ending_equity)}
@@ -857,6 +868,25 @@ function ResultPanel({
           </p>
           <p className="mt-2 text-sm text-slate-400">
             Wins {result.winning_trades ?? 0} / losses {result.losing_trades ?? 0}
+          </p>
+        </div>
+        <div className="rounded-3xl border border-emerald-300/15 bg-emerald-300/5 p-4">
+          <p className="text-[11px] uppercase tracking-[0.2em] text-emerald-100/80">
+            Excess Return
+          </p>
+          <p
+            className={`mt-3 text-3xl font-semibold tracking-tight ${
+              Number(result.benchmark_excess_return_pct ?? "0") > 0
+                ? "text-emerald-300"
+                : Number(result.benchmark_excess_return_pct ?? "0") < 0
+                  ? "text-rose-300"
+                  : "text-white"
+            }`}
+          >
+            {formatSignedDecimal(result.benchmark_excess_return_pct)}
+          </p>
+          <p className="mt-2 text-sm text-slate-300">
+            Strategy return minus the stored buy-and-hold baseline.
           </p>
         </div>
         <div className="rounded-3xl border border-cyan-300/15 bg-cyan-300/5 p-4">
@@ -1049,6 +1079,8 @@ function RecentRunsPanel({
                 <span>Start {formatDecimal(run.starting_equity_input)}</span>
                 <span>Required {run.required_candles}</span>
                 <span>Return {formatSignedDecimal(run.total_return_pct)}</span>
+                <span>Benchmark {formatSignedDecimal(run.benchmark_return_pct)}</span>
+                <span>Excess {formatSignedDecimal(run.benchmark_excess_return_pct)}</span>
                 <span>PnL {formatSignedDecimal(run.realized_pnl)}</span>
               </div>
               <div className="mt-3 flex flex-wrap gap-2">

@@ -30,6 +30,9 @@ class BacktestRunRecord(TimestampMixin, Base):
     ending_equity: Mapped[Decimal | None] = mapped_column(Numeric(20, 8))
     realized_pnl: Mapped[Decimal | None] = mapped_column(Numeric(20, 8))
     total_return_pct: Mapped[Decimal | None] = mapped_column(Numeric(20, 8))
+    benchmark_realized_pnl: Mapped[Decimal | None] = mapped_column(Numeric(20, 8))
+    benchmark_return_pct: Mapped[Decimal | None] = mapped_column(Numeric(20, 8))
+    benchmark_excess_return_pct: Mapped[Decimal | None] = mapped_column(Numeric(20, 8))
     max_drawdown_pct: Mapped[Decimal | None] = mapped_column(Numeric(20, 8))
     total_trades: Mapped[int | None]
     winning_trades: Mapped[int | None]

@@ -269,6 +269,9 @@ class BacktestControlResponse(BaseModel):
     ending_equity: Decimal | None = None
     realized_pnl: Decimal | None = None
     total_return_pct: Decimal | None = None
+    benchmark_realized_pnl: Decimal | None = None
+    benchmark_return_pct: Decimal | None = None
+    benchmark_excess_return_pct: Decimal | None = None
     max_drawdown_pct: Decimal | None = None
     total_trades: int | None = None
     winning_trades: int | None = None
@@ -353,6 +356,9 @@ class BacktestRunResponse(BaseModel):
     ending_equity: Decimal | None = None
     realized_pnl: Decimal | None = None
     total_return_pct: Decimal | None = None
+    benchmark_realized_pnl: Decimal | None = None
+    benchmark_return_pct: Decimal | None = None
+    benchmark_excess_return_pct: Decimal | None = None
     max_drawdown_pct: Decimal | None = None
     total_trades: int | None = None
     winning_trades: int | None = None

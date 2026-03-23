@@ -59,6 +59,9 @@ class BacktestResult:
     losing_trades: int
     slippage_pct: Decimal
     fee_pct: Decimal
+    benchmark_return_pct: Decimal = Decimal("0")
+    benchmark_realized_pnl: Decimal = Decimal("0")
+    benchmark_excess_return_pct: Decimal = Decimal("0")
     spread_pct: Decimal = Decimal("0")
     signal_latency_bars: int = 0
     assumption_summary: str = ""
@@ -663,11 +666,18 @@ class BacktestService:
                 (ending_equity - self._starting_equity) / self._starting_equity
             ) * Decimal("100")
 
+        benchmark_realized_pnl, benchmark_return_pct = self._compute_buy_and_hold_benchmark(
+            ordered_candles
+        )
+
         return BacktestResult(
             starting_equity=self._starting_equity,
             ending_equity=ending_equity,
             total_return_pct=total_return_pct,
             realized_pnl=realized_pnl,
+            benchmark_return_pct=benchmark_return_pct,
+            benchmark_realized_pnl=benchmark_realized_pnl,
+            benchmark_excess_return_pct=total_return_pct - benchmark_return_pct,
             total_fees_paid=total_fees_paid,
             max_drawdown_pct=max_drawdown_pct,
             total_trades=len(executions),
@@ -700,6 +710,28 @@ class BacktestService:
         if side == "buy":
             return reference_price * (Decimal("1") + half_spread + self._slippage_pct)
         return reference_price * (Decimal("1") - half_spread - self._slippage_pct)
+
+    def _compute_buy_and_hold_benchmark(
+        self,
+        candles: Sequence[Candle],
+    ) -> tuple[Decimal, Decimal]:
+        if len(candles) < 2 or self._starting_equity <= Decimal("0"):
+            return Decimal("0"), Decimal("0")
+        entry_fill_price = self._apply_execution_friction(candles[0].open_price, side="buy")
+        exit_fill_price = self._apply_execution_friction(candles[-1].close_price, side="sell")
+        if entry_fill_price <= Decimal("0") or exit_fill_price <= Decimal("0"):
+            return Decimal("0"), Decimal("0")
+        entry_unit_cost = entry_fill_price * (Decimal("1") + self._fee_pct)
+        if entry_unit_cost <= Decimal("0"):
+            return Decimal("0"), Decimal("0")
+        quantity = self._starting_equity / entry_unit_cost
+        if quantity <= Decimal("0"):
+            return Decimal("0"), Decimal("0")
+        exit_fee = exit_fill_price * quantity * self._fee_pct
+        ending_equity = (exit_fill_price * quantity) - exit_fee
+        realized_pnl = ending_equity - self._starting_equity
+        return_pct = (realized_pnl / self._starting_equity) * Decimal("100")
+        return realized_pnl, return_pct
 
     def _assumption_summary(self) -> str:
         return (

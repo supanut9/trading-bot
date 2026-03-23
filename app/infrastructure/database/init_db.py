@@ -7,6 +7,9 @@ from app.infrastructure.database.base import Base
 from app.infrastructure.database.session import create_engine_from_settings
 
 _BACKTEST_RUNS_RECONCILE_COLUMNS: tuple[tuple[str, str], ...] = (
+    ("benchmark_realized_pnl", "NUMERIC(20, 8)"),
+    ("benchmark_return_pct", "NUMERIC(20, 8)"),
+    ("benchmark_excess_return_pct", "NUMERIC(20, 8)"),
     ("spread_pct", "NUMERIC(10, 8)"),
     ("signal_latency_bars", "INTEGER"),
     ("allowed_weekdays_utc", "TEXT"),
