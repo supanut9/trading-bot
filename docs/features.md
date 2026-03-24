@@ -1937,7 +1937,7 @@ Why: The repo now supports operator-managed futures leverage and margin mode, bu
 
 Status:
 
-- in progress on `feature/live-futures-liquidation-visibility`
+- completed on `main`
 
 Scope:
 
