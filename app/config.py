@@ -95,6 +95,11 @@ class Settings(BaseSettings):
         default=None,
         alias="LIVE_MAX_STRATEGY_EXPOSURE_NOTIONAL",
     )
+    live_futures_leverage: int = Field(default=1, alias="LIVE_FUTURES_LEVERAGE")
+    live_futures_margin_mode: Literal["ISOLATED", "CROSS"] = Field(
+        default="ISOLATED",
+        alias="LIVE_FUTURES_MARGIN_MODE",
+    )
     live_consecutive_loss_auto_halt_threshold: int | None = Field(
         default=None,
         alias="LIVE_CONSECUTIVE_LOSS_AUTO_HALT_THRESHOLD",
@@ -291,6 +296,9 @@ class Settings(BaseSettings):
         limit_strategy_exposure = self.live_max_strategy_exposure_notional
         if limit_strategy_exposure is not None and limit_strategy_exposure <= Decimal("0"):
             raise ValueError("LIVE_MAX_STRATEGY_EXPOSURE_NOTIONAL must be positive when provided")
+
+        if not 1 <= self.live_futures_leverage <= 125:
+            raise ValueError("LIVE_FUTURES_LEVERAGE must be between 1 and 125")
 
         limit_consec_loss = self.live_consecutive_loss_auto_halt_threshold
         if limit_consec_loss is not None and limit_consec_loss <= 0:

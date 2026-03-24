@@ -11,6 +11,7 @@ from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
 from app.infrastructure.exchanges.base import (
+    ExchangeAPIError,
     ExchangeAssetBalance,
     ExchangeCandle,
     ExchangeConnectionError,
@@ -330,7 +331,20 @@ class BinanceSpotOrderClient(LiveOrderExchangeClient):
         try:
             with urlopen(http_request, timeout=self._timeout_seconds) as response:
                 raw = response.read().decode("utf-8") or "{}"
-        except (HTTPError, URLError, TimeoutError) as exc:
+        except HTTPError as exc:
+            try:
+                error_raw = exc.read().decode("utf-8") or "{}"
+                error_payload = json.loads(error_raw)
+            except json.JSONDecodeError:
+                raise ExchangeConnectionError(f"failed to {error_action}: {exc}") from exc
+            if isinstance(error_payload, dict):
+                code = error_payload.get("code")
+                message = error_payload.get("msg")
+                raise ExchangeAPIError(
+                    f"failed to {error_action}: code={code} msg={message}"
+                ) from exc
+            raise ExchangeConnectionError(f"failed to {error_action}: {exc}") from exc
+        except (URLError, TimeoutError) as exc:
             raise ExchangeConnectionError(f"failed to {error_action}: {exc}") from exc
         try:
             parsed = json.loads(raw)
@@ -498,15 +512,20 @@ class BinanceFuturesOrderClient(BinanceSpotOrderClient, FuturesOrderExchangeClie
         )
 
     def set_margin_mode(self, *, symbol: str, margin_mode: str) -> dict[str, object]:
-        return self._signed_request(
-            method="POST",
-            endpoint="/fapi/v1/marginType",
-            parameters={
-                "symbol": symbol.replace("/", ""),
-                "marginType": margin_mode.upper(),
-            },
-            error_action="set Binance margin mode",
-        )
+        try:
+            return self._signed_request(
+                method="POST",
+                endpoint="/fapi/v1/marginType",
+                parameters={
+                    "symbol": symbol.replace("/", ""),
+                    "marginType": margin_mode.upper(),
+                },
+                error_action="set Binance margin mode",
+            )
+        except ExchangeAPIError as exc:
+            if "code=-4046" in str(exc) or "No need to change margin type" in str(exc):
+                return {"code": -4046, "msg": "No need to change margin type."}
+            raise
 
     def fetch_position_risk(self, *, symbol: str) -> dict[str, object]:
         return self._signed_request(

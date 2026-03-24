@@ -15,9 +15,9 @@ from app.infrastructure.database.models.position import PositionRecord
 from app.infrastructure.database.repositories.order_repository import OrderRepository
 from app.infrastructure.database.repositories.position_repository import PositionRepository
 from app.infrastructure.exchanges.base import (
+    ExchangeAPIError,
     ExchangeOrderRequest,
     ExchangeOrderSubmission,
-    FuturesOrderExchangeClient,
     LiveOrderExchangeClient,
 )
 
@@ -47,7 +47,7 @@ class LiveExecutionService:
         session: Session,
         settings: Settings,
         *,
-        client: LiveOrderExchangeClient | FuturesOrderExchangeClient,
+        client: LiveOrderExchangeClient,
     ) -> None:
         self._session = session
         self._settings = settings
@@ -135,6 +135,7 @@ class LiveExecutionService:
             client_order_id=request.client_order_id,
             submitted_reason=request.submitted_reason,
         )
+        self._prepare_futures_execution(request)
         submission = self._client.submit_order(
             ExchangeOrderRequest(
                 symbol=request.symbol,
@@ -156,6 +157,29 @@ class LiveExecutionService:
             order=order,
             position=current_position,
             submission=submission,
+        )
+
+    def _prepare_futures_execution(self, request: PaperExecutionRequest) -> None:
+        if request.trading_mode != "FUTURES":
+            return
+        if self._settings.live_order_validate_only:
+            return
+        if not hasattr(self._client, "set_margin_mode") or not hasattr(
+            self._client, "set_leverage"
+        ):
+            raise ValueError("futures live execution requires a futures-capable exchange client")
+
+        try:
+            self._client.set_margin_mode(
+                symbol=request.symbol,
+                margin_mode=self._settings.live_futures_margin_mode,
+            )
+        except ExchangeAPIError as exc:
+            if "code=-4046" not in str(exc) and "No need to change margin type" not in str(exc):
+                raise
+        self._client.set_leverage(
+            symbol=request.symbol,
+            leverage=self._settings.live_futures_leverage,
         )
 
     def _validate_no_duplicate_live_order(self, request: PaperExecutionRequest) -> None:

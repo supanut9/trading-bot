@@ -1635,7 +1635,7 @@ Features 59–88 are complete on `main`. The system now has ATR stops, ADX regim
 
 Next bounded features:
 
-- 1. `feature/durable-strategy-identity` — persist strategy identity on orders, trades, and positions so future per-strategy live risk controls are enforceable
+- 1. `feature/live-futures-execution-controls` — apply configured leverage and margin mode before live futures submissions without widening into liquidation-aware risk logic
 
 ### 83. `feature/xgboost-signal-strategy`
 
@@ -1733,7 +1733,7 @@ Why: Real systems usually fail at the recovery boundary, not the happy path. If 
 
 Status:
 
-- in progress
+- completed on `main`
 
 Scope:
 
@@ -1841,3 +1841,25 @@ Main outputs:
 - tests proving the cap blocks only the intended live entry path
 
 Why: Durable strategy identity is now stored on execution records, so the system can finally enforce a real per-strategy live exposure cap using the positions that actually exist. This closes the specific safety gap intentionally deferred when the broader portfolio-risk feature was shipped.
+
+### 91. `feature/live-futures-execution-controls`
+
+Status:
+
+- in progress
+
+Scope:
+
+- apply one configured leverage and margin mode before live futures order submission
+- expose the configured futures execution controls through status for operator review
+- keep the feature bounded to exchange-side futures configuration and submission safety, not liquidation-aware sizing, leverage policy, or persisted operator leverage controls
+
+Main outputs:
+
+- runtime settings for live futures leverage and margin mode
+- live futures execution path that applies margin mode and leverage before submission when not in validate-only mode
+- idempotent handling for repeated margin-mode configuration on Binance futures
+- status visibility for the configured live futures leverage and margin mode
+- tests proving futures configuration is applied only on the futures live path
+
+Why: The repo can already simulate futures leverage in backtests and route futures requests to the Binance futures client, but live submission still lacks one explicit place where exchange-side leverage and margin mode are configured. Applying those controls before submission is the next safe step toward bounded futures-capable live groundwork.

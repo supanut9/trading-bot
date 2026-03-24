@@ -20,7 +20,7 @@ from app.infrastructure.database.models.order import OrderRecord
 from app.infrastructure.database.models.trade import TradeRecord
 from app.infrastructure.database.repositories.position_repository import PositionRepository
 from app.infrastructure.database.session import create_engine_from_settings, create_session_factory
-from app.infrastructure.exchanges.base import ExchangeOrderSubmission
+from app.infrastructure.exchanges.base import ExchangeAPIError, ExchangeOrderSubmission
 
 
 class RecordingLiveClient:
@@ -46,6 +46,30 @@ class RecordingLiveClient:
         )
 
 
+class RecordingFuturesClient(RecordingLiveClient):
+    def __init__(
+        self,
+        *,
+        status: str = "submitted",
+        exchange_order_id: str | None = "abc123",
+        margin_mode_error: Exception | None = None,
+    ) -> None:
+        super().__init__(status=status, exchange_order_id=exchange_order_id)
+        self.margin_mode_calls: list[tuple[str, str]] = []
+        self.leverage_calls: list[tuple[str, int]] = []
+        self._margin_mode_error = margin_mode_error
+
+    def set_margin_mode(self, *, symbol: str, margin_mode: str) -> dict[str, object]:
+        self.margin_mode_calls.append((symbol, margin_mode))
+        if self._margin_mode_error is not None:
+            raise self._margin_mode_error
+        return {"symbol": symbol, "marginMode": margin_mode}
+
+    def set_leverage(self, *, symbol: str, leverage: int) -> dict[str, object]:
+        self.leverage_calls.append((symbol, leverage))
+        return {"symbol": symbol, "leverage": leverage}
+
+
 def build_service(tmp_path: Path) -> tuple[LiveExecutionService, Session]:
     settings = Settings(
         DATABASE_URL=f"sqlite:///{tmp_path / 'live_execution.db'}",
@@ -58,6 +82,30 @@ def build_service(tmp_path: Path) -> tuple[LiveExecutionService, Session]:
     Base.metadata.create_all(bind=engine)
     session = create_session_factory(settings)()
     return LiveExecutionService(session, settings, client=RecordingLiveClient()), session
+
+
+def build_futures_service(
+    tmp_path: Path,
+    *,
+    validate_only: bool = False,
+    client: RecordingFuturesClient | None = None,
+) -> tuple[LiveExecutionService, Session, RecordingFuturesClient]:
+    settings = Settings(
+        DATABASE_URL=f"sqlite:///{tmp_path / 'live_futures_execution.db'}",
+        PAPER_TRADING=False,
+        LIVE_TRADING_ENABLED=True,
+        EXCHANGE_API_KEY="key",
+        EXCHANGE_API_SECRET="secret",
+        TRADING_MODE="FUTURES",
+        LIVE_FUTURES_LEVERAGE=7,
+        LIVE_FUTURES_MARGIN_MODE="CROSS",
+        LIVE_ORDER_VALIDATE_ONLY=validate_only,
+    )
+    engine = create_engine_from_settings(settings)
+    Base.metadata.create_all(bind=engine)
+    session = create_session_factory(settings)()
+    futures_client = client or RecordingFuturesClient()
+    return LiveExecutionService(session, settings, client=futures_client), session, futures_client
 
 
 def test_submits_live_buy_and_persists_order_without_trade(tmp_path: Path) -> None:
@@ -166,6 +214,81 @@ def test_maps_exchange_new_submission_to_open_status(tmp_path: Path) -> None:
         )
 
         assert result.order.status == "open"
+    finally:
+        session.close()
+
+
+def test_applies_futures_margin_mode_and_leverage_before_submit(tmp_path: Path) -> None:
+    service, session, client = build_futures_service(tmp_path)
+    try:
+        result = service.execute(
+            PaperExecutionRequest(
+                exchange="binance",
+                symbol="BTC/USDT",
+                side="buy",
+                quantity=Decimal("0.002"),
+                price=Decimal("50000"),
+                mode="live",
+                trading_mode="FUTURES",
+                client_order_id="live-binance-btc-usdt-futures-buy",
+            )
+        )
+
+        assert result.order.status == "submitted"
+        assert client.margin_mode_calls == [("BTC/USDT", "CROSS")]
+        assert client.leverage_calls == [("BTC/USDT", 7)]
+        assert len(client.calls) == 1
+    finally:
+        session.close()
+
+
+def test_skips_futures_exchange_configuration_in_validate_only_mode(tmp_path: Path) -> None:
+    service, session, client = build_futures_service(tmp_path, validate_only=True)
+    try:
+        service.execute(
+            PaperExecutionRequest(
+                exchange="binance",
+                symbol="BTC/USDT",
+                side="buy",
+                quantity=Decimal("0.002"),
+                price=Decimal("50000"),
+                mode="live",
+                trading_mode="FUTURES",
+                client_order_id="live-binance-btc-usdt-futures-validate",
+            )
+        )
+
+        assert client.margin_mode_calls == []
+        assert client.leverage_calls == []
+        assert len(client.calls) == 1
+    finally:
+        session.close()
+
+
+def test_treats_repeated_margin_mode_as_idempotent_for_futures(tmp_path: Path) -> None:
+    client = RecordingFuturesClient(
+        margin_mode_error=ExchangeAPIError(
+            "failed to set Binance margin mode: code=-4046 msg=No need to change margin type"
+        )
+    )
+    service, session, futures_client = build_futures_service(tmp_path, client=client)
+    try:
+        service.execute(
+            PaperExecutionRequest(
+                exchange="binance",
+                symbol="BTC/USDT",
+                side="buy",
+                quantity=Decimal("0.002"),
+                price=Decimal("50000"),
+                mode="live",
+                trading_mode="FUTURES",
+                client_order_id="live-binance-btc-usdt-futures-idempotent",
+            )
+        )
+
+        assert futures_client.margin_mode_calls == [("BTC/USDT", "CROSS")]
+        assert futures_client.leverage_calls == [("BTC/USDT", 7)]
+        assert len(futures_client.calls) == 1
     finally:
         session.close()
 
