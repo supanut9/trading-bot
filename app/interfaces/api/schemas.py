@@ -444,6 +444,7 @@ class BacktestControlRequest(BaseModel):
     fee_pct: Decimal | None = None
     spread_pct: Decimal | None = None
     signal_latency_bars: int | None = None
+    history_candle_target: int | None = Field(default=None, ge=1)
     allowed_weekdays_utc: list[int] | None = None
     allowed_hours_utc: list[int] | None = None
     max_volume_fill_pct: Decimal | None = None

@@ -117,3 +117,50 @@ def test_market_data_coverage_service_reports_readiness_and_staleness(tmp_path: 
     assert stale_result.readiness_status == "warning"
 
     session.close()
+
+
+def test_market_data_coverage_service_uses_history_target_as_floor(tmp_path: Path) -> None:
+    settings = Settings(DATABASE_URL=f"sqlite:///{tmp_path / 'market_data_coverage_target.db'}")
+    engine = create_engine_from_settings(settings)
+    Base.metadata.create_all(bind=engine)
+    session_factory = create_session_factory(settings)
+    session = session_factory()
+
+    first_open = datetime(2026, 1, 1, tzinfo=UTC)
+    MarketDataService(session).store_candles(
+        exchange="binance",
+        symbol="ETH/USDT",
+        timeframe="1h",
+        candles=[
+            CandleInput(
+                open_time=first_open + timedelta(hours=index),
+                close_time=first_open + timedelta(hours=index + 1),
+                open_price=Decimal("2500.0"),
+                high_price=Decimal("2510.0"),
+                low_price=Decimal("2490.0"),
+                close_price=Decimal("2505.0"),
+                volume=Decimal("50"),
+            )
+            for index in range(200)
+        ],
+    )
+
+    result = MarketDataCoverageService(session).get_coverage(
+        options=BacktestRunOptions(
+            strategy_name="ema_crossover",
+            exchange="binance",
+            symbol="ETH/USDT",
+            timeframe="1h",
+            fast_period=20,
+            slow_period=50,
+            history_candle_target=5000,
+        ),
+        now=datetime(2026, 1, 9, 10, tzinfo=UTC),
+    )
+
+    assert result.candle_count == 200
+    assert result.required_candles == 5000
+    assert result.additional_candles_needed == 4800
+    assert result.satisfies_required_candles is False
+
+    session.close()

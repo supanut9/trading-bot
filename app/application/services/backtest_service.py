@@ -5,6 +5,7 @@ from decimal import Decimal
 
 from app.domain.risk import PortfolioState, RiskLimits, RiskService, TradeContext
 from app.domain.strategies.base import Candle, Strategy
+from app.domain.strategies.ema_adx_trend_volume import EmaAdxTrendVolumeStrategy
 from app.domain.strategies.ema_crossover import EmaCrossoverStrategy
 from app.domain.strategies.multi_timeframe import is_htf_trend_aligned
 
@@ -140,6 +141,8 @@ class BacktestService:
 
     def run(self, candles: Sequence[Candle]) -> BacktestResult:
         ordered_candles = sorted(candles, key=lambda candle: candle.open_time)
+        if isinstance(self._strategy, EmaAdxTrendVolumeStrategy):
+            return self._run_ema_adx_trend_volume(ordered_candles)
 
         # Pre-compute all signals in one batch if the strategy supports it.
         # This avoids O(n²) slice allocation and allows batch model inference,
@@ -698,6 +701,208 @@ class BacktestService:
             margin_mode=self._margin_mode,
             liquidation_count=len(liquidation_events),
             liquidation_events=tuple(liquidation_events),
+            stop_loss_count=stop_loss_count,
+        )
+
+    def _run_ema_adx_trend_volume(self, candles: Sequence[Candle]) -> BacktestResult:
+        strategy = self._strategy
+        peak_equity = self._starting_equity
+        max_drawdown_pct = Decimal("0")
+        realized_pnl = Decimal("0")
+        total_fees_paid = Decimal("0")
+        winning_trades = 0
+        losing_trades = 0
+        stop_loss_count = 0
+        executions: list[BacktestExecution] = []
+
+        position_quantity = Decimal("0")
+        average_entry_fill_price: Decimal | None = None
+        pending_entry_fee = Decimal("0")
+        current_stop_price: Decimal | None = None
+        current_take_profit_price: Decimal | None = None
+        current_day: date | None = None
+        daily_loss_today = Decimal("0")
+
+        for index, candle in enumerate(candles):
+            candle_date = candle.open_time.date()
+            if current_day is None or candle_date != current_day:
+                current_day = candle_date
+                daily_loss_today = Decimal("0")
+
+            if position_quantity > Decimal("0"):
+                stop_hit = current_stop_price is not None and candle.low_price <= current_stop_price
+                take_profit_hit = (
+                    current_take_profit_price is not None
+                    and candle.high_price >= current_take_profit_price
+                )
+                if stop_hit or take_profit_hit:
+                    exit_price = current_stop_price if stop_hit else current_take_profit_price
+                    exit_reason = "stop_loss" if stop_hit else "take_profit"
+                    fill_price = self._apply_execution_friction(exit_price, side="sell")
+                    exit_fee = fill_price * position_quantity * self._fee_pct
+                    trade_pnl = (
+                        (fill_price - average_entry_fill_price) * position_quantity
+                        - pending_entry_fee
+                        - exit_fee
+                    )
+                    realized_pnl += trade_pnl
+                    total_fees_paid += exit_fee
+                    if trade_pnl > Decimal("0"):
+                        winning_trades += 1
+                    elif trade_pnl < Decimal("0"):
+                        losing_trades += 1
+                        daily_loss_today += abs(trade_pnl)
+                    if stop_hit:
+                        stop_loss_count += 1
+                    executions.append(
+                        BacktestExecution(
+                            action="sell",
+                            price=exit_price,
+                            fill_price=fill_price,
+                            quantity=position_quantity,
+                            fee=exit_fee,
+                            realized_pnl=trade_pnl,
+                            reason=exit_reason,
+                            candle_open_time=candle.open_time,
+                        )
+                    )
+                    position_quantity = Decimal("0")
+                    average_entry_fill_price = None
+                    pending_entry_fee = Decimal("0")
+                    current_stop_price = None
+                    current_take_profit_price = None
+                    continue
+
+            marked_equity = self._mark_to_market_equity(
+                realized_pnl=realized_pnl,
+                position_quantity=position_quantity,
+                average_entry_fill_price=average_entry_fill_price,
+                mark_price=candle.close_price,
+            )
+            peak_equity = max(peak_equity, marked_equity)
+            max_drawdown_pct = self._update_drawdown(
+                current_equity=marked_equity,
+                peak_equity=peak_equity,
+                current_max_drawdown_pct=max_drawdown_pct,
+            )
+
+            if position_quantity != Decimal("0"):
+                continue
+
+            signal = strategy.evaluate(candles[: index + 1])
+            if signal is None or signal.action != "buy":
+                continue
+
+            if not self._is_session_allowed(candle):
+                continue
+
+            swing_lows = [
+                prior.low_price
+                for prior in candles[index + 1 - strategy.stop_lookback_candles : index + 1]
+            ]
+            stop_price = min(swing_lows)
+            if stop_price >= candle.close_price:
+                continue
+
+            risk_per_unit = candle.close_price - stop_price
+            if risk_per_unit <= Decimal("0"):
+                continue
+
+            take_profit_price = candle.close_price + (risk_per_unit * strategy.risk_reward_multiple)
+            desired_entry_quantity = (
+                (marked_equity * strategy.risk_per_trade_pct) / risk_per_unit
+            ).quantize(Decimal("0.00000001"))
+            entry_quantity, partial_entry = self._resolve_fill_quantity(
+                desired_quantity=desired_entry_quantity,
+                execution_candle=candle,
+            )
+            if entry_quantity == Decimal("0"):
+                continue
+
+            fill_price = self._apply_execution_friction(candle.close_price, side="buy")
+            entry_fee = fill_price * entry_quantity * self._fee_pct
+            position_quantity = entry_quantity
+            average_entry_fill_price = fill_price
+            pending_entry_fee = entry_fee
+            total_fees_paid += entry_fee
+            current_stop_price = stop_price
+            current_take_profit_price = take_profit_price
+            executions.append(
+                BacktestExecution(
+                    action="buy",
+                    price=candle.close_price,
+                    fill_price=fill_price,
+                    quantity=entry_quantity,
+                    fee=entry_fee,
+                    realized_pnl=Decimal("0"),
+                    reason=self._with_partial_reason(signal.reason, partial_entry),
+                    candle_open_time=candle.open_time,
+                )
+            )
+
+        if position_quantity != Decimal("0") and average_entry_fill_price is not None:
+            final_candle = candles[-1]
+            fill_price = self._apply_execution_friction(final_candle.close_price, side="sell")
+            exit_fee = fill_price * position_quantity * self._fee_pct
+            trade_pnl = (
+                (fill_price - average_entry_fill_price) * position_quantity
+                - pending_entry_fee
+                - exit_fee
+            )
+            realized_pnl += trade_pnl
+            total_fees_paid += exit_fee
+            if trade_pnl > Decimal("0"):
+                winning_trades += 1
+            elif trade_pnl < Decimal("0"):
+                losing_trades += 1
+            executions.append(
+                BacktestExecution(
+                    action="sell",
+                    price=final_candle.close_price,
+                    fill_price=fill_price,
+                    quantity=position_quantity,
+                    fee=exit_fee,
+                    realized_pnl=trade_pnl,
+                    reason="forced close on final candle",
+                    candle_open_time=final_candle.open_time,
+                )
+            )
+
+        ending_equity = self._starting_equity + realized_pnl
+        total_return_pct = Decimal("0")
+        if self._starting_equity > Decimal("0"):
+            total_return_pct = (
+                (ending_equity - self._starting_equity) / self._starting_equity
+            ) * Decimal("100")
+        benchmark_realized_pnl, benchmark_return_pct = self._compute_buy_and_hold_benchmark(candles)
+        return BacktestResult(
+            starting_equity=self._starting_equity,
+            ending_equity=ending_equity,
+            total_return_pct=total_return_pct,
+            realized_pnl=realized_pnl,
+            benchmark_return_pct=benchmark_return_pct,
+            benchmark_realized_pnl=benchmark_realized_pnl,
+            benchmark_excess_return_pct=total_return_pct - benchmark_return_pct,
+            total_fees_paid=total_fees_paid,
+            max_drawdown_pct=max_drawdown_pct,
+            total_trades=len(executions),
+            winning_trades=winning_trades,
+            losing_trades=losing_trades,
+            slippage_pct=self._slippage_pct,
+            fee_pct=self._fee_pct,
+            spread_pct=self._spread_pct,
+            signal_latency_bars=self._signal_latency_bars,
+            assumption_summary=self._assumption_summary(),
+            allowed_weekdays_utc=self._allowed_weekdays_utc,
+            allowed_hours_utc=self._allowed_hours_utc,
+            max_volume_fill_pct=self._max_volume_fill_pct,
+            allow_partial_fills=self._allow_partial_fills,
+            executions=tuple(executions),
+            candles=tuple(candles),
+            leverage=self._leverage,
+            margin_mode=self._margin_mode,
+            liquidation_count=0,
+            liquidation_events=(),
             stop_loss_count=stop_loss_count,
         )
 

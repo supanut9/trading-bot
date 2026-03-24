@@ -15,6 +15,7 @@ OPERATOR_STRATEGY_EMA_CROSSOVER = "ema_crossover"
 OPERATOR_SUPPORTED_STRATEGIES = frozenset(
     [
         "ema_crossover",
+        "ema_adx_trend",
         "rule_builder",
         "macd_crossover",
         "mean_reversion_bollinger",
@@ -81,6 +82,21 @@ class OperatorRuntimeConfigService:
                 margin_mode=self._settings.live_futures_margin_mode,
                 source="settings",
             )
+        normalized_trading_mode = str(record.trading_mode or self._settings.trading_mode).upper()
+        if normalized_trading_mode == "SPOT":
+            normalized_leverage = 1
+            normalized_margin_mode = "ISOLATED"
+        else:
+            normalized_leverage = (
+                int(record.leverage)
+                if record.leverage is not None
+                else self._settings.live_futures_leverage
+            )
+            normalized_margin_mode = (
+                str(record.margin_mode).upper()
+                if record.margin_mode is not None
+                else self._settings.live_futures_margin_mode
+            )
         return OperatorRuntimeConfig(
             strategy_name=record.strategy_name,
             exchange=self._settings.exchange_name,
@@ -88,9 +104,9 @@ class OperatorRuntimeConfigService:
             timeframe=record.timeframe,
             fast_period=record.fast_period,
             slow_period=record.slow_period,
-            trading_mode=record.trading_mode,
-            leverage=record.leverage,
-            margin_mode=record.margin_mode,
+            trading_mode=normalized_trading_mode,
+            leverage=normalized_leverage,
+            margin_mode=normalized_margin_mode,
             source="runtime_config",
             updated_at=record.updated_at,
             updated_by=record.updated_by,
@@ -123,10 +139,12 @@ class OperatorRuntimeConfigService:
         if fast_period <= 0 or slow_period <= 0:
             raise ValueError("strategy periods must be positive")
         if (
-            normalized_strategy in ("ema_crossover", "macd_crossover")
+            normalized_strategy in ("ema_crossover", "ema_adx_trend", "macd_crossover")
             and fast_period >= slow_period
         ):
             raise ValueError("fast period must be smaller than slow period")
+        if normalized_strategy == "ema_adx_trend" and slow_period >= 100:
+            raise ValueError("slow period must be smaller than trend period 100")
         if normalized_trading_mode == "SPOT":
             normalized_leverage = 1
             normalized_margin_mode = "ISOLATED"

@@ -4,12 +4,14 @@ from decimal import Decimal
 from app.application.services.backtest_service import BacktestService, WalkForwardResult
 from app.domain.risk import RiskLimits, RiskService
 from app.domain.strategies.base import Candle, Signal
+from app.domain.strategies.ema_adx_trend_volume import EmaAdxTrendVolumeStrategy
 from app.domain.strategies.ema_crossover import EmaCrossoverStrategy
 
 
-def build_candles(closes: list[int]) -> list[Candle]:
+def build_candles(closes: list[int], *, volumes: list[int] | None = None) -> list[Candle]:
     start = datetime(2026, 1, 1, tzinfo=UTC)
     candles: list[Candle] = []
+    volume_values = volumes or [1] * len(closes)
     for index, close in enumerate(closes):
         open_time = start + timedelta(hours=index)
         candles.append(
@@ -20,7 +22,7 @@ def build_candles(closes: list[int]) -> list[Candle]:
                 high_price=Decimal(close),
                 low_price=Decimal(close),
                 close_price=Decimal(close),
-                volume=Decimal("1"),
+                volume=Decimal(volume_values[index]),
             )
         )
     return candles
@@ -192,6 +194,67 @@ def test_backtest_marks_equity_to_market_for_drawdown() -> None:
     result = service.run(build_candles([10, 20, 10, 30]))
 
     assert result.max_drawdown_pct > Decimal("0")
+
+
+def test_ema_adx_trend_volume_backtest_exits_at_take_profit() -> None:
+    strategy = EmaAdxTrendVolumeStrategy(
+        fast_period=3,
+        slow_period=5,
+        trend_period=8,
+        adx_period=3,
+        volume_ema_period=3,
+        stop_lookback_candles=4,
+    )
+    service = BacktestService(
+        strategy=strategy,
+        starting_equity=Decimal("10000"),
+    )
+
+    candles = build_candles(
+        [100, 100, 100, 100, 100, 100, 100, 99, 99, 99, 120, 130, 170],
+        volumes=[10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 100, 20, 20],
+    )
+    result = service.run(candles)
+
+    assert result.total_trades == 2
+    assert result.executions[0].action == "buy"
+    assert result.executions[1].reason == "take_profit"
+    assert result.realized_pnl > Decimal("0")
+
+
+def test_ema_adx_trend_volume_backtest_prefers_stop_when_stop_and_tp_hit_same_candle() -> None:
+    strategy = EmaAdxTrendVolumeStrategy(
+        fast_period=3,
+        slow_period=5,
+        trend_period=8,
+        adx_period=3,
+        volume_ema_period=3,
+        stop_lookback_candles=4,
+    )
+    service = BacktestService(
+        strategy=strategy,
+        starting_equity=Decimal("10000"),
+    )
+
+    candles = build_candles(
+        [100, 100, 100, 100, 100, 100, 100, 99, 99, 99, 120, 120],
+        volumes=[10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 100, 20],
+    )
+    candles[-1] = Candle(
+        open_time=candles[-1].open_time,
+        close_time=candles[-1].close_time,
+        open_price=Decimal("120"),
+        high_price=Decimal("200"),
+        low_price=Decimal("90"),
+        close_price=Decimal("120"),
+        volume=Decimal("20"),
+    )
+
+    result = service.run(candles)
+
+    assert result.total_trades == 2
+    assert result.executions[1].reason == "stop_loss"
+    assert result.stop_loss_count == 1
 
 
 def test_backtest_cost_modeling_reduces_pnl() -> None:

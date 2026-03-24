@@ -23,6 +23,7 @@ from app.core.logger import get_logger
 from app.domain.risk import PortfolioState, RiskLimits, RiskService, TradeContext
 from app.domain.strategies.base import Candle, Signal, Strategy
 from app.domain.strategies.breakout_atr import BreakoutAtrStrategy
+from app.domain.strategies.ema_adx_trend import EmaAdxTrendStrategy
 from app.domain.strategies.ema_crossover import EmaCrossoverStrategy
 from app.domain.strategies.macd_crossover import MacdCrossoverStrategy
 from app.domain.strategies.mean_reversion_bollinger import MeanReversionBollingerStrategy
@@ -1002,7 +1003,15 @@ class WorkerOrchestrationService:
                 atr_breakout_multiplier=Decimal("0.5"),
                 atr_stop_multiplier=Decimal("2.0"),
             )
-        if strategy_name in ("xgboost_signal", "ml_signal"):
+        if strategy_name == "ema_adx_trend":
+            return EmaAdxTrendStrategy(
+                fast_period=fast,
+                slow_period=slow,
+                trend_period=100,
+                adx_period=settings.strategy_adx_period if settings.strategy_adx_period > 0 else 14,
+                adx_threshold=Decimal("20"),
+            )
+        if strategy_name == "ml_signal":
             from app.application.services.model_registry import (  # noqa: PLC0415
                 default_model_path,
                 load_model,
@@ -1125,4 +1134,7 @@ class WorkerOrchestrationService:
             return 14 + 2
         if strategy_name == "breakout_atr":
             return max(20, 14) + 2  # max(breakout_period, atr_period) + 2
+        if strategy_name == "ema_adx_trend":
+            adx_period = self._settings.strategy_adx_period
+            return max(101, (2 * adx_period) + 1)
         return self._slow_period + 1  # ema_crossover and rule_builder

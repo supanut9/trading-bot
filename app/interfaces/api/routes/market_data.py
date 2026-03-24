@@ -84,6 +84,7 @@ def get_market_data_coverage(
     timeframe: str | None = None,
     fast_period: Annotated[int | None, Query(ge=1)] = None,
     slow_period: Annotated[int | None, Query(ge=1)] = None,
+    history_candle_target: Annotated[int | None, Query(ge=1)] = None,
     rules_json: str | None = None,
 ) -> MarketDataCoverageResponse:
     settings = get_settings()
@@ -105,6 +106,7 @@ def get_market_data_coverage(
             timeframe=timeframe or settings.default_timeframe,
             fast_period=fast_period or settings.strategy_fast_period,
             slow_period=slow_period or settings.strategy_slow_period,
+            history_candle_target=history_candle_target,
             rules=to_rule_builder_config(rules),
         )
     )

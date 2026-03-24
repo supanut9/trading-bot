@@ -10,6 +10,7 @@ from app.application.services.operational_control_service import (
     MarketSyncRunOptions,
     OperationalControlService,
     WorkerControlResult,
+    required_candles_for_backtest_options,
 )
 from app.application.services.worker_orchestration_service import WorkerCycleResult
 from app.config import Settings
@@ -957,3 +958,119 @@ def test_run_backtest_returns_failed_when_model_file_is_missing(monkeypatch) -> 
 
     assert result.status == "failed"
     assert "Model metadata not found" in result.detail or "Model not found" in result.detail
+
+
+def test_required_candles_for_ema_adx_trend_uses_trend_ema_floor() -> None:
+    required = required_candles_for_backtest_options(
+        BacktestRunOptions(strategy_name="ema_adx_trend", adx_period=14)
+    )
+
+    assert required == 101
+
+
+def test_required_candles_for_ema_adx_trend_volume_uses_trend_ema_floor() -> None:
+    required = required_candles_for_backtest_options(
+        BacktestRunOptions(strategy_name="ema_adx_trend_volume", adx_period=14)
+    )
+
+    assert required == 101
+
+
+def test_run_backtest_uses_history_candle_target_for_auto_sync(monkeypatch) -> None:
+    settings = Settings(DATABASE_URL="sqlite:///./backtest_history_target.db")
+    sync_limits: list[int] = []
+
+    start = datetime(2026, 1, 1, tzinfo=UTC)
+    fake_candles = [
+        type(
+            "CandleRecord",
+            (),
+            {
+                "open_time": start + timedelta(hours=i),
+                "close_time": start + timedelta(hours=i + 1),
+                "open_price": Decimal("100"),
+                "high_price": Decimal("100"),
+                "low_price": Decimal("100"),
+                "close_price": Decimal("100"),
+                "volume": Decimal("1"),
+            },
+        )()
+        for i in range(5000)
+    ]
+
+    class FakeMarketDataService:
+        def __init__(self, _session):
+            pass
+
+        def list_historical_candles(self, **kwargs):
+            return fake_candles
+
+    class FakeBacktestRunHistoryService:
+        def __init__(self, **kwargs):
+            pass
+
+        def record_run(self, **kwargs):
+            pass
+
+    def fake_sync(*args, **kwargs):
+        sync_limits.append(kwargs["total_limit"])
+        return None
+
+    monkeypatch.setattr(
+        "app.application.services.operational_control_service.MarketDataService",
+        FakeMarketDataService,
+    )
+    monkeypatch.setattr(
+        "app.application.services.operational_control_service.BacktestRunHistoryService",
+        FakeBacktestRunHistoryService,
+    )
+    monkeypatch.setattr(
+        "app.application.services.market_data_sync_service.MarketDataSyncService.sync_candles_paginated",
+        fake_sync,
+    )
+
+    class NullSession:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            pass
+
+        def commit(self):
+            pass
+
+    class NullNotifications:
+        def notify_backtest_completed(self, *a, **kw):
+            return False
+
+        def notify_backtest_skipped(self, *a, **kw):
+            return False
+
+    class NullAudit:
+        def record_control_result(self, **kwargs):
+            pass
+
+    service = OperationalControlService(
+        settings,
+        session_factory=lambda: NullSession(),
+        notifications=NullNotifications(),
+        audit=NullAudit(),
+    )
+
+    service.run_backtest(
+        options=BacktestRunOptions(
+            strategy_name="ema_crossover",
+            exchange="binance",
+            symbol="ETH/USDT",
+            timeframe="1h",
+            fast_period=20,
+            slow_period=50,
+            starting_equity=Decimal("10000"),
+            history_candle_target=5000,
+        ),
+        notify=False,
+        audit=False,
+        record_history=False,
+    )
+
+    assert sync_limits[0] == 5100

@@ -1231,3 +1231,15 @@ Once the runtime can reject obviously unfundable futures entries, operators stil
 ### Consequence
 
 `/status` and reporting now expose available quote-asset wallet balance, an estimated initial-margin requirement using the same `order_notional / leverage` formula as the runtime guard, and remaining wallet headroom. When `LIVE_MAX_ORDER_NOTIONAL` is configured, that value becomes the visibility basis; otherwise the visibility falls back to a risk-sized next-order estimate.
+
+### Decision
+
+Promote the validated `EMA 20/50/100 + ADX + volume` rules into a dedicated backtest strategy instead of overloading `ema_adx_trend`, and remove the surfaced legacy `xgboost_signal` option from the operator catalog.
+
+### Reason
+
+The current `ema_adx_trend` implementation is a simpler crossover-plus-trend variant and does not match the stronger strategy spec that performed better in the recent 1h comparison. Folding swing-low stops, fixed 2R targets, volume confirmation, and risk-to-stop sizing into that existing strategy would blur two materially different behaviors. Separately, the operator backtest catalog still exposes `xgboost_signal` as an explicitly legacy option while `ml_signal` is the supported ML path.
+
+### Consequence
+
+The repo now keeps `ema_adx_trend` as the simpler crossover research variant and introduces `ema_adx_trend_volume` as a distinct deterministic backtest strategy with its own documented stop, take-profit, and sizing rules. Runtime strategy descriptions and backtest strategy descriptions are shown directly in the UI, and the explicit legacy `xgboost_signal` selector is removed from the surfaced operator catalog while historical data and underlying modules remain readable.

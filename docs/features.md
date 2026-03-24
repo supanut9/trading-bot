@@ -2054,3 +2054,78 @@ Main outputs:
 - decisions summary for the bounded futures safety model now implemented on `main`
 
 Why: The futures execution groundwork is now being built as a cluster of small, safe features. A dedicated closeout slice keeps the repo documentation coherent before the next phase widens further.
+
+### 101. `feature/ema-adx-trend-strategy`
+
+Status:
+
+- implemented on `main`
+
+Scope:
+
+- add one deterministic `ema_adx_trend` strategy that combines a fast and slow EMA crossover with a fixed 100 EMA trend filter and an ADX strength gate
+- make the strategy selectable through the existing operator runtime-config and backtest flows without widening the operator schema to a third persisted EMA period yet
+- keep the feature bounded to strategy definition, selection, documentation, and backtest or worker wiring rather than new risk policy or strategy-parameter storage
+
+Main outputs:
+
+- dedicated strategy spec under `docs/strategies/ema-adx-trend.md`
+- new `ema_adx_trend` strategy implementation with `fast < slow < 100` validation, 100 EMA trend confirmation, and ADX gating
+- worker and backtest support for `strategy_name=ema_adx_trend`
+- operator and backtest UI exposure so the strategy can be selected without ad hoc request editing
+- tests proving buy or sell behavior, no-trade trend rejection, and backtest required-candle handling
+
+Why: The repo already supports a plain EMA crossover and optional ADX on that strategy, but there is no deterministic built-in strategy that explicitly requires both trend alignment against a longer 100 EMA and ADX confirmation. Adding `ema_adx_trend` creates a bounded research variant without overloading the base EMA crossover behavior.
+
+### 102. `feature/ema-adx-trend-volume-strategy`
+
+Status:
+
+- in progress
+
+Scope:
+
+- add one dedicated deterministic backtest strategy that matches the validated long-only `EMA 20/50/100 + ADX + volume` spec instead of overloading `ema_adx_trend`
+- keep the new strategy bounded to backtest research until runtime execution can honestly support the same stop, target, and risk-sizing semantics
+- add operator-facing strategy descriptions in runtime and backtest UI so the selected strategy spec is visible without reading repo docs
+- remove the explicit legacy `xgboost_signal` option from the surfaced operator strategy catalog while keeping the supported `ml_signal` path
+
+Main outputs:
+
+- dedicated strategy spec under `docs/strategies/ema-adx-trend-volume.md`
+- new backtest-selectable `ema_adx_trend_volume` strategy with:
+  - EMA 20/50 bullish crossover entry
+  - close above fixed EMA 100
+  - ADX 14 greater than or equal to 20
+  - volume above volume EMA 20 multiplied by 1.2
+  - stop at lowest low of the last 10 candles
+  - fixed 2R take profit
+  - 1 percent equity risk-to-stop sizing
+  - stop-first intrabar exit handling
+- operator-visible descriptions for each runtime and backtest strategy selection
+- removal of the surfaced legacy `xgboost_signal` option from the operator backtest catalog
+- tests proving signal gating, stop or take-profit behavior, and strategy-catalog rendering
+
+Why: The current `ema_adx_trend` variant is a simpler crossover-plus-trend filter and does not match the stronger strategy spec that performed better on the recent 1h comparison. Promoting the validated spec into its own named strategy keeps the research honest and makes the operator catalog clearer.
+
+### 103. `feature/backtest-history-target`
+
+Status:
+
+- in progress
+
+Scope:
+
+- add one explicit backtest-only history target so research runs can request deeper auto-sync than the default readiness floor
+- keep the default lightweight auto-sync behavior unchanged when the override is omitted
+- make replay readiness use the same target so operators see the real candle gap before running a replay
+
+Main outputs:
+
+- `history_candle_target` in backtest request handling
+- auto-sync floor raised to the requested target when supplied
+- replay readiness coverage using the same target-aware candle requirement
+- backtest UI input for requesting deeper history such as `5000` candles
+- tests proving sync-limit and coverage behavior follow the requested target
+
+Why: The current backtest auto-sync is intentionally bounded to a small readiness window, which is good for routine operator use but too shallow for deeper strategy research on symbols such as ETH or BNB.

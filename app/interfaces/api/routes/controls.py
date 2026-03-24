@@ -138,6 +138,7 @@ def run_backtest(
             fee_pct=payload.fee_pct,
             spread_pct=payload.spread_pct,
             signal_latency_bars=payload.signal_latency_bars,
+            history_candle_target=payload.history_candle_target,
             allowed_weekdays_utc=tuple(payload.allowed_weekdays_utc)
             if payload.allowed_weekdays_utc is not None
             else None,
