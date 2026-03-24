@@ -214,6 +214,186 @@ test("hydrates defaults and runs ema backtest", async () => {
   expect(screen.getAllByText(/\+1\.2/).length).toBeGreaterThan(0);
 });
 
+test("sends history candle target when requested", async () => {
+  fetchMock.mockImplementation((input: URL | RequestInfo, init?: RequestInit) => {
+    const url = input.toString();
+
+    if (url.includes("/reports/backtest-runs")) {
+      return Promise.resolve(new Response(JSON.stringify({ run_count: 0, runs: [] })));
+    }
+
+    if (url.includes("/market-data/coverage")) {
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            exchange: "binance",
+            symbol: "BTC/USDT",
+            timeframe: "1h",
+            candle_count: 200,
+            first_open_time: "2026-03-10T00:00:00Z",
+            latest_open_time: "2026-03-19T15:00:00Z",
+            latest_close_time: "2026-03-19T16:00:00Z",
+            required_candles: 5000,
+            additional_candles_needed: 4800,
+            satisfies_required_candles: false,
+            freshness_status: "fresh",
+            readiness_status: "not_ready",
+            detail: "need 4800 more candles to satisfy replay minimum",
+          }),
+        ),
+      );
+    }
+
+    if (url.endsWith("/controls/operator-config")) {
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            status: "completed",
+            detail: "operator runtime config loaded",
+            strategy_name: "ema_crossover",
+            exchange: "binance",
+            symbol: "BTC/USDT",
+            timeframe: "1h",
+            fast_period: 20,
+            slow_period: 50,
+            trading_mode: "SPOT",
+            source: "runtime_config",
+            changed: false,
+            notified: false,
+          }),
+        ),
+      );
+    }
+
+    if (url.endsWith("/controls/backtest")) {
+      expect(JSON.parse(String(init?.body))).toMatchObject({
+        strategy_name: "ema_crossover",
+        history_candle_target: 5000,
+      });
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            status: "completed",
+            detail: "backtest completed",
+            notified: false,
+            strategy_name: "ema_crossover",
+            exchange: "binance",
+            symbol: "BTC/USDT",
+            timeframe: "1h",
+            trading_mode: "SPOT",
+            fast_period: 20,
+            slow_period: 50,
+            starting_equity_input: "10000.00000000",
+            candle_count: 5000,
+            required_candles: 5000,
+            starting_equity: "10000.00000000",
+            ending_equity: "10100.00000000",
+            realized_pnl: "100.00000000",
+            total_return_pct: "1.00000000",
+            benchmark_realized_pnl: "50.00000000",
+            benchmark_return_pct: "0.50000000",
+            benchmark_excess_return_pct: "0.50000000",
+            max_drawdown_pct: "0.25000000",
+            total_trades: 2,
+            winning_trades: 1,
+            losing_trades: 1,
+            total_fees_paid: "5.00000000",
+            slippage_pct: "0.00050000",
+            fee_pct: "0.00100000",
+            spread_pct: "0.00000000",
+            signal_latency_bars: 0,
+            assumption_summary: "",
+            allowed_weekdays_utc: [],
+            allowed_hours_utc: [],
+            max_volume_fill_pct: null,
+            allow_partial_fills: false,
+            rules: null,
+            executions: [],
+            candles: [],
+          }),
+        ),
+      );
+    }
+
+    return Promise.reject(new Error(`Unexpected request: ${url}`));
+  });
+
+  renderWithQueryClient();
+
+  await waitFor(() => expect(screen.getByDisplayValue("BTC/USDT")).toBeInTheDocument());
+  fireEvent.change(screen.getByPlaceholderText("Optional, e.g. 5000"), {
+    target: { value: "5000" },
+  });
+  submitBacktestForm();
+
+  await waitFor(() => expect(screen.getByText("backtest completed")).toBeInTheDocument());
+});
+
+test("shows strategy catalog options and removes legacy xgboost", async () => {
+  fetchMock.mockImplementation((input: URL | RequestInfo) => {
+    const url = input.toString();
+
+    if (url.includes("/reports/backtest-runs")) {
+      return Promise.resolve(new Response(JSON.stringify({ run_count: 0, runs: [] })));
+    }
+
+    if (url.includes("/market-data/coverage")) {
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            exchange: "binance",
+            symbol: "BTC/USDT",
+            timeframe: "1h",
+            candle_count: 80,
+            first_open_time: "2026-03-10T00:00:00Z",
+            latest_open_time: "2026-03-19T15:00:00Z",
+            latest_close_time: "2026-03-19T16:00:00Z",
+            required_candles: 27,
+            additional_candles_needed: 0,
+            satisfies_required_candles: true,
+            freshness_status: "fresh",
+            readiness_status: "ready",
+            detail: "stored history satisfies the selected replay shape",
+          }),
+        ),
+      );
+    }
+
+    if (url.endsWith("/controls/operator-config")) {
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            status: "completed",
+            detail: "operator runtime config loaded",
+            strategy_name: "ema_crossover",
+            exchange: "binance",
+            symbol: "BTC/USDT",
+            timeframe: "1h",
+            fast_period: 20,
+            slow_period: 50,
+            trading_mode: "SPOT",
+            source: "runtime_config",
+            changed: false,
+            notified: false,
+          }),
+        ),
+      );
+    }
+
+    return Promise.reject(new Error(`Unexpected request: ${url}`));
+  });
+
+  renderWithQueryClient();
+
+  await waitFor(() => expect(screen.getByDisplayValue("ema_crossover")).toBeInTheDocument());
+  expect(screen.getByRole("option", { name: "ema_adx_trend" })).toBeInTheDocument();
+  expect(screen.getByRole("option", { name: "ema_adx_trend_volume" })).toBeInTheDocument();
+  expect(
+    screen.queryByRole("option", { name: "XGBoost Signal (legacy)" }),
+  ).not.toBeInTheDocument();
+  expect(screen.getByText(/Baseline two-EMA crossover/)).toBeInTheDocument();
+});
+
 test("submits rule-builder preset payload", async () => {
   fetchMock.mockImplementation((input: URL | RequestInfo, init?: RequestInit) => {
     const url = input.toString();

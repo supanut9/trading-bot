@@ -51,6 +51,8 @@ from app.config import Settings
 from app.domain.risk import RiskLimits, RiskService
 from app.domain.strategies.base import Candle, Strategy
 from app.domain.strategies.breakout_atr import BreakoutAtrStrategy
+from app.domain.strategies.ema_adx_trend import EmaAdxTrendStrategy
+from app.domain.strategies.ema_adx_trend_volume import EmaAdxTrendVolumeStrategy
 from app.domain.strategies.ema_crossover import EmaCrossoverStrategy
 from app.domain.strategies.macd_crossover import MacdCrossoverStrategy
 from app.domain.strategies.mean_reversion_bollinger import MeanReversionBollingerStrategy
@@ -71,22 +73,24 @@ from app.infrastructure.exchanges.factory import (
 )
 
 BACKTEST_STRATEGY_EMA_CROSSOVER = OPERATOR_STRATEGY_EMA_CROSSOVER
+BACKTEST_STRATEGY_EMA_ADX_TREND = "ema_adx_trend"
+BACKTEST_STRATEGY_EMA_ADX_TREND_VOLUME = "ema_adx_trend_volume"
 BACKTEST_STRATEGY_RULE_BUILDER = "rule_builder"
 BACKTEST_STRATEGY_MACD_CROSSOVER = "macd_crossover"
 BACKTEST_STRATEGY_MEAN_REVERSION_BOLLINGER = "mean_reversion_bollinger"
 BACKTEST_STRATEGY_RSI_MOMENTUM = "rsi_momentum"
 BACKTEST_STRATEGY_BREAKOUT_ATR = "breakout_atr"
-BACKTEST_STRATEGY_XGBOOST_SIGNAL = "xgboost_signal"
 BACKTEST_STRATEGY_ML_SIGNAL = "ml_signal"
 
 _ALL_BACKTEST_STRATEGIES = {
     BACKTEST_STRATEGY_EMA_CROSSOVER,
+    BACKTEST_STRATEGY_EMA_ADX_TREND,
+    BACKTEST_STRATEGY_EMA_ADX_TREND_VOLUME,
     BACKTEST_STRATEGY_RULE_BUILDER,
     BACKTEST_STRATEGY_MACD_CROSSOVER,
     BACKTEST_STRATEGY_MEAN_REVERSION_BOLLINGER,
     BACKTEST_STRATEGY_RSI_MOMENTUM,
     BACKTEST_STRATEGY_BREAKOUT_ATR,
-    BACKTEST_STRATEGY_XGBOOST_SIGNAL,
     BACKTEST_STRATEGY_ML_SIGNAL,
 }
 
@@ -109,7 +113,11 @@ _TIMEFRAME_MINUTES: dict[str, int] = {
 _BACKTEST_MIN_DAYS = 7
 
 
-def _compute_backtest_sync_limit(timeframe: str, required_candles: int) -> int:
+def _compute_backtest_sync_limit(
+    timeframe: str,
+    required_candles: int,
+    history_candle_target: int | None = None,
+) -> int:
     """Return how many candles to fetch for a backtest.
 
     Always covers at least 7 days of history so small-timeframe strategies
@@ -117,7 +125,8 @@ def _compute_backtest_sync_limit(timeframe: str, required_candles: int) -> int:
     """
     minutes = _TIMEFRAME_MINUTES.get(timeframe, 60)
     seven_day_candles = (_BACKTEST_MIN_DAYS * 24 * 60) // minutes
-    return max(required_candles + 100, seven_day_candles)
+    strategy_floor = max(required_candles, history_candle_target or 0)
+    return max(strategy_floor + 100, seven_day_candles)
 
 
 @dataclass(frozen=True, slots=True)
@@ -137,6 +146,7 @@ class BacktestRunOptions:
     allowed_hours_utc: tuple[int, ...] | None = None
     max_volume_fill_pct: Decimal | None = None
     allow_partial_fills: bool = False
+    history_candle_target: int | None = None
     walk_forward_split_ratio: Decimal | None = None
     rules: RuleBuilderStrategyConfig | None = None
     rsi_period: int | None = None
@@ -171,30 +181,42 @@ class BacktestRunOptions:
 
 
 def required_candles_for_backtest_options(options: BacktestRunOptions) -> int:
+    target_floor = options.history_candle_target or 0
     sname = options.strategy_name
     if sname == BACKTEST_STRATEGY_RULE_BUILDER and options.rules is not None:
-        return options.rules.minimum_candles()
+        return max(options.rules.minimum_candles(), target_floor)
     if sname == BACKTEST_STRATEGY_MACD_CROSSOVER:
         slow = options.slow_period or 26
         sig = options.macd_signal_period or 9
-        return slow + sig + 1
+        return max(slow + sig + 1, target_floor)
     if sname == BACKTEST_STRATEGY_MEAN_REVERSION_BOLLINGER:
         bb = options.bb_period or 20
         rsi = options.rsi_period or 14
-        return max(bb, rsi + 1) + 1
+        return max(max(bb, rsi + 1) + 1, target_floor)
     if sname == BACKTEST_STRATEGY_RSI_MOMENTUM:
-        return (options.rsi_period or 14) + 2
+        return max((options.rsi_period or 14) + 2, target_floor)
     if sname == BACKTEST_STRATEGY_BREAKOUT_ATR:
         bp = options.breakout_period or 20
         ap = options.atr_period or 14
-        return max(bp, ap) + 2
-    if sname in (BACKTEST_STRATEGY_XGBOOST_SIGNAL, BACKTEST_STRATEGY_ML_SIGNAL):
-        return 37  # MIN_CANDLES_FOR_FEATURES
+        return max(max(bp, ap) + 2, target_floor)
+    if sname == BACKTEST_STRATEGY_EMA_ADX_TREND:
+        adx_period = options.adx_period or 14
+        return max(max(101, (2 * adx_period) + 1), target_floor)
+    if sname == BACKTEST_STRATEGY_EMA_ADX_TREND_VOLUME:
+        return max(
+            EmaAdxTrendVolumeStrategy(
+                fast_period=options.fast_period or 20,
+                slow_period=options.slow_period or 50,
+            ).minimum_candles(),
+            target_floor,
+        )
+    if sname == BACKTEST_STRATEGY_ML_SIGNAL:
+        return max(37, target_floor)  # MIN_CANDLES_FOR_FEATURES
     base = max((options.slow_period or 0) + 1, 0)
     rsi_min = (options.rsi_period + 1) if options.rsi_period is not None else 0
     vol_min = options.volume_ma_period if options.volume_ma_period is not None else 0
     adx_min = (2 * options.adx_period + 1) if options.adx_period is not None else 0
-    return max(base, rsi_min, vol_min, adx_min)
+    return max(base, rsi_min, vol_min, adx_min, target_floor)
 
 
 def _fill_ema_periods(
@@ -726,7 +748,11 @@ class OperationalControlService:
                 self._backtest_runs.record_run(source=source, result=control_result)
             return control_result
         required_candles = self._required_candles_for_options(resolved)
-        sync_limit = _compute_backtest_sync_limit(resolved.timeframe, required_candles)
+        sync_limit = _compute_backtest_sync_limit(
+            resolved.timeframe,
+            required_candles,
+            resolved.history_candle_target,
+        )
 
         with self._session_factory() as session:
             try:
@@ -1911,6 +1937,8 @@ class OperationalControlService:
             raise ValueError("spread_pct must be non-negative")
         if active.signal_latency_bars is not None and active.signal_latency_bars < 0:
             raise ValueError("signal_latency_bars must be non-negative")
+        if active.history_candle_target is not None and active.history_candle_target <= 0:
+            raise ValueError("history_candle_target must be positive")
         if active.max_volume_fill_pct is not None and (
             active.max_volume_fill_pct < Decimal("0") or active.max_volume_fill_pct > Decimal("1")
         ):
@@ -1933,13 +1961,26 @@ class OperationalControlService:
             if active.allowed_hours_utc is not None
             else None
         )
-        if strategy_name == BACKTEST_STRATEGY_EMA_CROSSOVER:
+        if strategy_name in (
+            BACKTEST_STRATEGY_EMA_CROSSOVER,
+            BACKTEST_STRATEGY_EMA_ADX_TREND,
+            BACKTEST_STRATEGY_EMA_ADX_TREND_VOLUME,
+        ):
             fast_period = active.fast_period or defaults.fast_period
             slow_period = active.slow_period or defaults.slow_period
             if fast_period <= 0 or slow_period <= 0:
                 raise ValueError("backtest periods must be positive")
             if fast_period >= slow_period:
                 raise ValueError("fast period must be smaller than slow period")
+            if (
+                strategy_name
+                in (
+                    BACKTEST_STRATEGY_EMA_ADX_TREND,
+                    BACKTEST_STRATEGY_EMA_ADX_TREND_VOLUME,
+                )
+                and slow_period >= 100
+            ):
+                raise ValueError("slow period must be smaller than trend period 100")
             return BacktestRunOptions(
                 strategy_name=strategy_name,
                 exchange=exchange,
@@ -1952,6 +1993,7 @@ class OperationalControlService:
                 fee_pct=active.fee_pct,
                 spread_pct=active.spread_pct,
                 signal_latency_bars=active.signal_latency_bars,
+                history_candle_target=active.history_candle_target,
                 allowed_weekdays_utc=allowed_weekdays_utc,
                 allowed_hours_utc=allowed_hours_utc,
                 max_volume_fill_pct=active.max_volume_fill_pct,
@@ -1960,7 +2002,11 @@ class OperationalControlService:
                 rsi_period=active.rsi_period,
                 rsi_overbought=active.rsi_overbought,
                 rsi_oversold=active.rsi_oversold,
-                volume_ma_period=active.volume_ma_period,
+                volume_ma_period=(
+                    20
+                    if strategy_name == BACKTEST_STRATEGY_EMA_ADX_TREND_VOLUME
+                    else active.volume_ma_period
+                ),
                 multi_tf_timeframe=active.multi_tf_timeframe,
                 multi_tf_period=active.multi_tf_period,
                 trading_mode=active.trading_mode,
@@ -1980,6 +2026,7 @@ class OperationalControlService:
                 fee_pct=active.fee_pct,
                 spread_pct=active.spread_pct,
                 signal_latency_bars=active.signal_latency_bars,
+                history_candle_target=active.history_candle_target,
                 allowed_weekdays_utc=allowed_weekdays_utc,
                 allowed_hours_utc=allowed_hours_utc,
                 max_volume_fill_pct=active.max_volume_fill_pct,
@@ -2003,6 +2050,7 @@ class OperationalControlService:
             fee_pct=active.fee_pct,
             spread_pct=active.spread_pct,
             signal_latency_bars=active.signal_latency_bars,
+            history_candle_target=active.history_candle_target,
             allowed_weekdays_utc=allowed_weekdays_utc,
             allowed_hours_utc=allowed_hours_utc,
             max_volume_fill_pct=active.max_volume_fill_pct,
@@ -2025,8 +2073,14 @@ class OperationalControlService:
             atr_breakout_multiplier=active.atr_breakout_multiplier,
             atr_stop_multiplier=active.atr_stop_multiplier,
             # ADX regime filter
-            adx_period=active.adx_period,
-            adx_threshold=active.adx_threshold,
+            adx_period=(
+                14 if strategy_name == BACKTEST_STRATEGY_EMA_ADX_TREND_VOLUME else active.adx_period
+            ),
+            adx_threshold=(
+                Decimal("20")
+                if strategy_name == BACKTEST_STRATEGY_EMA_ADX_TREND_VOLUME
+                else active.adx_threshold
+            ),
             # Multi-timeframe confirmation
             multi_tf_timeframe=active.multi_tf_timeframe,
             multi_tf_period=active.multi_tf_period,
@@ -2073,6 +2127,7 @@ class OperationalControlService:
             starting_equity=Decimal(
                 str(active.starting_equity or self._settings.paper_account_equity)
             ),
+            history_candle_target=active.history_candle_target,
         )
 
     @staticmethod
@@ -2108,7 +2163,7 @@ class OperationalControlService:
                 atr_breakout_multiplier=options.atr_breakout_multiplier or Decimal("0.5"),
                 atr_stop_multiplier=options.atr_stop_multiplier or Decimal("2.0"),
             )
-        if sname in (BACKTEST_STRATEGY_XGBOOST_SIGNAL, BACKTEST_STRATEGY_ML_SIGNAL):
+        if sname == BACKTEST_STRATEGY_ML_SIGNAL:
             mt = options.model_type or "xgboost"
             model_path = options.xgb_model_path or default_model_path(
                 symbol=options.symbol or "BTC/USDT",
@@ -2123,6 +2178,23 @@ class OperationalControlService:
                 or Decimal(str(loaded.metadata.buy_threshold)),
                 sell_threshold=options.xgb_sell_threshold
                 or Decimal(str(loaded.metadata.sell_threshold)),
+            )
+        if sname == BACKTEST_STRATEGY_EMA_ADX_TREND:
+            return EmaAdxTrendStrategy(
+                fast_period=options.fast_period or 20,
+                slow_period=options.slow_period or 50,
+                trend_period=100,
+                adx_period=options.adx_period or 14,
+                adx_threshold=options.adx_threshold or Decimal("20"),
+            )
+        if sname == BACKTEST_STRATEGY_EMA_ADX_TREND_VOLUME:
+            return EmaAdxTrendVolumeStrategy(
+                fast_period=options.fast_period or 20,
+                slow_period=options.slow_period or 50,
+                trend_period=100,
+                adx_period=options.adx_period or 14,
+                adx_threshold=options.adx_threshold or Decimal("20"),
+                volume_ema_period=options.volume_ma_period or 20,
             )
         if sname != BACKTEST_STRATEGY_EMA_CROSSOVER:
             raise ValueError(f"unsupported backtest strategy: {sname}")

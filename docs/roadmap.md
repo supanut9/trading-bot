@@ -310,3 +310,6 @@ Status:
 - compare live results against walk-forward and shadow expectations on a fixed review loop
 - identify whether underperformance is strategy decay, execution cost overshoot, or regime change
 - define and execute the strategy re-validation and re-promotion workflow when results fall short
+- keep the simpler bounded trend-filtered crossover variant for research: `ema_adx_trend`
+- add the validated long-only `ema_adx_trend_volume` replay strategy and document strategy specs directly in the operator UI
+- allow research backtests to request deeper candle history explicitly instead of relying only on the default bounded auto-sync floor

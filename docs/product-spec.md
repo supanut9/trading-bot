@@ -77,6 +77,9 @@ Profitability improvements (what separates this bot from better real-world bots)
 18. `feature/live-futures-risk-reject-context` — standardize futures-specific rejection reasons across worker, control, and audit flows (planned)
 19. `feature/live-futures-controls-ui` — surface futures safety posture directly in the operator controls UI (planned)
 20. `feature/live-futures-safety-closeout` — reconcile the futures safety batch across docs and operator workflow guidance (planned)
+21. `feature/ema-adx-trend-strategy` — add a selectable EMA crossover variant with fixed 100 EMA trend confirmation plus ADX gating (completed)
+22. `feature/ema-adx-trend-volume-strategy` — add the validated long-only EMA 20/50/100 + ADX + volume backtest strategy, show strategy descriptions in the UI, and remove the surfaced legacy XGBoost option (in progress)
+23. `feature/backtest-history-target` — allow backtest runs to request deeper auto-sync history than the default readiness floor (in progress)
 
 ## Initial Market And Strategy
 
@@ -96,6 +99,8 @@ Profitability improvements (what separates this bot from better real-world bots)
 - run deterministic backtests over stored historical candles
 - calculate indicators
 - generate signals from deterministic strategy rules
+- support a selectable `ema_adx_trend` strategy that requires EMA trend alignment against a fixed 100 EMA plus ADX confirmation
+- support a backtest-selectable `ema_adx_trend_volume` strategy that adds volume confirmation plus strategy-specific swing-low stop, fixed 2R take-profit, and 1 percent risk-to-stop sizing
 - apply risk checks
 - simulate order execution in paper mode
 - route execution through a replaceable adapter boundary, with paper execution as the current concrete implementation
@@ -147,6 +152,7 @@ Profitability improvements (what separates this bot from better real-world bots)
 - expose current live posture, halt or resume, reconcile, and manual cancel actions inside the controls page while keeping live safety and execution policy in the backend
 - provide a dedicated reporting page in Next.js with performance analytics, equity-curve visibility, and direct CSV export links
 - provide a dedicated backtest page with parameterized inputs and chart visualization for replay analysis
+- allow backtests to request a deeper candle-history target for research without changing the default lightweight auto-sync path
 - provide preset-first backtest strategy selection backed by curated rule-builder presets
 - allow operators to edit backtest-only rule-builder groups and conditions inside the backtest page while reusing the existing control API
 - persist recent backtest runs with summary metrics and allow the backtest page to hydrate its form from a stored run

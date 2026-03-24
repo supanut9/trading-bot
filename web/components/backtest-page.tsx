@@ -1,7 +1,7 @@
 "use client";
 
 import type { FormEvent } from "react";
-import { startTransition, useEffect, useState } from "react";
+import { startTransition, useDeferredValue, useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AreaChart,
@@ -39,17 +39,14 @@ import {
   type StrategyRuleBuilderRequest,
 } from "@/lib/api";
 import { formatDecimal, formatSignedDecimal } from "@/lib/format";
+import {
+  backtestStrategyCatalog,
+  describeBacktestStrategy,
+  type BacktestStrategyName,
+} from "@/lib/strategy-catalog";
 
 type BacktestFormState = {
-  strategy_name:
-    | "ema_crossover"
-    | "rule_builder"
-    | "macd_crossover"
-    | "mean_reversion_bollinger"
-    | "rsi_momentum"
-    | "breakout_atr"
-    | "xgboost_signal"
-    | "ml_signal";
+  strategy_name: BacktestStrategyName;
   preset_key: "ema_crossover_equivalent" | "ema_rsi_confirmation" | "mean_reversion";
   symbol: string;
   timeframe: string;
@@ -60,6 +57,7 @@ type BacktestFormState = {
   fee_pct: string;
   spread_pct: string;
   signal_latency_bars: string;
+  history_candle_target: string;
   allowed_weekdays_utc: string;
   allowed_hours_utc: string;
   max_volume_fill_pct: string;
@@ -1120,6 +1118,7 @@ export function BacktestPage() {
     fee_pct: "0.001",
     spread_pct: "0",
     signal_latency_bars: "0",
+    history_candle_target: "",
     allowed_weekdays_utc: "",
     allowed_hours_utc: "",
     max_volume_fill_pct: "",
@@ -1144,6 +1143,7 @@ export function BacktestPage() {
     margin_mode: "ISOLATED",
   });
   const [hasHydratedDefaults, setHasHydratedDefaults] = useState(false);
+  const deferredHistoryCandleTarget = useDeferredValue(form.history_candle_target.trim());
 
   const operatorConfigQuery = useQuery({
     queryKey: ["operator-config"],
@@ -1161,6 +1161,7 @@ export function BacktestPage() {
       form.timeframe,
       form.fast_period,
       form.slow_period,
+      deferredHistoryCandleTarget,
       form.strategy_name === "rule_builder" ? JSON.stringify(form.rules) : "ema",
     ],
     enabled: Boolean(form.symbol.trim() && form.timeframe.trim()),
@@ -1171,6 +1172,9 @@ export function BacktestPage() {
         timeframe: form.timeframe.trim(),
         fast_period: Number(form.fast_period),
         slow_period: Number(form.slow_period),
+        history_candle_target: deferredHistoryCandleTarget
+          ? Number(deferredHistoryCandleTarget)
+          : undefined,
         trading_mode: form.trading_mode,
         rules: form.strategy_name === "rule_builder" ? cloneRules(form.rules) : undefined,
       }),
@@ -1258,6 +1262,7 @@ export function BacktestPage() {
         fee_pct: run.fee_pct ?? "0.001",
         spread_pct: run.spread_pct ?? "0",
         signal_latency_bars: String(run.signal_latency_bars ?? 0),
+        history_candle_target: "",
         allowed_weekdays_utc: formatIntegerList(run.allowed_weekdays_utc),
         allowed_hours_utc: formatIntegerList(run.allowed_hours_utc),
         max_volume_fill_pct: run.max_volume_fill_pct ?? "",
@@ -1297,6 +1302,7 @@ export function BacktestPage() {
       fee_pct: run.fee_pct ?? current.fee_pct,
       spread_pct: run.spread_pct ?? current.spread_pct,
       signal_latency_bars: String(run.signal_latency_bars ?? 0),
+      history_candle_target: current.history_candle_target,
       allowed_weekdays_utc: formatIntegerList(run.allowed_weekdays_utc),
       allowed_hours_utc: formatIntegerList(run.allowed_hours_utc),
       max_volume_fill_pct: run.max_volume_fill_pct ?? "",
@@ -1325,13 +1331,20 @@ export function BacktestPage() {
     if (form.max_volume_fill_pct.trim()) {
       payload.max_volume_fill_pct = form.max_volume_fill_pct;
     }
+    if (form.history_candle_target.trim()) {
+      payload.history_candle_target = Number(form.history_candle_target);
+    }
 
     if (form.trading_mode === "FUTURES") {
       payload.leverage = form.leverage === "" ? null : Number(form.leverage);
       payload.margin_mode = form.margin_mode;
     }
 
-    if (form.strategy_name === "ema_crossover") {
+    if (
+      form.strategy_name === "ema_crossover" ||
+      form.strategy_name === "ema_adx_trend" ||
+      form.strategy_name === "ema_adx_trend_volume"
+    ) {
       payload.fast_period = Number(form.fast_period);
       payload.slow_period = Number(form.slow_period);
     } else if (form.strategy_name === "macd_crossover") {
@@ -1351,9 +1364,6 @@ export function BacktestPage() {
       payload.atr_period = Number(form.atr_period);
       payload.atr_breakout_multiplier = form.atr_breakout_multiplier;
       payload.atr_stop_multiplier = form.atr_stop_multiplier;
-    } else if (form.strategy_name === "xgboost_signal") {
-      payload.xgb_buy_threshold = Number(form.xgb_buy_threshold);
-      payload.xgb_sell_threshold = Number(form.xgb_sell_threshold);
     } else if (form.strategy_name === "ml_signal") {
       payload.model_type = form.ml_model_type;
       payload.oos_only = form.ml_oos_only;
@@ -1366,6 +1376,7 @@ export function BacktestPage() {
 
   const selectedPreset = getPreset(form.preset_key);
   const minimumRuleCandles = minimumCandlesForRules(form.rules);
+  const selectedStrategyDescription = describeBacktestStrategy(form.strategy_name);
 
   return (
     <OperatorShell>
@@ -1441,14 +1452,11 @@ export function BacktestPage() {
                       }
                       value={form.strategy_name}
                     >
-                      <option value="ema_crossover">ema_crossover</option>
-                      <option value="macd_crossover">macd_crossover</option>
-                      <option value="mean_reversion_bollinger">mean_reversion_bollinger</option>
-                      <option value="rsi_momentum">rsi_momentum</option>
-                      <option value="breakout_atr">breakout_atr</option>
-                      <option value="xgboost_signal">XGBoost Signal (legacy)</option>
-                      <option value="ml_signal">ML Signal</option>
-                      <option value="rule_builder">rule_builder</option>
+                      {backtestStrategyCatalog.map((strategy) => (
+                        <option key={strategy.name} value={strategy.name}>
+                          {strategy.label}
+                        </option>
+                      ))}
                     </select>
                   </label>
                   <label className="space-y-2">
@@ -1465,6 +1473,24 @@ export function BacktestPage() {
                     />
                   </label>
                 </div>
+
+                <label className="block space-y-2">
+                  <span className="text-[11px] uppercase tracking-[0.18em] text-slate-400">
+                    History Candle Target
+                  </span>
+                  <input
+                    className="w-full rounded-2xl border border-white/10 bg-[#09121a] px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-300/40 focus:ring-2 focus:ring-cyan-300/10"
+                    min={1}
+                    onChange={(event) => updateField("history_candle_target", event.target.value)}
+                    placeholder="Optional, e.g. 5000"
+                    type="number"
+                    value={form.history_candle_target}
+                  />
+                  <p className="text-xs text-slate-500">
+                    Raises the auto-sync floor for this replay. Leave blank to keep the default
+                    lightweight sync target.
+                  </p>
+                </label>
 
                 <div className="grid gap-4 md:grid-cols-2">
                   <label className="space-y-2">
@@ -1669,6 +1695,8 @@ export function BacktestPage() {
                 )}
 
                 {(form.strategy_name === "ema_crossover" ||
+                  form.strategy_name === "ema_adx_trend" ||
+                  form.strategy_name === "ema_adx_trend_volume" ||
                   form.strategy_name === "macd_crossover" ||
                   form.strategy_name === "rule_builder") && (
                   <div className="grid gap-4 md:grid-cols-2">
@@ -1701,6 +1729,10 @@ export function BacktestPage() {
                     </label>
                   </div>
                 )}
+
+                <div className="rounded-2xl border border-amber-300/15 bg-amber-300/8 px-4 py-3 text-sm text-amber-100">
+                  {selectedStrategyDescription}
+                </div>
 
                 {form.strategy_name === "macd_crossover" && (
                   <label className="block space-y-2">
@@ -1868,46 +1900,6 @@ export function BacktestPage() {
                           step="0.1"
                           type="number"
                           value={form.atr_stop_multiplier}
-                        />
-                      </label>
-                    </div>
-                  </div>
-                )}
-
-                {form.strategy_name === "xgboost_signal" && (
-                  <div className="space-y-4">
-                    <div className="rounded-2xl border border-amber-300/20 bg-amber-300/[0.04] px-4 py-3 text-sm text-amber-200">
-                      Train a model first on the Models page before running this strategy.
-                    </div>
-                    <div className="grid gap-4 md:grid-cols-2">
-                      <label className="space-y-2">
-                        <span className="text-[11px] uppercase tracking-[0.18em] text-slate-400">
-                          Buy Threshold
-                        </span>
-                        <input
-                          className="w-full rounded-2xl border border-white/10 bg-[#09121a] px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-300/40 focus:ring-2 focus:ring-cyan-300/10"
-                          max={0.99}
-                          min={0.51}
-                          onChange={(event) => updateField("xgb_buy_threshold", event.target.value)}
-                          required
-                          step={0.01}
-                          type="number"
-                          value={form.xgb_buy_threshold}
-                        />
-                      </label>
-                      <label className="space-y-2">
-                        <span className="text-[11px] uppercase tracking-[0.18em] text-slate-400">
-                          Sell Threshold
-                        </span>
-                        <input
-                          className="w-full rounded-2xl border border-white/10 bg-[#09121a] px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-300/40 focus:ring-2 focus:ring-cyan-300/10"
-                          max={0.49}
-                          min={0.01}
-                          onChange={(event) => updateField("xgb_sell_threshold", event.target.value)}
-                          required
-                          step={0.01}
-                          type="number"
-                          value={form.xgb_sell_threshold}
                         />
                       </label>
                     </div>

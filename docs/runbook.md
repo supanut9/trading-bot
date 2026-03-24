@@ -116,6 +116,7 @@ Manual controls:
 - backtest controls also accept `allowed_weekdays_utc` and `allowed_hours_utc` to restrict replay execution windows without changing stored candle data
 - backtest controls also accept `max_volume_fill_pct` and `allow_partial_fills` to model deterministic missed or partial fills from limited candle participation
 - `GET /market-data/coverage` returns stored candle range, replay minimum, freshness status, and readiness guidance for the selected market slice and replay shape
+- backtest requests can optionally set `history_candle_target` to raise the auto-sync floor for deeper research runs such as `5000` 1h candles
 - live worker execution now rejects a new same-side live submission when an unresolved live order already exists for that market
 - `POST /controls/live-halt` persists the live-entry halt state used by status and worker execution
 - control endpoints do not accept arbitrary trading parameters; they only use current application configuration

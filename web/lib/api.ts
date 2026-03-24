@@ -220,6 +220,7 @@ export type BacktestControlRequest = {
   fee_pct?: string;
   spread_pct?: string;
   signal_latency_bars?: number;
+  history_candle_target?: number;
   allowed_weekdays_utc?: number[];
   allowed_hours_utc?: number[];
   max_volume_fill_pct?: string;
@@ -696,6 +697,7 @@ export function getMarketDataCoverage(params?: {
   timeframe?: string;
   fast_period?: number;
   slow_period?: number;
+  history_candle_target?: number;
   rules?: StrategyRuleBuilderRequest;
   trading_mode?: string;
 }): Promise<MarketDataCoverageResponse> {
@@ -717,6 +719,9 @@ export function getMarketDataCoverage(params?: {
   }
   if (params?.slow_period !== undefined) {
     searchParams.set("slow_period", String(params.slow_period));
+  }
+  if (params?.history_candle_target !== undefined) {
+    searchParams.set("history_candle_target", String(params.history_candle_target));
   }
   if (params?.rules) {
     searchParams.set("rules_json", JSON.stringify(params.rules));

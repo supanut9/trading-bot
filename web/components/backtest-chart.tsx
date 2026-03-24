@@ -60,9 +60,78 @@ function calculateBollinger(closes: number[], period: number, stdDevMultiplier: 
   });
 }
 
+function calculateAdx(
+  highs: number[],
+  lows: number[],
+  closes: number[],
+  period: number,
+): { index: number; value: number }[] {
+  const minBars = 2 * period + 1;
+  if (highs.length < minBars || lows.length < minBars || closes.length < minBars) {
+    return [];
+  }
+
+  const trueRanges: number[] = [];
+  const plusDm: number[] = [];
+  const minusDm: number[] = [];
+
+  for (let index = 1; index < highs.length; index += 1) {
+    const upMove = highs[index] - highs[index - 1];
+    const downMove = lows[index - 1] - lows[index];
+    plusDm.push(upMove > downMove && upMove > 0 ? upMove : 0);
+    minusDm.push(downMove > upMove && downMove > 0 ? downMove : 0);
+    trueRanges.push(
+      Math.max(
+        highs[index] - lows[index],
+        Math.abs(highs[index] - closes[index - 1]),
+        Math.abs(lows[index] - closes[index - 1]),
+      ),
+    );
+  }
+
+  let atr = trueRanges.slice(0, period).reduce((sum, value) => sum + value, 0);
+  let plus = plusDm.slice(0, period).reduce((sum, value) => sum + value, 0);
+  let minus = minusDm.slice(0, period).reduce((sum, value) => sum + value, 0);
+
+  const dxValues: { index: number; value: number }[] = [];
+  for (let index = period; index < trueRanges.length; index += 1) {
+    if (index > period) {
+      atr = atr - atr / period + trueRanges[index];
+      plus = plus - plus / period + plusDm[index];
+      minus = minus - minus / period + minusDm[index];
+    }
+    if (atr === 0) {
+      dxValues.push({ index: index + 1, value: 0 });
+      continue;
+    }
+    const plusDi = (plus / atr) * 100;
+    const minusDi = (minus / atr) * 100;
+    const denominator = plusDi + minusDi;
+    const dx = denominator === 0 ? 0 : (Math.abs(plusDi - minusDi) / denominator) * 100;
+    dxValues.push({ index: index + 1, value: dx });
+  }
+
+  if (dxValues.length < period) {
+    return [];
+  }
+
+  let adx = dxValues.slice(0, period).reduce((sum, item) => sum + item.value, 0) / period;
+  const series: { index: number; value: number }[] = [
+    { index: dxValues[period - 1].index, value: adx },
+  ];
+  for (let index = period; index < dxValues.length; index += 1) {
+    adx = ((adx * (period - 1)) + dxValues[index].value) / period;
+    series.push({ index: dxValues[index].index, value: adx });
+  }
+  return series;
+}
+
 export function BacktestChart({ result }: { result: BacktestControlResponse }) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const adxContainerRef = useRef<HTMLDivElement>(null);
   const strategy = result.strategy_name;
+  const hasAdxPane =
+    strategy === "ema_adx_trend" || strategy === "ema_adx_trend_volume";
 
   useEffect(() => {
     if (!containerRef.current || result.candles.length === 0) return;
@@ -73,7 +142,11 @@ export function BacktestChart({ result }: { result: BacktestControlResponse }) {
       grid: { vertLines: { color: "#1e293b" }, horzLines: { color: "#1e293b" } },
       crosshair: { mode: 1 },
       rightPriceScale: { borderColor: "#334155" },
-      timeScale: { borderColor: "#334155", timeVisible: true },
+      timeScale: {
+        borderColor: "#334155",
+        timeVisible: true,
+        visible: !hasAdxPane,
+      },
     });
 
     const candleSeries = chart.addSeries(CandlestickSeries, {
@@ -111,6 +184,8 @@ export function BacktestChart({ result }: { result: BacktestControlResponse }) {
 
     if (
       strategy === "ema_crossover" ||
+      strategy === "ema_adx_trend" ||
+      strategy === "ema_adx_trend_volume" ||
       strategy === "macd_crossover" ||
       strategy === "rule_builder"
     ) {
@@ -134,6 +209,17 @@ export function BacktestChart({ result }: { result: BacktestControlResponse }) {
         lastValueVisible: false,
       });
       slowSeries.setData(slowEma.map(({ index, value }) => ({ time: times[index], value })));
+
+      if (strategy === "ema_adx_trend" || strategy === "ema_adx_trend_volume") {
+        const trendEma = calculateEma(closes, 100);
+        const trendSeries = chart.addSeries(LineSeries, {
+          color: "#34d399",
+          lineWidth: 1,
+          priceLineVisible: false,
+          lastValueVisible: false,
+        });
+        trendSeries.setData(trendEma.map(({ index, value }) => ({ time: times[index], value })));
+      }
     }
 
     if (strategy === "mean_reversion_bollinger") {
@@ -213,10 +299,74 @@ export function BacktestChart({ result }: { result: BacktestControlResponse }) {
       lowerSeries.setData(lowerData);
     }
 
+    let adxChart: ReturnType<typeof createChart> | null = null;
+    if (hasAdxPane && adxContainerRef.current) {
+      const highs = result.candles.map((c) => Number(c.high_price));
+      const lows = result.candles.map((c) => Number(c.low_price));
+      const adxPeriod = result.adx_period ?? 14;
+      const adxThreshold = Number(result.adx_threshold ?? "20");
+      const adxSeriesData = calculateAdx(highs, lows, closes, adxPeriod);
+
+      adxChart = createChart(adxContainerRef.current, {
+        autoSize: true,
+        height: 140,
+        layout: { background: { color: "transparent" }, textColor: "#94a3b8" },
+        grid: { vertLines: { color: "#1e293b" }, horzLines: { color: "#1e293b" } },
+        crosshair: { mode: 1 },
+        rightPriceScale: {
+          borderColor: "#334155",
+          scaleMargins: { top: 0.1, bottom: 0.1 },
+        },
+        timeScale: { borderColor: "#334155", timeVisible: true, visible: true },
+      });
+
+      const adxLineSeries = adxChart.addSeries(LineSeries, {
+        color: "#a78bfa",
+        lineWidth: 2,
+        priceLineVisible: false,
+        lastValueVisible: false,
+      });
+      adxLineSeries.setData(
+        adxSeriesData.map(({ index, value }) => ({ time: times[index], value })),
+      );
+
+      const thresholdSeries = adxChart.addSeries(LineSeries, {
+        color: "#f97316",
+        lineWidth: 1,
+        lineStyle: 2,
+        priceLineVisible: false,
+        lastValueVisible: false,
+      });
+      thresholdSeries.setData(times.map((time) => ({ time, value: adxThreshold })));
+
+      let syncingFromMain = false;
+      let syncingFromAdx = false;
+      chart.timeScale().subscribeVisibleLogicalRangeChange((range) => {
+        if (syncingFromAdx || range === null) {
+          return;
+        }
+        syncingFromMain = true;
+        adxChart?.timeScale().setVisibleLogicalRange(range);
+        syncingFromMain = false;
+      });
+      adxChart.timeScale().subscribeVisibleLogicalRangeChange((range) => {
+        if (syncingFromMain || range === null) {
+          return;
+        }
+        syncingFromAdx = true;
+        chart.timeScale().setVisibleLogicalRange(range);
+        syncingFromAdx = false;
+      });
+      adxChart.timeScale().fitContent();
+    }
+
     chart.timeScale().fitContent();
 
-    return () => chart.remove();
-  }, [result, strategy]);
+    return () => {
+      chart.remove();
+      adxChart?.remove();
+    };
+  }, [hasAdxPane, result, strategy]);
 
   if (result.candles.length === 0) {
     return (
@@ -238,7 +388,10 @@ export function BacktestChart({ result }: { result: BacktestControlResponse }) {
           </p>
         </div>
         <div className="flex flex-wrap gap-2 text-xs text-slate-400">
-          {(strategy === "ema_crossover" || strategy === "macd_crossover") && (
+          {(strategy === "ema_crossover" ||
+            strategy === "ema_adx_trend" ||
+            strategy === "ema_adx_trend_volume" ||
+            strategy === "macd_crossover") && (
             <>
               <span className="flex items-center gap-1">
                 <span className="inline-block h-1.5 w-4 rounded bg-sky-400" />
@@ -248,6 +401,22 @@ export function BacktestChart({ result }: { result: BacktestControlResponse }) {
                 <span className="inline-block h-1.5 w-4 rounded bg-amber-400" />
                 Slow EMA ({result.slow_period ?? 50})
               </span>
+              {strategy === "ema_adx_trend" || strategy === "ema_adx_trend_volume" ? (
+                <>
+                  <span className="flex items-center gap-1">
+                    <span className="inline-block h-1.5 w-4 rounded bg-emerald-400" />
+                    Trend EMA (100)
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <span className="inline-block h-1.5 w-4 rounded bg-violet-400" />
+                    ADX ({result.adx_period ?? 14})
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <span className="inline-block h-1.5 w-4 rounded bg-orange-400" />
+                    ADX Threshold ({result.adx_threshold ?? "20"})
+                  </span>
+                </>
+              ) : null}
             </>
           )}
           {strategy === "rule_builder" && result.fast_period && result.slow_period && (
@@ -304,6 +473,17 @@ export function BacktestChart({ result }: { result: BacktestControlResponse }) {
         ref={containerRef}
         className="h-[420px] w-full overflow-hidden rounded-[1.8rem] border border-white/10 bg-[#080c11]"
       />
+      {hasAdxPane ? (
+        <div className="space-y-2">
+          <p className="text-xs uppercase tracking-[0.18em] text-slate-500">
+            ADX Pane · synced to the price chart
+          </p>
+          <div
+            ref={adxContainerRef}
+            className="h-[140px] w-full overflow-hidden rounded-[1.4rem] border border-white/10 bg-[#080c11]"
+          />
+        </div>
+      ) : null}
     </div>
   );
 }

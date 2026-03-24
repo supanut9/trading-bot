@@ -5,12 +5,13 @@ from pathlib import Path
 from unittest.mock import patch
 
 from fastapi.testclient import TestClient
-from sqlalchemy import func, select
+from sqlalchemy import func, select, text
 
 from app.application.services.market_data_service import CandleInput, MarketDataService
 from app.application.services.market_data_sync_service import MarketDataSyncResult
 from app.config import Settings, get_settings
 from app.infrastructure.database.base import Base
+from app.infrastructure.database.init_db import init_database
 from app.infrastructure.database.models.audit_event import AuditEventRecord
 from app.infrastructure.database.models.backtest_run import BacktestRunRecord
 from app.infrastructure.database.models.order import OrderRecord
@@ -751,6 +752,118 @@ def test_operator_config_control_rejects_futures_leverage_above_configured_maxim
         assert payload["detail"] == "futures leverage exceeds configured live maximum"
     finally:
         teardown_client()
+
+
+def test_operator_config_control_accepts_ema_adx_trend_strategy(tmp_path: Path) -> None:
+    client, _settings = build_client(tmp_path)
+    try:
+        response = client.post(
+            "/controls/operator-config",
+            json={
+                "strategy_name": "ema_adx_trend",
+                "symbol": "BTC/USDT",
+                "timeframe": "1h",
+                "fast_period": 20,
+                "slow_period": 50,
+                "trading_mode": "SPOT",
+            },
+        )
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["status"] == "completed"
+        assert payload["strategy_name"] == "ema_adx_trend"
+        assert payload["fast_period"] == 20
+        assert payload["slow_period"] == 50
+    finally:
+        teardown_client()
+
+
+def test_operator_config_control_normalizes_legacy_null_futures_fields(tmp_path: Path) -> None:
+    settings = Settings(
+        DATABASE_URL=f"sqlite:///{tmp_path / 'operator_config_legacy_nulls.db'}",
+        TRADING_MODE="FUTURES",
+        LIVE_FUTURES_LEVERAGE=7,
+        LIVE_FUTURES_MARGIN_MODE="CROSS",
+    )
+    engine = create_engine_from_settings(settings)
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                """
+                CREATE TABLE operator_configs (
+                    id INTEGER PRIMARY KEY,
+                    config_name TEXT NOT NULL,
+                    strategy_name TEXT NOT NULL,
+                    symbol TEXT NOT NULL,
+                    timeframe TEXT NOT NULL,
+                    fast_period INTEGER NOT NULL,
+                    slow_period INTEGER NOT NULL,
+                    trading_mode TEXT NOT NULL,
+                    updated_by TEXT NOT NULL,
+                    created_at TEXT,
+                    updated_at TEXT
+                )
+                """
+            )
+        )
+
+    init_database(settings)
+    session_factory = create_session_factory(settings)
+    session = session_factory()
+    session.execute(
+        text(
+            """
+            INSERT INTO operator_configs (
+                config_name,
+                strategy_name,
+                symbol,
+                timeframe,
+                fast_period,
+                slow_period,
+                trading_mode,
+                leverage,
+                margin_mode,
+                updated_by
+            ) VALUES (
+                'paper_runtime_defaults',
+                'ema_crossover',
+                'BTC/USDT',
+                '1h',
+                20,
+                50,
+                'FUTURES',
+                NULL,
+                NULL,
+                'legacy.test'
+            )
+            """
+        )
+    )
+    session.commit()
+
+    def override_get_session():
+        try:
+            yield session
+        finally:
+            pass
+
+    app.dependency_overrides[get_settings] = lambda: settings
+    app.dependency_overrides[get_session] = override_get_session
+    app.dependency_overrides[get_session_factory_dependency] = lambda: session_factory
+
+    try:
+        client = TestClient(app)
+        response = client.get("/controls/operator-config")
+    finally:
+        app.dependency_overrides.clear()
+        session.close()
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["trading_mode"] == "FUTURES"
+    assert payload["leverage"] == 7
+    assert payload["margin_mode"] == "CROSS"
 
 
 def test_worker_cycle_control_uses_runtime_operator_config(tmp_path: Path) -> None:

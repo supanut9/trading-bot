@@ -114,3 +114,37 @@ test("hydrates and updates runtime defaults", async () => {
   await waitFor(() => expect(screen.getByText("operator runtime config updated")).toBeInTheDocument());
   expect(screen.getByText("Changed")).toBeInTheDocument();
 });
+
+test("shows ema_adx_trend as a runtime strategy option", async () => {
+  fetchMock.mockImplementation((input: URL | RequestInfo) => {
+    const url = input.toString();
+
+    if (url.endsWith("/controls/operator-config")) {
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            status: "completed",
+            detail: "operator runtime config loaded",
+            strategy_name: "ema_crossover",
+            exchange: "binance",
+            symbol: "BTC/USDT",
+            timeframe: "1h",
+            fast_period: 20,
+            slow_period: 50,
+            source: "db",
+            changed: false,
+            notified: false,
+          }),
+        ),
+      );
+    }
+
+    return Promise.reject(new Error(`Unexpected request: ${url}`));
+  });
+
+  renderWithQueryClient();
+
+  await waitFor(() => expect(screen.getByDisplayValue("ema_crossover")).toBeInTheDocument());
+  expect(screen.getByRole("option", { name: "ema_adx_trend" })).toBeInTheDocument();
+  expect(screen.getByText(/Baseline two-EMA crossover/)).toBeInTheDocument();
+});

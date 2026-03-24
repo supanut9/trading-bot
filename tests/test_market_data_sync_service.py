@@ -380,3 +380,9 @@ def test_compute_backtest_sync_limit_large_timeframe() -> None:
     assert _compute_backtest_sync_limit("4h", 51) == 151
     # 1h: 7 days = 168 candles, required + 100 = 151 → 7-day window wins
     assert _compute_backtest_sync_limit("1h", 51) == 168
+
+
+def test_compute_backtest_sync_limit_respects_history_target() -> None:
+    from app.application.services.operational_control_service import _compute_backtest_sync_limit
+
+    assert _compute_backtest_sync_limit("1h", 101, 5000) == 5100

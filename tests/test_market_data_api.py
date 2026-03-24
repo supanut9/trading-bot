@@ -303,3 +303,27 @@ def test_market_data_coverage_accepts_rule_builder_rules_json(tmp_path: Path) ->
         assert payload["freshness_status"] == "empty"
     finally:
         teardown_client(session)
+
+
+def test_market_data_coverage_respects_history_candle_target(tmp_path: Path) -> None:
+    client, session = build_client(tmp_path)
+    try:
+        response = client.get(
+            "/market-data/coverage",
+            params={
+                "strategy_name": "ema_crossover",
+                "symbol": "BTC/USDT",
+                "timeframe": "1h",
+                "fast_period": 3,
+                "slow_period": 5,
+                "history_candle_target": 5000,
+            },
+        )
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["required_candles"] == 5000
+        assert payload["additional_candles_needed"] == 5000
+        assert payload["satisfies_required_candles"] is False
+    finally:
+        teardown_client(session)

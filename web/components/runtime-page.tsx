@@ -14,6 +14,7 @@ import {
   type OperatorConfigRequest,
   type OperatorConfigResponse,
 } from "@/lib/api";
+import { describeRuntimeStrategy, runtimeStrategyCatalog } from "@/lib/strategy-catalog";
 
 type RuntimeFormState = {
   strategy_name: string;
@@ -126,6 +127,7 @@ export function RuntimePage() {
   }
 
   const currentConfig = updateMutation.data ?? operatorConfigQuery.data;
+  const selectedStrategyDescription = describeRuntimeStrategy(form.strategy_name);
 
   return (
     <OperatorShell>
@@ -189,12 +191,11 @@ export function RuntimePage() {
                       onChange={(event) => updateField("strategy_name", event.target.value)}
                       value={form.strategy_name}
                     >
-                      <option value="ema_crossover">ema_crossover</option>
-                      <option value="rule_builder">rule_builder</option>
-                      <option value="macd_crossover">macd_crossover</option>
-                      <option value="mean_reversion_bollinger">mean_reversion_bollinger</option>
-                      <option value="rsi_momentum">rsi_momentum</option>
-                      <option value="breakout_atr">breakout_atr</option>
+                      {runtimeStrategyCatalog.map((strategy) => (
+                        <option key={strategy.name} value={strategy.name}>
+                          {strategy.label}
+                        </option>
+                      ))}
                     </select>
                   </label>
                   <label className="space-y-2">
@@ -245,7 +246,7 @@ export function RuntimePage() {
                   </label>
                   <label className="space-y-2">
                     <span className="text-[11px] uppercase tracking-[0.18em] text-slate-400">
-                      {form.strategy_name === "ema_crossover" || form.strategy_name === "rule_builder" ? "Fast EMA" :
+                      {form.strategy_name === "ema_crossover" || form.strategy_name === "ema_adx_trend" || form.strategy_name === "rule_builder" ? "Fast EMA" :
                        form.strategy_name === "macd_crossover" ? "MACD Fast" :
                        form.strategy_name === "mean_reversion_bollinger" ? "MA Window" :
                        form.strategy_name === "rsi_momentum" ? "RSI Period" :
@@ -262,7 +263,7 @@ export function RuntimePage() {
                   </label>
                   <label className="space-y-2">
                     <span className="text-[11px] uppercase tracking-[0.18em] text-slate-400">
-                      {form.strategy_name === "ema_crossover" || form.strategy_name === "rule_builder" ? "Slow EMA" :
+                      {form.strategy_name === "ema_crossover" || form.strategy_name === "ema_adx_trend" || form.strategy_name === "rule_builder" ? "Slow EMA" :
                        form.strategy_name === "macd_crossover" ? "MACD Slow" :
                        form.strategy_name === "mean_reversion_bollinger" ? "Reserved (Unused)" :
                        form.strategy_name === "rsi_momentum" ? "EMA Window" :
@@ -277,6 +278,10 @@ export function RuntimePage() {
                       value={form.slow_period}
                     />
                   </label>
+                </div>
+
+                <div className="rounded-2xl border border-amber-300/15 bg-amber-300/8 px-4 py-3 text-sm text-amber-100">
+                  {selectedStrategyDescription}
                 </div>
 
                 {updateMutation.error instanceof Error ? (
