@@ -344,6 +344,9 @@ def test_status_endpoint_prefers_runtime_operator_config_when_present(tmp_path: 
             timeframe="4h",
             fast_period=3,
             slow_period=5,
+            trading_mode="FUTURES",
+            leverage=15,
+            margin_mode="CROSS",
             updated_by="test.status",
         )
     )
@@ -371,6 +374,9 @@ def test_status_endpoint_prefers_runtime_operator_config_when_present(tmp_path: 
     assert payload["timeframe"] == "4h"
     assert payload["fast_period"] == 3
     assert payload["slow_period"] == 5
+    assert payload["trading_mode"] == "FUTURES"
+    assert payload["live_futures_leverage"] == 15
+    assert payload["live_futures_margin_mode"] == "CROSS"
     assert payload["operator_config_source"] == "runtime_config"
 
 

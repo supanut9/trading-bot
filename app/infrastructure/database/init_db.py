@@ -20,6 +20,10 @@ _BACKTEST_RUNS_RECONCILE_COLUMNS: tuple[tuple[str, str], ...] = (
 _ORDERS_RECONCILE_COLUMNS: tuple[tuple[str, str], ...] = (("strategy_name", "VARCHAR(100)"),)
 _POSITIONS_RECONCILE_COLUMNS: tuple[tuple[str, str], ...] = (("strategy_name", "VARCHAR(100)"),)
 _TRADES_RECONCILE_COLUMNS: tuple[tuple[str, str], ...] = (("strategy_name", "VARCHAR(100)"),)
+_OPERATOR_CONFIGS_RECONCILE_COLUMNS: tuple[tuple[str, str], ...] = (
+    ("leverage", "INTEGER"),
+    ("margin_mode", "VARCHAR(50)"),
+)
 
 
 def _reconcile_table_columns(
@@ -67,5 +71,10 @@ def init_database(settings: Settings | None = None) -> list[str]:
     )
     _reconcile_table_columns(
         engine, table_name="trades", expected_columns=_TRADES_RECONCILE_COLUMNS
+    )
+    _reconcile_table_columns(
+        engine,
+        table_name="operator_configs",
+        expected_columns=_OPERATOR_CONFIGS_RECONCILE_COLUMNS,
     )
     return inspect(engine).get_table_names()

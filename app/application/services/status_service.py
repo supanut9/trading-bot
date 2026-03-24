@@ -137,8 +137,8 @@ class StatusService:
                 if self._settings.live_max_strategy_exposure_notional is not None
                 else None
             ),
-            "live_futures_leverage": self._settings.live_futures_leverage,
-            "live_futures_margin_mode": self._settings.live_futures_margin_mode,
+            "live_futures_leverage": effective_operator_config["leverage"],
+            "live_futures_margin_mode": effective_operator_config["margin_mode"],
             "live_futures_min_liquidation_buffer_pct": (
                 format(self._settings.live_futures_min_liquidation_buffer_pct, "f")
                 if self._settings.live_futures_min_liquidation_buffer_pct is not None
@@ -194,6 +194,8 @@ class StatusService:
                 "fast_period": self._settings.strategy_fast_period,
                 "slow_period": self._settings.strategy_slow_period,
                 "trading_mode": self._settings.trading_mode,
+                "leverage": self._settings.live_futures_leverage,
+                "margin_mode": self._settings.live_futures_margin_mode,
                 "source": "settings",
             }
         try:
@@ -208,6 +210,8 @@ class StatusService:
                 "fast_period": config.fast_period,
                 "slow_period": config.slow_period,
                 "trading_mode": config.trading_mode,
+                "leverage": config.leverage,
+                "margin_mode": config.margin_mode,
                 "source": config.source,
             }
         except SQLAlchemyError:
@@ -219,6 +223,8 @@ class StatusService:
                 "fast_period": self._settings.strategy_fast_period,
                 "slow_period": self._settings.strategy_slow_period,
                 "trading_mode": self._settings.trading_mode,
+                "leverage": self._settings.live_futures_leverage,
+                "margin_mode": self._settings.live_futures_margin_mode,
                 "source": "settings",
             }
 

@@ -287,6 +287,13 @@ Live balance visibility:
 - balance visibility is read-only and only attempts exchange lookup when live trading is enabled
 - the snapshot is filtered to the configured symbol's base and quote assets so operators can verify funded live mode quickly
 
+Operator runtime config:
+
+- `GET /controls/operator-config` returns the effective runtime strategy, market, trading mode, and futures control defaults
+- `POST /controls/operator-config` can persist futures `leverage` and `margin_mode` together with symbol, timeframe, and strategy settings
+- `SPOT` runtime config is normalized to `leverage=1` and `margin_mode=ISOLATED`
+- when `trading_mode=FUTURES`, the persisted operator config becomes the effective runtime source for leverage and margin mode used by status and live submission preparation
+
 Deployment packaging:
 
 - the repository ships one runtime image that selects `api`, `worker`, or `backtest` via `APP_RUNTIME`

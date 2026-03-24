@@ -104,6 +104,8 @@ def update_operator_config(
         fast_period=request.fast_period,
         slow_period=request.slow_period,
         trading_mode=request.trading_mode,
+        leverage=request.leverage,
+        margin_mode=request.margin_mode,
         source="api.control",
     )
     return OperatorConfigResponse.model_validate(result)

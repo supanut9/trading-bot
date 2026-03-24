@@ -1171,3 +1171,15 @@ After configuring leverage and margin mode before submission, the next material 
 ### Consequence
 
 Live isolated-futures entries are now rejected when configured leverage implies less than the required liquidation-distance buffer. Cross-margin futures remain outside this guard for now, and broader leverage-aware risk policy remains a later feature.
+
+### Decision
+
+Treat live futures leverage and margin mode as persisted operator runtime controls once the futures execution path and liquidation guard exist.
+
+### Reason
+
+After the repo gained live futures execution controls and liquidation-distance guards, the next operational gap is that leverage and margin mode still depend on process-level settings. That makes operator-approved runtime changes awkward and leaves the existing `operator-config` control path incomplete. Persisting those values in runtime config keeps one authoritative operator workflow without widening into new leverage policy or promotion logic.
+
+### Consequence
+
+Operator runtime config now becomes the effective source for live futures leverage and margin mode when present, `SPOT` config normalizes back to `1x` isolated defaults, and the worker plus live execution path can apply operator-managed futures defaults without a restart. The minimum liquidation buffer remains a settings-driven safety policy for now.

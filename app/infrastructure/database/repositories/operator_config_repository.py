@@ -24,6 +24,8 @@ class OperatorConfigRepository:
         fast_period: int,
         slow_period: int,
         trading_mode: str = "SPOT",
+        leverage: int = 1,
+        margin_mode: str = "ISOLATED",
         updated_by: str,
     ) -> OperatorConfigRecord:
         record = self.get_by_name(config_name)
@@ -36,6 +38,8 @@ class OperatorConfigRepository:
                 fast_period=fast_period,
                 slow_period=slow_period,
                 trading_mode=trading_mode,
+                leverage=leverage,
+                margin_mode=margin_mode,
                 updated_by=updated_by,
             )
             self._session.add(record)
@@ -48,6 +52,8 @@ class OperatorConfigRepository:
         record.fast_period = fast_period
         record.slow_period = slow_period
         record.trading_mode = trading_mode
+        record.leverage = leverage
+        record.margin_mode = margin_mode
         record.updated_by = updated_by
         self._session.flush()
         return record

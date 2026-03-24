@@ -544,6 +544,8 @@ class OperatorConfigResponse(BaseModel):
     fast_period: int
     slow_period: int
     trading_mode: str
+    leverage: int
+    margin_mode: str
     source: str
     changed: bool = False
     notified: bool = False
@@ -558,6 +560,8 @@ class OperatorConfigRequest(BaseModel):
     fast_period: int
     slow_period: int
     trading_mode: str = "SPOT"
+    leverage: int = 1
+    margin_mode: str = "ISOLATED"
 
 
 class MarketSyncControlResponse(BaseModel):

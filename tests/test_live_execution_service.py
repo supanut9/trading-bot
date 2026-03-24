@@ -242,6 +242,30 @@ def test_applies_futures_margin_mode_and_leverage_before_submit(tmp_path: Path) 
         session.close()
 
 
+def test_request_level_futures_controls_override_settings_defaults(tmp_path: Path) -> None:
+    service, session, client = build_futures_service(tmp_path)
+    try:
+        service.execute(
+            PaperExecutionRequest(
+                exchange="binance",
+                symbol="BTC/USDT",
+                side="buy",
+                quantity=Decimal("0.002"),
+                price=Decimal("50000"),
+                mode="live",
+                trading_mode="FUTURES",
+                leverage=15,
+                margin_mode="ISOLATED",
+                client_order_id="live-binance-btc-usdt-futures-runtime-buy",
+            )
+        )
+
+        assert client.margin_mode_calls == [("BTC/USDT", "ISOLATED")]
+        assert client.leverage_calls == [("BTC/USDT", 15)]
+    finally:
+        session.close()
+
+
 def test_skips_futures_exchange_configuration_in_validate_only_mode(tmp_path: Path) -> None:
     service, session, client = build_futures_service(tmp_path, validate_only=True)
     try:

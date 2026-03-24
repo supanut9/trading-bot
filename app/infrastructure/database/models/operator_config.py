@@ -19,4 +19,6 @@ class OperatorConfigRecord(TimestampMixin, Base):
     fast_period: Mapped[int] = mapped_column(nullable=False)
     slow_period: Mapped[int] = mapped_column(nullable=False)
     trading_mode: Mapped[str] = mapped_column(String(50), nullable=False, default="SPOT")
+    leverage: Mapped[int] = mapped_column(nullable=False, default=1)
+    margin_mode: Mapped[str] = mapped_column(String(50), nullable=False, default="ISOLATED")
     updated_by: Mapped[str] = mapped_column(String(100), nullable=False)

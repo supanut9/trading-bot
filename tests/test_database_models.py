@@ -167,3 +167,34 @@ def test_init_database_reconciles_strategy_identity_columns(tmp_path) -> None:
     assert "strategy_name" in orders_columns
     assert "strategy_name" in positions_columns
     assert "strategy_name" in trades_columns
+
+
+def test_init_database_reconciles_operator_config_futures_columns(tmp_path) -> None:
+    settings = Settings(DATABASE_URL=f"sqlite:///{tmp_path / 'operator_config_reconcile.db'}")
+    engine = create_engine_from_settings(settings)
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                """
+                CREATE TABLE operator_configs (
+                    id INTEGER PRIMARY KEY,
+                    config_name TEXT NOT NULL,
+                    strategy_name TEXT NOT NULL,
+                    symbol TEXT NOT NULL,
+                    timeframe TEXT NOT NULL,
+                    fast_period INTEGER NOT NULL,
+                    slow_period INTEGER NOT NULL,
+                    trading_mode TEXT NOT NULL,
+                    updated_by TEXT NOT NULL,
+                    created_at TEXT,
+                    updated_at TEXT
+                )
+                """
+            )
+        )
+
+    init_database(settings)
+
+    columns = {column["name"] for column in inspect(engine).get_columns("operator_configs")}
+    assert "leverage" in columns
+    assert "margin_mode" in columns

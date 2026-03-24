@@ -126,6 +126,7 @@ Profitability improvements — what separates this bot from better real-world bo
 - 25. `feature/per-strategy-live-risk-caps` — enforce live per-strategy notional caps using persisted position identity (completed)
 - 26. `feature/live-futures-execution-controls` — apply configured leverage and margin mode before live futures submissions (completed)
 - 27. `feature/live-futures-liquidation-guards` — add leverage-aware liquidation-distance guards for isolated live futures entries (completed)
+- 28. `feature/futures-operator-runtime-controls` — persist operator-managed futures leverage and margin mode through the control path and live execution runtime (in progress)
 
 Project completion boundary:
 

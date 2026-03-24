@@ -170,16 +170,18 @@ class LiveExecutionService:
             raise ValueError("futures live execution requires a futures-capable exchange client")
 
         try:
+            margin_mode = request.margin_mode or self._settings.live_futures_margin_mode
             self._client.set_margin_mode(
                 symbol=request.symbol,
-                margin_mode=self._settings.live_futures_margin_mode,
+                margin_mode=margin_mode,
             )
         except ExchangeAPIError as exc:
             if "code=-4046" not in str(exc) and "No need to change margin type" not in str(exc):
                 raise
+        leverage = request.leverage or self._settings.live_futures_leverage
         self._client.set_leverage(
             symbol=request.symbol,
-            leverage=self._settings.live_futures_leverage,
+            leverage=leverage,
         )
 
     def _validate_no_duplicate_live_order(self, request: PaperExecutionRequest) -> None:

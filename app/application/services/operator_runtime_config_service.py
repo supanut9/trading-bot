@@ -33,6 +33,8 @@ class OperatorRuntimeConfig:
     fast_period: int
     slow_period: int
     trading_mode: str
+    leverage: int
+    margin_mode: str
     source: str
     updated_at: datetime | None = None
     updated_by: str | None = None
@@ -61,6 +63,8 @@ class OperatorRuntimeConfigService:
                 fast_period=self._settings.strategy_fast_period,
                 slow_period=self._settings.strategy_slow_period,
                 trading_mode=self._settings.trading_mode,
+                leverage=self._settings.live_futures_leverage,
+                margin_mode=self._settings.live_futures_margin_mode,
                 source="settings",
             )
         record = self._configs.get_by_name(PAPER_RUNTIME_OPERATOR_CONFIG)
@@ -73,6 +77,8 @@ class OperatorRuntimeConfigService:
                 fast_period=self._settings.strategy_fast_period,
                 slow_period=self._settings.strategy_slow_period,
                 trading_mode=self._settings.trading_mode,
+                leverage=self._settings.live_futures_leverage,
+                margin_mode=self._settings.live_futures_margin_mode,
                 source="settings",
             )
         return OperatorRuntimeConfig(
@@ -83,6 +89,8 @@ class OperatorRuntimeConfigService:
             fast_period=record.fast_period,
             slow_period=record.slow_period,
             trading_mode=record.trading_mode,
+            leverage=record.leverage,
+            margin_mode=record.margin_mode,
             source="runtime_config",
             updated_at=record.updated_at,
             updated_by=record.updated_by,
@@ -97,12 +105,15 @@ class OperatorRuntimeConfigService:
         fast_period: int,
         slow_period: int,
         trading_mode: str,
+        leverage: int,
+        margin_mode: str,
         updated_by: str,
     ) -> OperatorRuntimeConfigUpdate:
         normalized_strategy = strategy_name.strip().lower()
         normalized_symbol = symbol.strip().upper()
         normalized_timeframe = timeframe.strip()
         normalized_trading_mode = trading_mode.strip().upper()
+        normalized_margin_mode = margin_mode.strip().upper()
         if normalized_strategy not in OPERATOR_SUPPORTED_STRATEGIES:
             raise ValueError(f"unsupported runtime strategy: {strategy_name}")
         if normalized_trading_mode not in ("SPOT", "FUTURES"):
@@ -116,6 +127,15 @@ class OperatorRuntimeConfigService:
             and fast_period >= slow_period
         ):
             raise ValueError("fast period must be smaller than slow period")
+        if normalized_trading_mode == "SPOT":
+            normalized_leverage = 1
+            normalized_margin_mode = "ISOLATED"
+        else:
+            if not 1 <= leverage <= 125:
+                raise ValueError("futures leverage must be between 1 and 125")
+            if normalized_margin_mode not in ("ISOLATED", "CROSS"):
+                raise ValueError(f"unsupported futures margin mode: {margin_mode}")
+            normalized_leverage = leverage
 
         previous = self.get_effective_config()
         record = self._configs.upsert(
@@ -126,6 +146,8 @@ class OperatorRuntimeConfigService:
             fast_period=fast_period,
             slow_period=slow_period,
             trading_mode=normalized_trading_mode,
+            leverage=normalized_leverage,
+            margin_mode=normalized_margin_mode,
             updated_by=updated_by,
         )
         current = OperatorRuntimeConfig(
@@ -136,6 +158,8 @@ class OperatorRuntimeConfigService:
             fast_period=record.fast_period,
             slow_period=record.slow_period,
             trading_mode=record.trading_mode,
+            leverage=record.leverage,
+            margin_mode=record.margin_mode,
             source="runtime_config",
             updated_at=record.updated_at,
             updated_by=record.updated_by,
