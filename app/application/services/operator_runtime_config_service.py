@@ -133,6 +133,11 @@ class OperatorRuntimeConfigService:
         else:
             if not 1 <= leverage <= 125:
                 raise ValueError("futures leverage must be between 1 and 125")
+            if (
+                self._settings.live_futures_max_leverage is not None
+                and leverage > self._settings.live_futures_max_leverage
+            ):
+                raise ValueError("futures leverage exceeds configured live maximum")
             if normalized_margin_mode not in ("ISOLATED", "CROSS"):
                 raise ValueError(f"unsupported futures margin mode: {margin_mode}")
             normalized_leverage = leverage

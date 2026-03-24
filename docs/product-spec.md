@@ -70,6 +70,7 @@ Profitability improvements (what separates this bot from better real-world bots)
 11. `feature/live-futures-execution-controls` — apply configured leverage and margin mode before live futures submissions (completed)
 12. `feature/live-futures-liquidation-guards` — reject isolated live futures entries when configured leverage leaves too little liquidation buffer (completed)
 13. `feature/futures-operator-runtime-controls` — persist futures leverage and margin mode in operator runtime config so live futures defaults can change without restart (completed)
+14. `feature/live-futures-max-leverage-cap` — enforce one maximum allowed leverage ceiling for live futures runtime config and approval (in progress)
 
 ## Initial Market And Strategy
 

@@ -60,6 +60,22 @@ def test_rejects_non_positive_live_max_position_quantity() -> None:
         Settings(LIVE_MAX_POSITION_QUANTITY=0)
 
 
+def test_rejects_invalid_live_futures_max_leverage() -> None:
+    with pytest.raises(
+        ValueError,
+        match="LIVE_FUTURES_MAX_LEVERAGE must be between 1 and 125",
+    ):
+        Settings(LIVE_FUTURES_MAX_LEVERAGE=0)
+
+
+def test_rejects_live_futures_leverage_above_configured_maximum() -> None:
+    with pytest.raises(
+        ValueError,
+        match="LIVE_FUTURES_LEVERAGE must not exceed LIVE_FUTURES_MAX_LEVERAGE",
+    ):
+        Settings(LIVE_FUTURES_LEVERAGE=10, LIVE_FUTURES_MAX_LEVERAGE=5)
+
+
 def test_ignores_non_application_env_keys() -> None:
     settings = Settings(POSTGRES_HOST_PORT="5544")
 

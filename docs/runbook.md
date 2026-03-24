@@ -293,6 +293,7 @@ Operator runtime config:
 - `POST /controls/operator-config` can persist futures `leverage` and `margin_mode` together with symbol, timeframe, and strategy settings
 - `SPOT` runtime config is normalized to `leverage=1` and `margin_mode=ISOLATED`
 - when `trading_mode=FUTURES`, the persisted operator config becomes the effective runtime source for leverage and margin mode used by status and live submission preparation
+- when a maximum live futures leverage cap is configured, operator runtime updates above that cap fail closed and the same ceiling is enforced again during live risk approval
 
 Deployment packaging:
 

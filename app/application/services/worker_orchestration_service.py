@@ -108,6 +108,7 @@ class WorkerOrchestrationService:
             live_futures_min_liquidation_buffer_pct=(
                 settings.live_futures_min_liquidation_buffer_pct
             ),
+            live_futures_max_leverage=settings.live_futures_max_leverage,
             volatility_sizing_enabled=settings.volatility_sizing_enabled,
         )
 

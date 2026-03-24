@@ -28,15 +28,17 @@ from app.infrastructure.database.session import (
 from app.main import app
 
 
-def build_client(tmp_path: Path) -> tuple[TestClient, Settings]:
-    settings = Settings(
-        DATABASE_URL=f"sqlite:///{tmp_path / 'controls_api.db'}",
-        STRATEGY_FAST_PERIOD=3,
-        STRATEGY_SLOW_PERIOD=5,
-        MARKET_DATA_SYNC_ENABLED=False,
-        NOTIFICATION_CHANNEL="none",
-        STRATEGY_ADX_FILTER_ENABLED=False,
-    )
+def build_client(tmp_path: Path, **setting_overrides: object) -> tuple[TestClient, Settings]:
+    base_settings: dict[str, object] = {
+        "DATABASE_URL": f"sqlite:///{tmp_path / 'controls_api.db'}",
+        "STRATEGY_FAST_PERIOD": 3,
+        "STRATEGY_SLOW_PERIOD": 5,
+        "MARKET_DATA_SYNC_ENABLED": False,
+        "NOTIFICATION_CHANNEL": "none",
+        "STRATEGY_ADX_FILTER_ENABLED": False,
+    }
+    base_settings.update(setting_overrides)
+    settings = Settings(**base_settings)
     engine = create_engine_from_settings(settings)
     Base.metadata.create_all(bind=engine)
     shared_factory = create_session_factory(settings)
@@ -720,6 +722,33 @@ def test_operator_config_control_normalizes_spot_futures_fields(tmp_path: Path) 
         assert payload["trading_mode"] == "SPOT"
         assert payload["leverage"] == 1
         assert payload["margin_mode"] == "ISOLATED"
+    finally:
+        teardown_client()
+
+
+def test_operator_config_control_rejects_futures_leverage_above_configured_maximum(
+    tmp_path: Path,
+) -> None:
+    client, _settings = build_client(tmp_path, LIVE_FUTURES_MAX_LEVERAGE=10)
+    try:
+        response = client.post(
+            "/controls/operator-config",
+            json={
+                "strategy_name": "ema_crossover",
+                "symbol": "ETH/USDT",
+                "timeframe": "4h",
+                "fast_period": 3,
+                "slow_period": 5,
+                "trading_mode": "FUTURES",
+                "leverage": 15,
+                "margin_mode": "CROSS",
+            },
+        )
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["status"] == "failed"
+        assert payload["detail"] == "futures leverage exceeds configured live maximum"
     finally:
         teardown_client()
 
