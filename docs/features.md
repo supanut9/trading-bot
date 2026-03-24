@@ -1885,3 +1885,27 @@ Main outputs:
 - tests proving the new guard blocks only the intended isolated-futures entry path
 
 Why: The repo now applies leverage and margin mode before live futures submission, but the runtime risk path is still leverage-blind. A bounded liquidation-distance guard is the next safe step because it fail-closes clearly risky isolated-futures entries without widening into a full futures portfolio model.
+
+### 93. `feature/futures-operator-runtime-controls`
+
+Status:
+
+- in progress on `feature/futures-operator-runtime-controls`
+
+Scope:
+
+- persist futures leverage and margin mode alongside the existing operator runtime config
+- let operator config updates control effective futures execution defaults without a process restart
+- carry the persisted futures controls through status, worker orchestration, and live execution submission
+- keep the feature bounded to operator-managed runtime defaults, not new futures sizing policy, liquidation math, or additional promotion gates
+
+Main outputs:
+
+- persisted `operator_configs` leverage and margin-mode fields with local schema reconciliation
+- `GET/POST /controls/operator-config` request and response support for futures leverage and margin mode
+- operator-config validation that normalizes spot runtime config to `1x` and `ISOLATED`
+- status visibility for the effective operator-managed futures leverage and margin mode
+- worker and live execution propagation so persisted operator futures controls override settings defaults at runtime
+- tests proving the control path, status surface, schema reconciliation, and live futures request propagation
+
+Why: Live futures execution and liquidation guards now exist, but leverage and margin mode are still settings-driven. That forces a restart to change operator-approved runtime defaults and leaves the control path incomplete. Persisting these futures controls in operator runtime config is the next bounded step because it makes the existing operator workflow authoritative without widening into a broader futures risk-policy feature.

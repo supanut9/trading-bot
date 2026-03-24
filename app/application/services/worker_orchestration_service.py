@@ -95,8 +95,16 @@ class WorkerOrchestrationService:
             live_max_symbol_concentration_pct=settings.live_max_symbol_concentration_pct,
             live_max_concurrent_positions=settings.live_max_concurrent_positions,
             live_max_strategy_exposure_notional=settings.live_max_strategy_exposure_notional,
-            live_futures_leverage=settings.live_futures_leverage,
-            live_futures_margin_mode=settings.live_futures_margin_mode,
+            live_futures_leverage=(
+                operator_config.leverage
+                if operator_config is not None
+                else settings.live_futures_leverage
+            ),
+            live_futures_margin_mode=(
+                operator_config.margin_mode
+                if operator_config is not None
+                else settings.live_futures_margin_mode
+            ),
             live_futures_min_liquidation_buffer_pct=(
                 settings.live_futures_min_liquidation_buffer_pct
             ),
@@ -187,7 +195,7 @@ class WorkerOrchestrationService:
         current_position = self._positions.get(
             exchange=self._settings.exchange_name,
             symbol=symbol,
-            trading_mode=self._settings.trading_mode,
+            trading_mode=self._runtime_trading_mode,
             mode=self._trading_mode,
         )
         stop_result = self._check_and_execute_stop_exit_for_symbol(
@@ -452,7 +460,9 @@ class WorkerOrchestrationService:
                     quantity=quantity,
                     price=latest_price,
                     mode=self._trading_mode,
-                    trading_mode=self._settings.trading_mode,
+                    trading_mode=self._runtime_trading_mode,
+                    leverage=self._runtime_leverage,
+                    margin_mode=self._runtime_margin_mode,
                     strategy_name=active_strategy_name,
                     client_order_id=client_order_id,
                     submitted_reason=signal.reason,
@@ -695,7 +705,7 @@ class WorkerOrchestrationService:
             concurrent_exposure_pct=concurrent_exposure_pct,
             consecutive_losses=consecutive_losses,
             execution_mode=mode,  # type: ignore
-            trading_mode=self._settings.trading_mode,  # type: ignore
+            trading_mode=self._runtime_trading_mode,  # type: ignore
             total_open_exposure_notional=total_notional,
             current_symbol_exposure_notional=current_symbol_exposure,
             current_strategy_exposure_notional=current_strategy_exposure,
@@ -743,7 +753,9 @@ class WorkerOrchestrationService:
                     quantity=position.quantity,
                     price=mark_price,
                     mode=self._trading_mode,
-                    trading_mode=self._settings.trading_mode,
+                    trading_mode=self._runtime_trading_mode,
+                    leverage=self._runtime_leverage,
+                    margin_mode=self._runtime_margin_mode,
                     strategy_name=position.strategy_name,
                     client_order_id=client_order_id,
                     submitted_reason="stop_loss_hit",
@@ -780,7 +792,7 @@ class WorkerOrchestrationService:
         position = self._positions.get(
             exchange=self._settings.exchange_name,
             symbol=symbol,
-            trading_mode=self._settings.trading_mode,
+            trading_mode=self._runtime_trading_mode,
             mode=self._trading_mode,
         )
         if position is None or position.quantity <= Decimal("0"):
@@ -788,7 +800,7 @@ class WorkerOrchestrationService:
         self._positions.upsert(
             exchange=self._settings.exchange_name,
             symbol=symbol,
-            trading_mode=self._settings.trading_mode,
+            trading_mode=self._runtime_trading_mode,
             mode=self._trading_mode,
             side=position.side,
             quantity=position.quantity,
@@ -840,7 +852,7 @@ class WorkerOrchestrationService:
         self._positions.upsert(
             exchange=self._settings.exchange_name,
             symbol=symbol,
-            trading_mode=self._settings.trading_mode,
+            trading_mode=self._runtime_trading_mode,
             mode=self._trading_mode,
             side=position.side,
             quantity=position.quantity,
@@ -873,7 +885,7 @@ class WorkerOrchestrationService:
         position = self._positions.get(
             exchange=self._settings.exchange_name,
             symbol=symbol,
-            trading_mode=self._settings.trading_mode,
+            trading_mode=self._runtime_trading_mode,
             mode=self._trading_mode,
         )
         if (
@@ -889,7 +901,7 @@ class WorkerOrchestrationService:
         self._positions.upsert(
             exchange=self._settings.exchange_name,
             symbol=symbol,
-            trading_mode=self._settings.trading_mode,
+            trading_mode=self._runtime_trading_mode,
             mode=self._trading_mode,
             side=position.side,
             quantity=position.quantity,
@@ -920,7 +932,7 @@ class WorkerOrchestrationService:
         symbol_token = symbol.replace("/", "-").lower()
         candle_token = close_time.strftime("%Y%m%d%H%M%S")
         return (
-            f"{self._trading_mode}-{self._settings.trading_mode}-{self._settings.exchange_name}-"
+            f"{self._trading_mode}-{self._runtime_trading_mode}-{self._settings.exchange_name}-"
             f"{symbol_token}-{timeframe}-{signal.action}-{candle_token}"
         )
 
@@ -1038,6 +1050,28 @@ class WorkerOrchestrationService:
         if self._operator_config is not None:
             return self._operator_config.symbol
         return self._settings.default_symbol
+
+    @property
+    def _runtime_trading_mode(self) -> str:
+        if self._operator_config is not None:
+            return self._operator_config.trading_mode
+        return self._settings.trading_mode
+
+    @property
+    def _runtime_leverage(self) -> int | None:
+        if self._operator_config is not None and self._runtime_trading_mode == "FUTURES":
+            return self._operator_config.leverage
+        if self._runtime_trading_mode == "FUTURES":
+            return self._settings.live_futures_leverage
+        return None
+
+    @property
+    def _runtime_margin_mode(self) -> str | None:
+        if self._operator_config is not None and self._runtime_trading_mode == "FUTURES":
+            return self._operator_config.margin_mode
+        if self._runtime_trading_mode == "FUTURES":
+            return self._settings.live_futures_margin_mode
+        return None
 
     @property
     def _timeframe(self) -> str:

@@ -25,6 +25,8 @@ class PaperExecutionRequest:
     order_type: str = "market"
     mode: str = "paper"
     trading_mode: str = "SPOT"
+    leverage: int | None = None
+    margin_mode: str | None = None
     client_order_id: str | None = None
     submitted_reason: str | None = None
 

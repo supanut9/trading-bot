@@ -659,6 +659,8 @@ def test_operator_config_control_returns_current_defaults(tmp_path: Path) -> Non
         assert payload["symbol"] == settings.default_symbol
         assert payload["timeframe"] == settings.default_timeframe
         assert payload["trading_mode"] == "SPOT"
+        assert payload["leverage"] == 1
+        assert payload["margin_mode"] == "ISOLATED"
         assert payload["source"] == "settings"
     finally:
         teardown_client()
@@ -676,6 +678,8 @@ def test_operator_config_control_persists_runtime_defaults(tmp_path: Path) -> No
                 "fast_period": 3,
                 "slow_period": 5,
                 "trading_mode": "FUTURES",
+                "leverage": 15,
+                "margin_mode": "CROSS",
             },
         )
 
@@ -686,8 +690,36 @@ def test_operator_config_control_persists_runtime_defaults(tmp_path: Path) -> No
         assert payload["symbol"] == "ETH/USDT"
         assert payload["timeframe"] == "4h"
         assert payload["trading_mode"] == "FUTURES"
+        assert payload["leverage"] == 15
+        assert payload["margin_mode"] == "CROSS"
         assert payload["source"] == "runtime_config"
         assert payload["changed"] is True
+    finally:
+        teardown_client()
+
+
+def test_operator_config_control_normalizes_spot_futures_fields(tmp_path: Path) -> None:
+    client, _settings = build_client(tmp_path)
+    try:
+        response = client.post(
+            "/controls/operator-config",
+            json={
+                "strategy_name": "ema_crossover",
+                "symbol": "ETH/USDT",
+                "timeframe": "4h",
+                "fast_period": 3,
+                "slow_period": 5,
+                "trading_mode": "SPOT",
+                "leverage": 25,
+                "margin_mode": "CROSS",
+            },
+        )
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["trading_mode"] == "SPOT"
+        assert payload["leverage"] == 1
+        assert payload["margin_mode"] == "ISOLATED"
     finally:
         teardown_client()
 

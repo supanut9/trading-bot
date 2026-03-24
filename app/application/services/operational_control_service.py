@@ -441,6 +441,8 @@ class OperatorConfigControlResult:
     fast_period: int
     slow_period: int
     trading_mode: str
+    leverage: int
+    margin_mode: str
     source: str
     changed: bool = False
     notified: bool = False
@@ -1459,6 +1461,8 @@ class OperationalControlService:
             fast_period=config.fast_period,
             slow_period=config.slow_period,
             trading_mode=config.trading_mode,
+            leverage=config.leverage,
+            margin_mode=config.margin_mode,
             source=config.source,
         )
 
@@ -1529,6 +1533,8 @@ class OperationalControlService:
         fast_period: int,
         slow_period: int,
         trading_mode: str,
+        leverage: int,
+        margin_mode: str,
         source: str = "internal",
         audit: bool = True,
     ) -> OperatorConfigControlResult:
@@ -1544,6 +1550,8 @@ class OperationalControlService:
                     fast_period=fast_period,
                     slow_period=slow_period,
                     trading_mode=trading_mode,
+                    leverage=leverage,
+                    margin_mode=margin_mode,
                     updated_by=source,
                 )
                 session.commit()
@@ -1559,6 +1567,8 @@ class OperationalControlService:
                 fast_period=fast_period,
                 slow_period=slow_period,
                 trading_mode=trading_mode,
+                leverage=leverage,
+                margin_mode=margin_mode,
                 source=current.source,
             )
 
@@ -1576,6 +1586,8 @@ class OperationalControlService:
             fast_period=update.current.fast_period,
             slow_period=update.current.slow_period,
             trading_mode=update.current.trading_mode,
+            leverage=update.current.leverage,
+            margin_mode=update.current.margin_mode,
             source=update.current.source,
             changed=update.changed,
         )
@@ -1593,6 +1605,9 @@ class OperationalControlService:
                     "timeframe": control_result.timeframe,
                     "fast_period": control_result.fast_period,
                     "slow_period": control_result.slow_period,
+                    "trading_mode": control_result.trading_mode,
+                    "leverage": control_result.leverage,
+                    "margin_mode": control_result.margin_mode,
                     "config_source": control_result.source,
                     "changed": control_result.changed,
                 },
