@@ -125,6 +125,7 @@ Profitability improvements — what separates this bot from better real-world bo
 - 24. `feature/durable-strategy-identity` — persist strategy identity on orders, trades, and positions before any per-strategy live governor (completed)
 - 25. `feature/per-strategy-live-risk-caps` — enforce live per-strategy notional caps using persisted position identity (completed)
 - 26. `feature/live-futures-execution-controls` — apply configured leverage and margin mode before live futures submissions (completed)
+- 27. `feature/live-futures-liquidation-guards` — add leverage-aware liquidation-distance guards for isolated live futures entries (in progress)
 
 Project completion boundary:
 

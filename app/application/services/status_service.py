@@ -139,6 +139,11 @@ class StatusService:
             ),
             "live_futures_leverage": self._settings.live_futures_leverage,
             "live_futures_margin_mode": self._settings.live_futures_margin_mode,
+            "live_futures_min_liquidation_buffer_pct": (
+                format(self._settings.live_futures_min_liquidation_buffer_pct, "f")
+                if self._settings.live_futures_min_liquidation_buffer_pct is not None
+                else None
+            ),
             "exchange": self._settings.exchange_name,
             "strategy_name": effective_operator_config["strategy_name"],
             "symbol": effective_operator_config["symbol"],

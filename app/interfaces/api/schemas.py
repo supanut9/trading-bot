@@ -50,6 +50,7 @@ class StatusResponse(BaseModel):
     live_max_strategy_exposure_notional: Decimal | None = None
     live_futures_leverage: int
     live_futures_margin_mode: str
+    live_futures_min_liquidation_buffer_pct: Decimal | None = None
     exchange: str
     strategy_name: str
     symbol: str

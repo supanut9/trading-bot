@@ -1635,7 +1635,7 @@ Features 59–88 are complete on `main`. The system now has ATR stops, ADX regim
 
 Next bounded features:
 
-- 1. `feature/live-futures-execution-controls` — apply configured leverage and margin mode before live futures submissions without widening into liquidation-aware risk logic
+- 1. `feature/live-futures-liquidation-guards` — reject isolated futures entries when configured leverage leaves too little liquidation distance for safe runtime execution
 
 ### 83. `feature/xgboost-signal-strategy`
 
@@ -1863,3 +1863,25 @@ Main outputs:
 - tests proving futures configuration is applied only on the futures live path
 
 Why: The repo can already simulate futures leverage in backtests and route futures requests to the Binance futures client, but live submission still lacks one explicit place where exchange-side leverage and margin mode are configured. Applying those controls before submission is the next safe step toward bounded futures-capable live groundwork.
+
+### 92. `feature/live-futures-liquidation-guards`
+
+Status:
+
+- in progress
+
+Scope:
+
+- add one leverage-aware runtime risk guard for live futures entries in isolated margin mode
+- reject entries when configured leverage leaves less than a minimum liquidation-distance buffer
+- keep the feature bounded to deterministic runtime entry policy and operator visibility, not exchange mark-price polling, auto-deleveraging flows, or full futures risk modeling
+
+Main outputs:
+
+- runtime settings for a minimum isolated-futures liquidation buffer
+- risk-service logic that computes liquidation distance from configured leverage before approving a live futures entry
+- rejection path for futures entries whose configured leverage leaves too little room before liquidation
+- status visibility for the configured liquidation buffer guard
+- tests proving the new guard blocks only the intended isolated-futures entry path
+
+Why: The repo now applies leverage and margin mode before live futures submission, but the runtime risk path is still leverage-blind. A bounded liquidation-distance guard is the next safe step because it fail-closes clearly risky isolated-futures entries without widening into a full futures portfolio model.

@@ -118,3 +118,11 @@ def test_rejects_sqlite_in_production() -> None:
         match="non-local environment requires PostgreSQL-compatible DATABASE_URL",
     ):
         Settings(APP_ENV="production", DATABASE_URL="sqlite:///test.db")
+
+
+def test_rejects_invalid_live_futures_liquidation_buffer_pct() -> None:
+    with pytest.raises(
+        ValueError,
+        match="LIVE_FUTURES_MIN_LIQUIDATION_BUFFER_PCT must be between 0 and 1 when provided",
+    ):
+        Settings(LIVE_FUTURES_MIN_LIQUIDATION_BUFFER_PCT=1)

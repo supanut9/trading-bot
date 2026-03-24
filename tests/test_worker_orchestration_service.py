@@ -252,6 +252,35 @@ def test_rejects_live_entry_when_strategy_exposure_limit_is_reached(tmp_path: Pa
     assert order_count == 0
 
 
+def test_rejects_live_futures_entry_when_liquidation_buffer_is_too_small(tmp_path: Path) -> None:
+    service, session, settings = build_service(
+        tmp_path,
+        PAPER_TRADING=False,
+        LIVE_TRADING_ENABLED=True,
+        EXCHANGE_API_KEY="key",
+        EXCHANGE_API_SECRET="secret",
+        TRADING_MODE="FUTURES",
+        LIVE_FUTURES_LEVERAGE=20,
+        LIVE_FUTURES_MARGIN_MODE="ISOLATED",
+        LIVE_FUTURES_MIN_LIQUIDATION_BUFFER_PCT=Decimal("0.06"),
+        MAX_OPEN_POSITIONS=5,
+    )
+    store_closes(session, settings, [10, 10, 10, 10, 10, 9, 9, 9, 20])
+
+    with patch(
+        "app.application.services.worker_orchestration_service.QualificationService"
+    ) as mock_qual:
+        mock_qual.return_value.evaluate.return_value = type("Report", (), {"all_passed": True})()
+        result = service.run_cycle()
+
+    order_count = session.scalar(select(func.count()).select_from(OrderRecord))
+
+    assert result.status == "auto_halted"
+    assert "live futures liquidation buffer below configured minimum" in result.detail
+    assert result.risk_reason == "live futures liquidation buffer below configured minimum"
+    assert order_count == 0
+
+
 def test_returns_no_signal_without_persisting_orders(tmp_path: Path) -> None:
     service, session, settings = build_service(tmp_path)
     store_closes(session, settings, [10, 11, 12, 13, 14, 15, 16, 17])

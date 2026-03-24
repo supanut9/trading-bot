@@ -175,6 +175,7 @@ def test_status_endpoint_returns_live_account_balances_when_enabled(
     assert payload["live_max_strategy_exposure_notional"] is None
     assert payload["live_futures_leverage"] == 1
     assert payload["live_futures_margin_mode"] == "ISOLATED"
+    assert payload["live_futures_min_liquidation_buffer_pct"] is None
     assert payload["latest_price_status"] == "available"
     assert payload["latest_price"] == "104321.55"
     assert payload["account_balance_status"] == "available"
@@ -238,6 +239,7 @@ def test_status_endpoint_returns_portfolio_risk_limit_configuration(tmp_path: Pa
         LIVE_MAX_STRATEGY_EXPOSURE_NOTIONAL=Decimal("275"),
         LIVE_FUTURES_LEVERAGE=12,
         LIVE_FUTURES_MARGIN_MODE="CROSS",
+        LIVE_FUTURES_MIN_LIQUIDATION_BUFFER_PCT=Decimal("0.08"),
     )
     engine = create_engine_from_settings(settings)
     Base.metadata.create_all(bind=engine)
@@ -269,6 +271,7 @@ def test_status_endpoint_returns_portfolio_risk_limit_configuration(tmp_path: Pa
     assert payload["live_max_strategy_exposure_notional"] == "275"
     assert payload["live_futures_leverage"] == 12
     assert payload["live_futures_margin_mode"] == "CROSS"
+    assert payload["live_futures_min_liquidation_buffer_pct"] == "0.08"
 
 
 def test_status_endpoint_surfaces_recovery_summary(tmp_path: Path) -> None:
