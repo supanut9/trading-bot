@@ -1207,3 +1207,15 @@ The repo now enforces both a leverage ceiling and an isolated liquidation buffer
 ### Consequence
 
 `/status` and reporting now surface an operator-readable futures risk summary with effective leverage, leverage-cap headroom, and estimated isolated liquidation buffer when the runtime is in futures mode. Cross-margin posture remains visible, but buffer estimates stay intentionally unavailable there because no trustworthy local liquidation formula is enforced yet.
+
+### Decision
+
+Add one bounded live futures wallet-balance guard before exchange submission.
+
+### Reason
+
+The repo now validates leverage, margin mode, leverage ceilings, and isolated liquidation buffers, but it still assumes the futures wallet can fund the requested order. A simple initial-margin sufficiency check closes that obvious funding gap without widening into full futures wallet accounting or cross-margin ratio simulation.
+
+### Consequence
+
+Before a live futures order is submitted, the runtime now estimates initial margin as `price * quantity / leverage` and compares it to the quote-asset futures wallet balance returned by the exchange client. Orders that are obviously unfundable fail closed before submission, and the worker path surfaces that state as an explicit futures margin-balance rejection.

@@ -1953,3 +1953,104 @@ Main outputs:
 - tests proving the derived status and reporting surfaces stay aligned with the backend policy
 
 Why: The repo now enforces a futures leverage cap and an isolated liquidation buffer, but operators still have to infer their current margin posture from scattered raw config fields. The next bounded step is to expose that safety posture directly so the same leverage and liquidation story is visible before a rejection happens.
+
+### 96. `feature/live-futures-margin-balance-guard`
+
+Status:
+
+- in progress on `feature/live-futures-margin-balance-guard`
+
+Scope:
+
+- reject live futures entries when the available quote-asset futures wallet balance is obviously below the estimated initial margin needed for the new order
+- keep the guard bounded to simple wallet-balance sufficiency using local order price, quantity, and leverage
+- keep the feature out of broader wallet accounting, unrealized PnL modeling, cross-margin liquidation math, or exchange-side margin-ratio simulation
+
+Main outputs:
+
+- pre-submit live futures guard that estimates required initial margin as `price * quantity / leverage`
+- fail-closed rejection when the quote-asset futures wallet balance is below that estimate
+- worker rejection handling that surfaces an explicit futures margin-balance reason instead of an unhandled execution failure
+- tests proving the guard blocks insufficient balance and allows sufficient balance
+
+Why: The repo now controls live futures leverage, margin mode, leverage caps, and isolated liquidation buffers, but it still assumes the wallet can fund the requested order. The next bounded safety step is to block obviously unfundable futures entries before order submission.
+
+### 97. `feature/live-futures-margin-balance-visibility`
+
+Status:
+
+- planned
+
+Scope:
+
+- expose the quote-asset futures wallet balance, estimated required initial margin, and remaining headroom through status and reporting
+- reuse the same initial-margin estimate as feature 96 so the visibility surface matches the runtime guard
+- keep the feature bounded to derived operator visibility, not new control writes or exchange-side margin-ratio polling
+
+Main outputs:
+
+- `/status` visibility for available futures wallet balance and estimated initial-margin requirement
+- reporting UI panel that explains current futures funding headroom in operator-readable terms
+- tests proving the visibility stays aligned with the backend guard formula
+
+Why: Once the runtime can reject obviously unfundable futures entries, the next operator gap is not knowing how close the wallet is to that threshold before a rejection happens.
+
+### 98. `feature/live-futures-risk-reject-context`
+
+Status:
+
+- planned
+
+Scope:
+
+- standardize futures-specific rejection reasons across worker, control, and audit payloads
+- surface machine-readable context for leverage-cap, liquidation-buffer, and margin-balance rejections
+- keep the feature bounded to rejection context and operator auditability, not new futures policy rules
+
+Main outputs:
+
+- structured futures reject context in worker and control results
+- audit payloads that preserve the futures-specific rejection reason
+- tests proving futures guard failures remain distinguishable in operator workflows
+
+Why: The futures runtime now has multiple independent fail-closed checks. Operators need those failures to stay explicit and machine-readable instead of collapsing into generic execution errors.
+
+### 99. `feature/live-futures-controls-ui`
+
+Status:
+
+- planned
+
+Scope:
+
+- surface futures-specific leverage, liquidation, and margin-balance posture directly in the controls UI
+- show the latest futures rejection context near the relevant live controls
+- keep the feature bounded to operator UI visibility, not new backend control mutations
+
+Main outputs:
+
+- controls-page panel for futures safety posture
+- live control responses that render futures reject context cleanly in the operator UI
+- frontend tests covering the new futures safety panel and result rendering
+
+Why: The backend futures safety posture is becoming stronger than the operator controls surface. The next bounded step is to let operators see those futures-specific blockers where they actually act on runtime controls.
+
+### 100. `feature/live-futures-safety-closeout`
+
+Status:
+
+- planned
+
+Scope:
+
+- reconcile the completed futures safety slices in product, roadmap, runbook, and decisions docs
+- close any remaining doc drift between futures runtime guards, visibility, and operator workflows
+- keep the feature bounded to documentation and workflow consolidation, not new futures execution logic
+
+Main outputs:
+
+- docs closeout for the feature 96-99 futures safety batch
+- runbook guidance that matches the shipped futures controls and operator surfaces
+- decisions summary for the bounded futures safety model now implemented on `main`
+
+Why: The futures execution groundwork is now being built as a cluster of small, safe features. A dedicated closeout slice keeps the repo documentation coherent before the next phase widens further.

@@ -32,6 +32,10 @@ class InsufficientExpectedProfitError(ValueError):
     """Raised when expected profit does not cover fees."""
 
 
+class InsufficientFuturesMarginBalanceError(ValueError):
+    """Raised when the futures wallet balance is below estimated initial margin."""
+
+
 @dataclass(frozen=True, slots=True)
 class LiveExecutionResult:
     order: OrderRecord
@@ -120,6 +124,11 @@ class LiveExecutionService:
                 f"estimated round-trip fees ({round_trip_fee_pct:.4f}%)"
             )
 
+        self._validate_futures_margin_balance(
+            request=request,
+            execution_price=price,
+        )
+
         order = self._orders.create(
             exchange=request.exchange,
             symbol=request.symbol,
@@ -184,6 +193,44 @@ class LiveExecutionService:
             leverage=leverage,
         )
 
+    def _validate_futures_margin_balance(
+        self,
+        *,
+        request: PaperExecutionRequest,
+        execution_price: Decimal,
+    ) -> None:
+        if request.trading_mode != "FUTURES":
+            return
+        if self._settings.live_order_validate_only:
+            return
+
+        leverage = request.leverage or self._settings.live_futures_leverage
+        quote_asset = self._split_symbol_assets(request.symbol)[1]
+        available_balance = Decimal("0")
+        for balance in self._client.fetch_account_balances():
+            if balance.asset.upper() == quote_asset:
+                available_balance = balance.free
+                break
+
+        required_initial_margin = (request.quantity * execution_price) / Decimal(leverage)
+        if available_balance >= required_initial_margin:
+            return
+
+        logger.warning(
+            "live_order_blocked reason=insufficient_futures_margin_balance "
+            "symbol=%s quote_asset=%s available_balance=%s required_initial_margin=%s leverage=%s",
+            request.symbol,
+            quote_asset,
+            format(available_balance, "f"),
+            format(required_initial_margin, "f"),
+            leverage,
+        )
+        raise InsufficientFuturesMarginBalanceError(
+            "available futures wallet balance is below estimated initial margin "
+            f"for {quote_asset} ({available_balance:.4f} available vs "
+            f"{required_initial_margin:.4f} required)"
+        )
+
     def _validate_no_duplicate_live_order(self, request: PaperExecutionRequest) -> None:
         if not self._orders.has_active_live_order(
             exchange=request.exchange,
@@ -206,3 +253,8 @@ class LiveExecutionService:
             raise ValueError("cannot execute sell without an existing position")
         if request.quantity > current_position.quantity:
             raise ValueError("cannot execute sell larger than existing position")
+
+    @staticmethod
+    def _split_symbol_assets(symbol: str) -> tuple[str, str]:
+        base_asset, quote_asset = symbol.split("/", maxsplit=1)
+        return base_asset.upper(), quote_asset.upper()
