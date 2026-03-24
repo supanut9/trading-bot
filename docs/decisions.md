@@ -1219,3 +1219,15 @@ The repo now validates leverage, margin mode, leverage ceilings, and isolated li
 ### Consequence
 
 Before a live futures order is submitted, the runtime now estimates initial margin as `price * quantity / leverage` and compares it to the quote-asset futures wallet balance returned by the exchange client. Orders that are obviously unfundable fail closed before submission, and the worker path surfaces that state as an explicit futures margin-balance rejection.
+
+### Decision
+
+Expose one bounded futures margin-visibility block through status and reporting after the wallet-balance guard exists.
+
+### Reason
+
+Once the runtime can reject obviously unfundable futures entries, operators still lack a direct view of funding headroom before they hit that guard. A small derived visibility block closes that operator gap without introducing new exchange-side margin simulation or control writes.
+
+### Consequence
+
+`/status` and reporting now expose available quote-asset wallet balance, an estimated initial-margin requirement using the same `order_notional / leverage` formula as the runtime guard, and remaining wallet headroom. When `LIVE_MAX_ORDER_NOTIONAL` is configured, that value becomes the visibility basis; otherwise the visibility falls back to a risk-sized next-order estimate.

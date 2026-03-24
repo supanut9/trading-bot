@@ -472,6 +472,64 @@ export function ReportingPage() {
           </Card>
         ) : null}
 
+        {status?.live_futures_margin_visibility ? (
+          <Card>
+            <CardHeader>
+              <div>
+                <CardTitle>Futures Margin Visibility</CardTitle>
+                <CardDescription>
+                  Estimated wallet funding headroom for the current futures runtime posture.
+                </CardDescription>
+              </div>
+              <div className="rounded-2xl bg-amber-300/10 p-3 text-amber-100">
+                <WalletCards className="h-5 w-5" />
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-5">
+              <div className="grid gap-4 lg:grid-cols-4">
+                <MetricBlock
+                  label="Wallet"
+                  value={formatDecimal(status.live_futures_margin_visibility.available_wallet_balance)}
+                  detail={status.live_futures_margin_visibility.quote_asset}
+                />
+                <MetricBlock
+                  label="Order Basis"
+                  value={formatDecimal(status.live_futures_margin_visibility.estimated_order_notional)}
+                  detail={status.live_futures_margin_visibility.estimate_basis.replace(/_/g, " ")}
+                />
+                <MetricBlock
+                  label="Required Margin"
+                  value={formatDecimal(
+                    status.live_futures_margin_visibility.estimated_initial_margin_required,
+                  )}
+                  detail={`${status.live_futures_margin_visibility.effective_leverage}x leverage`}
+                />
+                <MetricBlock
+                  label="Headroom"
+                  value={formatSignedDecimal(
+                    status.live_futures_margin_visibility.remaining_wallet_headroom,
+                  )}
+                  detail={status.live_futures_margin_visibility.status.replace(/_/g, " ")}
+                />
+              </div>
+
+              <div className="rounded-[1.8rem] border border-white/10 bg-white/[0.03] p-5">
+                <div className="flex flex-wrap gap-3">
+                  <Badge variant="warning">
+                    {status.live_futures_margin_visibility.quote_asset}
+                  </Badge>
+                  <Badge variant="info">
+                    {status.live_futures_margin_visibility.status.replace(/_/g, " ")}
+                  </Badge>
+                </div>
+                <p className="mt-3 text-sm text-slate-300">
+                  {status.live_futures_margin_visibility.summary}
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        ) : null}
+
         <div className="grid gap-5 xl:grid-cols-[minmax(0,1.15fr)_minmax(360px,0.85fr)]">
           <Card>
             <CardHeader>

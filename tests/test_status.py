@@ -178,6 +178,7 @@ def test_status_endpoint_returns_live_account_balances_when_enabled(
     assert payload["live_futures_margin_mode"] == "ISOLATED"
     assert payload["live_futures_min_liquidation_buffer_pct"] is None
     assert payload["live_futures_risk_visibility"] is None
+    assert payload["live_futures_margin_visibility"] is None
     assert payload["latest_price_status"] == "available"
     assert payload["latest_price"] == "104321.55"
     assert payload["account_balance_status"] == "available"
@@ -435,6 +436,77 @@ def test_status_endpoint_surfaces_isolated_futures_buffer_visibility(tmp_path: P
     assert payload["live_futures_risk_visibility"]["minimum_liquidation_buffer_pct"] == "0.05"
     assert payload["live_futures_risk_visibility"]["estimated_liquidation_buffer_pct"] == "0.196"
     assert payload["live_futures_risk_visibility"]["remaining_liquidation_buffer_pct"] == "0.146"
+
+
+def test_status_endpoint_surfaces_futures_margin_visibility_when_live_balance_is_available(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    settings = Settings(
+        DATABASE_URL=f"sqlite:///{tmp_path / 'status_futures_margin_visibility.db'}",
+        PAPER_TRADING=False,
+        LIVE_TRADING_ENABLED=True,
+        EXCHANGE_API_KEY="key",
+        EXCHANGE_API_SECRET="secret",
+        TRADING_MODE="FUTURES",
+        LIVE_FUTURES_LEVERAGE=5,
+        LIVE_MAX_ORDER_NOTIONAL=Decimal("100"),
+    )
+
+    class FakeClient:
+        def fetch_account_balances(self):
+            from app.infrastructure.exchanges.base import ExchangeAssetBalance
+
+            return [
+                ExchangeAssetBalance(asset="USDT", free=Decimal("250.00"), locked=Decimal("0")),
+                ExchangeAssetBalance(asset="BTC", free=Decimal("0.005"), locked=Decimal("0")),
+            ]
+
+    class FakeMarketDataClient:
+        def fetch_latest_price(self, *, symbol: str):
+            from app.infrastructure.exchanges.base import ExchangeTickerPrice
+
+            return ExchangeTickerPrice(symbol=symbol, price=Decimal("104321.55"))
+
+    monkeypatch.setattr(
+        "app.application.services.status_service.build_live_order_exchange_client",
+        lambda _settings, **kwargs: FakeClient(),
+    )
+    monkeypatch.setattr(
+        "app.application.services.status_service.build_market_data_exchange_client",
+        lambda _settings: FakeMarketDataClient(),
+    )
+
+    engine = create_engine_from_settings(settings)
+    Base.metadata.create_all(bind=engine)
+    session_factory = create_session_factory(settings)
+    session = session_factory()
+
+    def override_get_session():
+        try:
+            yield session
+        finally:
+            pass
+
+    app.dependency_overrides[get_settings] = lambda: settings
+    app.dependency_overrides[get_session] = override_get_session
+
+    try:
+        client = TestClient(app)
+        response = client.get("/status")
+    finally:
+        app.dependency_overrides.clear()
+        session.close()
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["live_futures_margin_visibility"]["quote_asset"] == "USDT"
+    assert payload["live_futures_margin_visibility"]["available_wallet_balance"] == "250.00"
+    assert payload["live_futures_margin_visibility"]["estimated_order_notional"] == "100"
+    assert payload["live_futures_margin_visibility"]["estimated_initial_margin_required"] == "20"
+    assert payload["live_futures_margin_visibility"]["remaining_wallet_headroom"] == "230.00"
+    assert payload["live_futures_margin_visibility"]["estimate_basis"] == "live_max_order_notional"
+    assert payload["live_futures_margin_visibility"]["status"] == "max_order_fundable"
 
 
 def test_status_endpoint_prefers_runtime_promotion_stage_when_present(tmp_path: Path) -> None:

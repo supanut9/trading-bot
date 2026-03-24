@@ -43,6 +43,20 @@ class FuturesRiskVisibilityResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class FuturesMarginVisibilityResponse(BaseModel):
+    quote_asset: str
+    available_wallet_balance: Decimal
+    estimated_order_notional: Decimal
+    estimated_initial_margin_required: Decimal
+    remaining_wallet_headroom: Decimal
+    estimate_basis: str
+    effective_leverage: int
+    status: str
+    summary: str
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class StatusResponse(BaseModel):
     app: str
     environment: str
@@ -81,6 +95,7 @@ class StatusResponse(BaseModel):
     latest_price: Decimal | None = None
     latest_performance_review_decision: "PerformanceReviewDecisionResponse | None" = None
     live_futures_risk_visibility: FuturesRiskVisibilityResponse | None = None
+    live_futures_margin_visibility: FuturesMarginVisibilityResponse | None = None
     live_recovery_summary: RecoverySummaryResponse | None = None
     account_balance_status: str
     account_balances: list[AccountBalanceResponse] = Field(default_factory=list)

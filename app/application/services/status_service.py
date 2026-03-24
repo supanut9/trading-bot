@@ -99,6 +99,11 @@ class StatusService:
                     "locked": "0.000000",
                 }
             ]
+        live_futures_margin_visibility = self._live_futures_margin_visibility(
+            effective_operator_config=effective_operator_config,
+            balance_status=balance_status,
+            account_balances=account_balances,
+        )
         return {
             "app": self._settings.app_name,
             "environment": self._settings.app_env,
@@ -165,6 +170,7 @@ class StatusService:
             "latest_price": latest_price,
             "latest_performance_review_decision": latest_performance_review_decision,
             "live_futures_risk_visibility": live_futures_risk_visibility,
+            "live_futures_margin_visibility": live_futures_margin_visibility,
             "live_recovery_summary": live_recovery_summary,
             "account_balance_status": balance_status,
             "account_balances": account_balances,
@@ -335,6 +341,72 @@ class StatusService:
             "status": status,
             "summary": summary,
         }
+
+    def _live_futures_margin_visibility(
+        self,
+        *,
+        effective_operator_config: dict[str, str | int],
+        balance_status: str,
+        account_balances: list[dict[str, str]],
+    ) -> dict[str, str | int] | None:
+        trading_mode = str(effective_operator_config.get("trading_mode", "SPOT"))
+        if trading_mode != "FUTURES" or balance_status != "available":
+            return None
+
+        leverage = int(effective_operator_config["leverage"])
+        _base_asset, quote_asset = self._split_symbol_assets(
+            str(effective_operator_config["symbol"])
+        )
+        available_wallet_balance = Decimal("0")
+        for balance in account_balances:
+            if str(balance["asset"]).upper() == quote_asset:
+                available_wallet_balance = Decimal(str(balance["free"]))
+                break
+
+        if self._settings.live_max_order_notional is not None:
+            estimate_basis = "live_max_order_notional"
+            estimated_order_notional = self._settings.live_max_order_notional
+        else:
+            estimate_basis = "risk_sized_order"
+            estimated_order_notional = available_wallet_balance * Decimal(
+                str(self._settings.risk_per_trade_pct)
+            )
+
+        estimated_initial_margin_required = estimated_order_notional / Decimal(leverage)
+        remaining_wallet_headroom = available_wallet_balance - estimated_initial_margin_required
+        status = (
+            "max_order_fundable"
+            if remaining_wallet_headroom >= Decimal("0")
+            else "max_order_underfunded"
+        )
+        basis_summary = (
+            "configured live max order notional"
+            if estimate_basis == "live_max_order_notional"
+            else "risk-sized next order"
+        )
+        summary = (
+            f"{quote_asset} futures wallet has {available_wallet_balance:.4f} available. "
+            f"Estimated initial margin for the {basis_summary} is "
+            f"{estimated_initial_margin_required:.4f} at {leverage}x leverage, leaving "
+            f"{remaining_wallet_headroom:.4f} headroom."
+        )
+
+        return {
+            "quote_asset": quote_asset,
+            "available_wallet_balance": format(available_wallet_balance, "f"),
+            "estimated_order_notional": format(estimated_order_notional, "f"),
+            "estimated_initial_margin_required": format(estimated_initial_margin_required, "f"),
+            "remaining_wallet_headroom": format(remaining_wallet_headroom, "f"),
+            "estimate_basis": estimate_basis,
+            "effective_leverage": leverage,
+            "status": status,
+            "summary": summary,
+        }
+
+    @staticmethod
+    def _split_symbol_assets(symbol: str) -> tuple[str, str]:
+        base_asset, quote_asset = symbol.split("/", maxsplit=1)
+        return base_asset.upper(), quote_asset.upper()
 
     def _latest_performance_review_decision(
         self,
