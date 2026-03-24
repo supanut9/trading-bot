@@ -64,6 +64,18 @@ test("renders reporting analytics, recovery data, and export links", async () =>
               summary:
                 "Isolated futures are using 5x leverage with an estimated liquidation buffer of 0.1960 and 0.1460 remaining versus the configured minimum.",
             },
+            live_futures_margin_visibility: {
+              quote_asset: "USDT",
+              available_wallet_balance: "250.00",
+              estimated_order_notional: "100.00",
+              estimated_initial_margin_required: "20.00",
+              remaining_wallet_headroom: "230.00",
+              estimate_basis: "live_max_order_notional",
+              effective_leverage: 5,
+              status: "max_order_fundable",
+              summary:
+                "USDT futures wallet has 250.0000 available. Estimated initial margin for the configured live max order notional is 20.0000 at 5x leverage, leaving 230.0000 headroom.",
+            },
             exchange: "binance",
             strategy_name: "ema_crossover",
             symbol: "BTC/USDT",
@@ -78,8 +90,8 @@ test("renders reporting analytics, recovery data, and export links", async () =>
             runtime_promotion_stage: "shadow",
             runtime_promotion_blockers: [],
             runtime_promotion_next_prerequisite: null,
-            account_balance_status: "not_available",
-            account_balances: [],
+            account_balance_status: "available",
+            account_balances: [{ asset: "USDT", free: "250.00", locked: "0" }],
           }),
         ),
       );
@@ -371,7 +383,11 @@ test("renders reporting analytics, recovery data, and export links", async () =>
   await waitFor(() =>
     expect(screen.getByText("Futures Risk Visibility")).toBeInTheDocument(),
   );
+  await waitFor(() =>
+    expect(screen.getByText("Futures Margin Visibility")).toBeInTheDocument(),
+  );
   expect(screen.getAllByText("isolated buffer ok")).toHaveLength(2);
+  expect(screen.getAllByText("max order fundable").length).toBeGreaterThan(0);
   expect(screen.getByText("Daily performance")).toBeInTheDocument();
   expect(screen.getByText("Recovery Overview")).toBeInTheDocument();
   expect(screen.getByText("Recovery Queue")).toBeInTheDocument();

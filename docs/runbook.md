@@ -296,6 +296,7 @@ Operator runtime config:
 - when a maximum live futures leverage cap is configured, operator runtime updates above that cap fail closed and the same ceiling is enforced again during live risk approval
 - `GET /status` and the reporting deck also expose one derived futures risk visibility block so operators can review leverage-cap headroom and isolated liquidation-buffer posture before relying on live futures mode
 - live futures submission now also fails closed when the quote-asset futures wallet balance is below the estimated initial margin required for the requested order; the worker reports this as `insufficient_futures_margin_balance`
+- `GET /status` and the reporting deck also expose one futures margin visibility block showing available quote-asset wallet balance, estimated initial-margin requirement, and remaining funding headroom for the current futures runtime posture
 
 Deployment packaging:
 
