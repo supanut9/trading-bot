@@ -1890,7 +1890,7 @@ Why: The repo now applies leverage and margin mode before live futures submissio
 
 Status:
 
-- in progress on `feature/futures-operator-runtime-controls`
+- completed on `main`
 
 Scope:
 

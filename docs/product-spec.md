@@ -69,7 +69,7 @@ Profitability improvements (what separates this bot from better real-world bots)
 10. `feature/per-strategy-live-risk-caps` — enforce live per-strategy notional exposure limits using persisted position strategy identity (completed)
 11. `feature/live-futures-execution-controls` — apply configured leverage and margin mode before live futures submissions (completed)
 12. `feature/live-futures-liquidation-guards` — reject isolated live futures entries when configured leverage leaves too little liquidation buffer (completed)
-13. `feature/futures-operator-runtime-controls` — persist futures leverage and margin mode in operator runtime config so live futures defaults can change without restart (in progress)
+13. `feature/futures-operator-runtime-controls` — persist futures leverage and margin mode in operator runtime config so live futures defaults can change without restart (completed)
 
 ## Initial Market And Strategy
 
