@@ -1909,3 +1909,26 @@ Main outputs:
 - tests proving the control path, status surface, schema reconciliation, and live futures request propagation
 
 Why: Live futures execution and liquidation guards now exist, but leverage and margin mode are still settings-driven. That forces a restart to change operator-approved runtime defaults and leaves the control path incomplete. Persisting these futures controls in operator runtime config is the next bounded step because it makes the existing operator workflow authoritative without widening into a broader futures risk-policy feature.
+
+### 94. `feature/live-futures-max-leverage-cap`
+
+Status:
+
+- in progress on `feature/live-futures-max-leverage-cap`
+
+Scope:
+
+- add one configurable maximum leverage cap for live futures runtime approval
+- reject live futures entries when the effective operator-selected leverage exceeds that cap
+- expose the configured cap through status and enforce it during operator runtime-config updates
+- keep the feature bounded to a simple leverage ceiling, not mark-price polling, margin-ratio simulation, or a broader futures policy engine
+
+Main outputs:
+
+- runtime setting for a maximum allowed live futures leverage
+- config and operator-runtime validation that reject leverage above the configured cap
+- risk-service rejection path for live futures entries above the configured leverage ceiling
+- status visibility for the configured live futures max leverage
+- tests proving the cap blocks only the intended live futures path
+
+Why: The repo now supports operator-managed futures leverage and margin mode, but the isolated liquidation guard only covers one margin mode and does not set any global ceiling on allowable leverage. A bounded max-leverage cap is the next safe step because it constrains both isolated and cross-margin live futures operation without widening into a full leverage policy feature.

@@ -30,6 +30,7 @@ class RiskLimits:
     live_futures_leverage: int = 1
     live_futures_margin_mode: Literal["ISOLATED", "CROSS"] = "ISOLATED"
     live_futures_min_liquidation_buffer_pct: Decimal | None = None
+    live_futures_max_leverage: int | None = None
     symbol_rules: SymbolRules | None = field(default=None, compare=True)
     volatility_sizing_enabled: bool = False
 

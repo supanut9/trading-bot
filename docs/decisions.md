@@ -1183,3 +1183,15 @@ After the repo gained live futures execution controls and liquidation-distance g
 ### Consequence
 
 Operator runtime config now becomes the effective source for live futures leverage and margin mode when present, `SPOT` config normalizes back to `1x` isolated defaults, and the worker plus live execution path can apply operator-managed futures defaults without a restart. The minimum liquidation buffer remains a settings-driven safety policy for now.
+
+### Decision
+
+Add one bounded maximum leverage ceiling for live futures runtime config and risk approval.
+
+### Reason
+
+Once leverage became operator-managed at runtime, the next safety gap was that the system still accepted any exchange-supported leverage up to 125x, while the existing liquidation-distance guard only covered isolated margin. A simple configured ceiling closes that gap for both isolated and cross-margin futures without requiring a broader mark-price or margin-ratio policy engine.
+
+### Consequence
+
+Live futures runtime config and live entry approval now share one maximum allowable leverage limit. Operator updates above that limit fail closed, status exposes the cap, and the risk path rejects live futures entries whose effective leverage exceeds the configured ceiling.

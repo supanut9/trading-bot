@@ -138,6 +138,7 @@ class StatusService:
                 else None
             ),
             "live_futures_leverage": effective_operator_config["leverage"],
+            "live_futures_max_leverage": self._settings.live_futures_max_leverage,
             "live_futures_margin_mode": effective_operator_config["margin_mode"],
             "live_futures_min_liquidation_buffer_pct": (
                 format(self._settings.live_futures_min_liquidation_buffer_pct, "f")

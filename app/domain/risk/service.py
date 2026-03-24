@@ -201,6 +201,19 @@ class RiskService:
             is_entry
             and portfolio.execution_mode == "live"
             and portfolio.trading_mode == "FUTURES"
+            and self._limits.live_futures_max_leverage is not None
+            and self._limits.live_futures_leverage > self._limits.live_futures_max_leverage
+        ):
+            return RiskDecision(
+                approved=False,
+                reason="live futures leverage exceeds configured maximum",
+                is_hard_violation=True,
+            )
+
+        if (
+            is_entry
+            and portfolio.execution_mode == "live"
+            and portfolio.trading_mode == "FUTURES"
             and self._limits.live_futures_margin_mode == "ISOLATED"
             and self._limits.live_futures_min_liquidation_buffer_pct is not None
         ):

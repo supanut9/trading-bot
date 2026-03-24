@@ -174,6 +174,7 @@ def test_status_endpoint_returns_live_account_balances_when_enabled(
     assert payload["live_max_concurrent_positions"] is None
     assert payload["live_max_strategy_exposure_notional"] is None
     assert payload["live_futures_leverage"] == 1
+    assert payload["live_futures_max_leverage"] is None
     assert payload["live_futures_margin_mode"] == "ISOLATED"
     assert payload["live_futures_min_liquidation_buffer_pct"] is None
     assert payload["latest_price_status"] == "available"
@@ -238,6 +239,7 @@ def test_status_endpoint_returns_portfolio_risk_limit_configuration(tmp_path: Pa
         LIVE_MAX_CONCURRENT_POSITIONS=3,
         LIVE_MAX_STRATEGY_EXPOSURE_NOTIONAL=Decimal("275"),
         LIVE_FUTURES_LEVERAGE=12,
+        LIVE_FUTURES_MAX_LEVERAGE=20,
         LIVE_FUTURES_MARGIN_MODE="CROSS",
         LIVE_FUTURES_MIN_LIQUIDATION_BUFFER_PCT=Decimal("0.08"),
     )
@@ -270,6 +272,7 @@ def test_status_endpoint_returns_portfolio_risk_limit_configuration(tmp_path: Pa
     assert payload["live_max_concurrent_positions"] == 3
     assert payload["live_max_strategy_exposure_notional"] == "275"
     assert payload["live_futures_leverage"] == 12
+    assert payload["live_futures_max_leverage"] == 20
     assert payload["live_futures_margin_mode"] == "CROSS"
     assert payload["live_futures_min_liquidation_buffer_pct"] == "0.08"
 
@@ -376,6 +379,7 @@ def test_status_endpoint_prefers_runtime_operator_config_when_present(tmp_path: 
     assert payload["slow_period"] == 5
     assert payload["trading_mode"] == "FUTURES"
     assert payload["live_futures_leverage"] == 15
+    assert payload["live_futures_max_leverage"] is None
     assert payload["live_futures_margin_mode"] == "CROSS"
     assert payload["operator_config_source"] == "runtime_config"
 

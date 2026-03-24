@@ -104,6 +104,10 @@ class Settings(BaseSettings):
         default=None,
         alias="LIVE_FUTURES_MIN_LIQUIDATION_BUFFER_PCT",
     )
+    live_futures_max_leverage: int | None = Field(
+        default=None,
+        alias="LIVE_FUTURES_MAX_LEVERAGE",
+    )
     live_consecutive_loss_auto_halt_threshold: int | None = Field(
         default=None,
         alias="LIVE_CONSECUTIVE_LOSS_AUTO_HALT_THRESHOLD",
@@ -303,6 +307,12 @@ class Settings(BaseSettings):
 
         if not 1 <= self.live_futures_leverage <= 125:
             raise ValueError("LIVE_FUTURES_LEVERAGE must be between 1 and 125")
+
+        if self.live_futures_max_leverage is not None:
+            if not 1 <= self.live_futures_max_leverage <= 125:
+                raise ValueError("LIVE_FUTURES_MAX_LEVERAGE must be between 1 and 125")
+            if self.live_futures_leverage > self.live_futures_max_leverage:
+                raise ValueError("LIVE_FUTURES_LEVERAGE must not exceed LIVE_FUTURES_MAX_LEVERAGE")
 
         if self.live_futures_min_liquidation_buffer_pct is not None and (
             self.live_futures_min_liquidation_buffer_pct <= Decimal("0")
