@@ -294,6 +294,7 @@ Operator runtime config:
 - `SPOT` runtime config is normalized to `leverage=1` and `margin_mode=ISOLATED`
 - when `trading_mode=FUTURES`, the persisted operator config becomes the effective runtime source for leverage and margin mode used by status and live submission preparation
 - when a maximum live futures leverage cap is configured, operator runtime updates above that cap fail closed and the same ceiling is enforced again during live risk approval
+- `GET /status` and the reporting deck also expose one derived futures risk visibility block so operators can review leverage-cap headroom and isolated liquidation-buffer posture before relying on live futures mode
 
 Deployment packaging:
 

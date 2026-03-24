@@ -24,6 +24,7 @@ export type StatusResponse = {
   latest_price_status: string;
   latest_price: string | null;
   latest_performance_review_decision: PerformanceReviewDecisionResponse | null;
+  live_futures_risk_visibility: FuturesRiskVisibilityResponse | null;
   live_recovery_summary: RecoverySummaryResponse | null;
   account_balance_status: string;
   account_balances: Array<{
@@ -31,6 +32,19 @@ export type StatusResponse = {
     free: string;
     locked: string;
   }>;
+};
+
+export type FuturesRiskVisibilityResponse = {
+  trading_mode: string;
+  margin_mode: string;
+  effective_leverage: number;
+  max_leverage: number | null;
+  leverage_headroom: number | null;
+  estimated_liquidation_buffer_pct: string | null;
+  minimum_liquidation_buffer_pct: string | null;
+  remaining_liquidation_buffer_pct: string | null;
+  status: string;
+  summary: string;
 };
 
 export type PerformanceReviewDecisionResponse = {

@@ -28,6 +28,21 @@ class RecoverySummaryResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class FuturesRiskVisibilityResponse(BaseModel):
+    trading_mode: str
+    margin_mode: str
+    effective_leverage: int
+    max_leverage: int | None = None
+    leverage_headroom: int | None = None
+    estimated_liquidation_buffer_pct: Decimal | None = None
+    minimum_liquidation_buffer_pct: Decimal | None = None
+    remaining_liquidation_buffer_pct: Decimal | None = None
+    status: str
+    summary: str
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class StatusResponse(BaseModel):
     app: str
     environment: str
@@ -65,6 +80,7 @@ class StatusResponse(BaseModel):
     latest_price_status: str
     latest_price: Decimal | None = None
     latest_performance_review_decision: "PerformanceReviewDecisionResponse | None" = None
+    live_futures_risk_visibility: FuturesRiskVisibilityResponse | None = None
     live_recovery_summary: RecoverySummaryResponse | None = None
     account_balance_status: str
     account_balances: list[AccountBalanceResponse] = Field(default_factory=list)

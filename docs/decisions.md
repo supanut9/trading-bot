@@ -1195,3 +1195,15 @@ Once leverage became operator-managed at runtime, the next safety gap was that t
 ### Consequence
 
 Live futures runtime config and live entry approval now share one maximum allowable leverage limit. Operator updates above that limit fail closed, status exposes the cap, and the risk path rejects live futures entries whose effective leverage exceeds the configured ceiling.
+
+### Decision
+
+Expose one derived futures-risk visibility block through status and reporting before adding further futures policy logic.
+
+### Reason
+
+The repo now enforces both a leverage ceiling and an isolated liquidation buffer, but operators still only see raw config values such as leverage, margin mode, and minimum buffer. That forces them to mentally reconstruct the actual safety posture. A bounded visibility slice closes that operator gap without introducing new mutation paths or exchange-side mark-price dependencies.
+
+### Consequence
+
+`/status` and reporting now surface an operator-readable futures risk summary with effective leverage, leverage-cap headroom, and estimated isolated liquidation buffer when the runtime is in futures mode. Cross-margin posture remains visible, but buffer estimates stay intentionally unavailable there because no trustworthy local liquidation formula is enforced yet.

@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
@@ -14,6 +16,7 @@ from app.application.services.performance_review_decision_service import (
 )
 from app.application.services.runtime_promotion_service import RuntimePromotionService
 from app.config import Settings
+from app.domain.risk.service import MAINTENANCE_MARGIN_RATE
 from app.infrastructure.database.session import create_engine_from_settings
 from app.infrastructure.exchanges.factory import (
     build_live_order_exchange_client,
@@ -35,6 +38,9 @@ class StatusService:
         latest_performance_review_decision = self._latest_performance_review_decision(
             exchange=self._settings.exchange_name,
             symbol=str(effective_operator_config["symbol"]),
+        )
+        live_futures_risk_visibility = self._live_futures_risk_visibility(
+            effective_operator_config=effective_operator_config
         )
         live_recovery_summary = self._live_recovery_summary()
         latest_price_status = "unavailable"
@@ -158,6 +164,7 @@ class StatusService:
             "latest_price_status": latest_price_status,
             "latest_price": latest_price,
             "latest_performance_review_decision": latest_performance_review_decision,
+            "live_futures_risk_visibility": live_futures_risk_visibility,
             "live_recovery_summary": live_recovery_summary,
             "account_balance_status": balance_status,
             "account_balances": account_balances,
@@ -255,6 +262,79 @@ class StatusService:
         except SQLAlchemyError:
             self._session.rollback()
             return {"stage": "paper", "blockers": [], "next_prerequisite": None}
+
+    def _live_futures_risk_visibility(
+        self,
+        *,
+        effective_operator_config: dict[str, str | int],
+    ) -> dict[str, str | int | None] | None:
+        trading_mode = str(effective_operator_config.get("trading_mode", "SPOT"))
+        if trading_mode != "FUTURES":
+            return None
+
+        leverage = int(effective_operator_config["leverage"])
+        margin_mode = str(effective_operator_config["margin_mode"])
+        max_leverage = self._settings.live_futures_max_leverage
+        leverage_headroom = max(max_leverage - leverage, 0) if max_leverage is not None else None
+        minimum_buffer = self._settings.live_futures_min_liquidation_buffer_pct
+
+        estimated_buffer: str | None = None
+        remaining_buffer: str | None = None
+        if margin_mode == "ISOLATED":
+            buffer_value = (Decimal("1") / Decimal(leverage)) - MAINTENANCE_MARGIN_RATE
+            estimated_buffer = format(buffer_value, "f")
+            if minimum_buffer is not None:
+                remaining_buffer = format(buffer_value - minimum_buffer, "f")
+
+        if max_leverage is not None and leverage > max_leverage:
+            status = "max_leverage_exceeded"
+            summary = (
+                f"Configured leverage {leverage}x exceeds the live futures max of {max_leverage}x."
+            )
+        elif margin_mode == "CROSS":
+            status = "cross_margin_buffer_unavailable"
+            summary = f"Cross-margin futures are using {leverage}x leverage" + (
+                f" with {leverage_headroom}x headroom to the configured cap."
+                if leverage_headroom is not None
+                else "."
+            )
+        else:
+            assert estimated_buffer is not None
+            estimated_buffer_value = Decimal(estimated_buffer)
+            if minimum_buffer is None:
+                status = "isolated_buffer_visible"
+                summary = (
+                    f"Isolated futures are using {leverage}x leverage with an estimated "
+                    f"liquidation buffer of {estimated_buffer_value:.4f}."
+                )
+            else:
+                remaining_buffer_value = Decimal(remaining_buffer or "0")
+                if remaining_buffer_value < Decimal("0"):
+                    status = "isolated_buffer_breached"
+                elif remaining_buffer_value <= Decimal("0.02"):
+                    status = "isolated_buffer_tight"
+                else:
+                    status = "isolated_buffer_ok"
+                summary = (
+                    f"Isolated futures are using {leverage}x leverage with an estimated "
+                    f"liquidation buffer of {estimated_buffer_value:.4f} and "
+                    f"{remaining_buffer_value:.4f} remaining versus the configured minimum."
+                )
+
+        return {
+            "trading_mode": trading_mode,
+            "margin_mode": margin_mode,
+            "effective_leverage": leverage,
+            "max_leverage": max_leverage,
+            "leverage_headroom": leverage_headroom,
+            "estimated_liquidation_buffer_pct": estimated_buffer,
+            "minimum_liquidation_buffer_pct": (
+                format(minimum_buffer, "f") if minimum_buffer is not None else None
+            ),
+            "remaining_liquidation_buffer_pct": remaining_buffer,
+            "status": status,
+            "summary": summary,
+        }
 
     def _latest_performance_review_decision(
         self,

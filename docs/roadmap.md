@@ -128,6 +128,7 @@ Profitability improvements — what separates this bot from better real-world bo
 - 27. `feature/live-futures-liquidation-guards` — add leverage-aware liquidation-distance guards for isolated live futures entries (completed)
 - 28. `feature/futures-operator-runtime-controls` — persist operator-managed futures leverage and margin mode through the control path and live execution runtime (completed)
 - 29. `feature/live-futures-max-leverage-cap` — enforce one configurable leverage ceiling across live futures runtime config and entry approval (completed)
+- 30. `feature/live-futures-liquidation-visibility` — expose effective futures leverage posture and isolated liquidation headroom through status and reporting (in progress)
 
 Project completion boundary:
 

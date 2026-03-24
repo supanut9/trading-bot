@@ -395,6 +395,83 @@ export function ReportingPage() {
           </div>
         ) : null}
 
+        {status?.live_futures_risk_visibility ? (
+          <Card>
+            <CardHeader>
+              <div>
+                <CardTitle>Futures Risk Visibility</CardTitle>
+                <CardDescription>
+                  Derived leverage-cap and liquidation-buffer posture from the active runtime
+                  futures config.
+                </CardDescription>
+              </div>
+              <div className="rounded-2xl bg-rose-300/10 p-3 text-rose-200">
+                <WalletCards className="h-5 w-5" />
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-5">
+              <div className="grid gap-4 lg:grid-cols-4">
+                <MetricBlock
+                  label="Leverage"
+                  value={`${status.live_futures_risk_visibility.effective_leverage}x`}
+                  detail={`Mode ${status.live_futures_risk_visibility.margin_mode}`}
+                />
+                <MetricBlock
+                  label="Cap"
+                  value={
+                    status.live_futures_risk_visibility.max_leverage !== null
+                      ? `${status.live_futures_risk_visibility.max_leverage}x`
+                      : "n/a"
+                  }
+                  detail={
+                    status.live_futures_risk_visibility.leverage_headroom !== null
+                      ? `${status.live_futures_risk_visibility.leverage_headroom}x headroom`
+                      : "No leverage cap configured"
+                  }
+                />
+                <MetricBlock
+                  label="Buffer"
+                  value={
+                    status.live_futures_risk_visibility.estimated_liquidation_buffer_pct !== null
+                      ? formatDecimal(
+                          status.live_futures_risk_visibility.estimated_liquidation_buffer_pct,
+                        )
+                      : "n/a"
+                  }
+                  detail={
+                    status.live_futures_risk_visibility.minimum_liquidation_buffer_pct !== null
+                      ? `Minimum ${formatDecimal(status.live_futures_risk_visibility.minimum_liquidation_buffer_pct)}`
+                      : "No minimum liquidation buffer configured"
+                  }
+                />
+                <MetricBlock
+                  label="Status"
+                  value={status.live_futures_risk_visibility.status.replace(/_/g, " ")}
+                  detail={
+                    status.live_futures_risk_visibility.remaining_liquidation_buffer_pct !== null
+                      ? `Remaining ${formatSignedDecimal(status.live_futures_risk_visibility.remaining_liquidation_buffer_pct)}`
+                      : "Buffer headroom unavailable for cross margin"
+                  }
+                />
+              </div>
+
+              <div className="rounded-[1.8rem] border border-white/10 bg-white/[0.03] p-5">
+                <div className="flex flex-wrap gap-3">
+                  <Badge variant="warning">
+                    {status.live_futures_risk_visibility.margin_mode}
+                  </Badge>
+                  <Badge variant="info">
+                    {status.live_futures_risk_visibility.status.replace(/_/g, " ")}
+                  </Badge>
+                </div>
+                <p className="mt-3 text-sm text-slate-300">
+                  {status.live_futures_risk_visibility.summary}
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        ) : null}
+
         <div className="grid gap-5 xl:grid-cols-[minmax(0,1.15fr)_minmax(360px,0.85fr)]">
           <Card>
             <CardHeader>
