@@ -124,7 +124,7 @@ Profitability improvements — what separates this bot from better real-world bo
 - 23. `feature/xgboost-signal-strategy` — ML-based signal generation using XGBoost on indicator features (implemented on `main`)
 - 24. `feature/durable-strategy-identity` — persist strategy identity on orders, trades, and positions before any per-strategy live governor (completed)
 - 25. `feature/per-strategy-live-risk-caps` — enforce live per-strategy notional caps using persisted position identity (completed)
-- 26. `feature/live-futures-execution-controls` — apply configured leverage and margin mode before live futures submissions (in progress)
+- 26. `feature/live-futures-execution-controls` — apply configured leverage and margin mode before live futures submissions (completed)
 
 Project completion boundary:
 

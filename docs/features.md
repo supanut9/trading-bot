@@ -1846,7 +1846,7 @@ Why: Durable strategy identity is now stored on execution records, so the system
 
 Status:
 
-- in progress
+- completed on `main`
 
 Scope:
 
