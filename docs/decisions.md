@@ -1159,3 +1159,15 @@ The system already supports futures-mode backtesting and can route live orders t
 ### Consequence
 
 Live futures submissions now depend on explicit configured leverage and margin mode, repeated Binance margin-mode configuration is treated idempotently, and the configured futures execution controls are visible through status. Leverage-aware liquidation and margin-risk policy remain separate later features.
+
+### Decision
+
+Implement the first leverage-aware runtime futures risk control as a deterministic liquidation-distance guard for isolated-margin entries.
+
+### Reason
+
+After configuring leverage and margin mode before submission, the next material futures safety gap is that the runtime still approves entries without considering how close configured leverage puts the position to liquidation. A bounded buffer check closes that gap without introducing exchange-side mark-price polling or a full leverage policy engine.
+
+### Consequence
+
+Live isolated-futures entries are now rejected when configured leverage implies less than the required liquidation-distance buffer. Cross-margin futures remain outside this guard for now, and broader leverage-aware risk policy remains a later feature.

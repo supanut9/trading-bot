@@ -95,6 +95,11 @@ class WorkerOrchestrationService:
             live_max_symbol_concentration_pct=settings.live_max_symbol_concentration_pct,
             live_max_concurrent_positions=settings.live_max_concurrent_positions,
             live_max_strategy_exposure_notional=settings.live_max_strategy_exposure_notional,
+            live_futures_leverage=settings.live_futures_leverage,
+            live_futures_margin_mode=settings.live_futures_margin_mode,
+            live_futures_min_liquidation_buffer_pct=(
+                settings.live_futures_min_liquidation_buffer_pct
+            ),
             volatility_sizing_enabled=settings.volatility_sizing_enabled,
         )
 

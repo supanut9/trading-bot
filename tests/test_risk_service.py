@@ -379,6 +379,71 @@ def test_rejects_live_entry_when_strategy_exposure_exceeds_limit() -> None:
     assert decision.reason == "live strategy exposure exceeds configured limit"
 
 
+def test_rejects_live_futures_entry_when_liquidation_buffer_below_minimum() -> None:
+    service = RiskService(
+        RiskLimits(
+            risk_per_trade_pct=Decimal("0.01"),
+            max_open_positions=5,
+            max_daily_loss_pct=Decimal("0.03"),
+            paper_trading_only=False,
+            live_futures_leverage=20,
+            live_futures_margin_mode="ISOLATED",
+            live_futures_min_liquidation_buffer_pct=Decimal("0.06"),
+        )
+    )
+
+    decision = service.evaluate(
+        portfolio=PortfolioState(
+            account_equity=Decimal("10000"),
+            open_positions=0,
+            current_position_quantity=Decimal("0"),
+            daily_realized_loss_pct=Decimal("0.00"),
+            weekly_realized_loss_pct=Decimal("0.00"),
+            concurrent_exposure_pct=Decimal("0.00"),
+            consecutive_losses=0,
+            execution_mode="live",
+            trading_mode="FUTURES",
+        ),
+        trade=TradeContext(signal=build_signal(), entry_price=Decimal("50000")),
+    )
+
+    assert decision.approved is False
+    assert decision.is_hard_violation is True
+    assert decision.reason == "live futures liquidation buffer below configured minimum"
+
+
+def test_allows_live_futures_entry_when_cross_margin_bypasses_liquidation_buffer_guard() -> None:
+    service = RiskService(
+        RiskLimits(
+            risk_per_trade_pct=Decimal("0.01"),
+            max_open_positions=5,
+            max_daily_loss_pct=Decimal("0.03"),
+            paper_trading_only=False,
+            live_futures_leverage=20,
+            live_futures_margin_mode="CROSS",
+            live_futures_min_liquidation_buffer_pct=Decimal("0.06"),
+        )
+    )
+
+    decision = service.evaluate(
+        portfolio=PortfolioState(
+            account_equity=Decimal("10000"),
+            open_positions=0,
+            current_position_quantity=Decimal("0"),
+            daily_realized_loss_pct=Decimal("0.00"),
+            weekly_realized_loss_pct=Decimal("0.00"),
+            concurrent_exposure_pct=Decimal("0.00"),
+            consecutive_losses=0,
+            execution_mode="live",
+            trading_mode="FUTURES",
+        ),
+        trade=TradeContext(signal=build_signal(), entry_price=Decimal("50000")),
+    )
+
+    assert decision.approved is True
+    assert decision.reason == "risk checks passed"
+
+
 def test_rejects_live_entry_when_symbol_concentration_exceeds_limit() -> None:
     service = RiskService(
         RiskLimits(

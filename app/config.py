@@ -100,6 +100,10 @@ class Settings(BaseSettings):
         default="ISOLATED",
         alias="LIVE_FUTURES_MARGIN_MODE",
     )
+    live_futures_min_liquidation_buffer_pct: Decimal | None = Field(
+        default=None,
+        alias="LIVE_FUTURES_MIN_LIQUIDATION_BUFFER_PCT",
+    )
     live_consecutive_loss_auto_halt_threshold: int | None = Field(
         default=None,
         alias="LIVE_CONSECUTIVE_LOSS_AUTO_HALT_THRESHOLD",
@@ -299,6 +303,14 @@ class Settings(BaseSettings):
 
         if not 1 <= self.live_futures_leverage <= 125:
             raise ValueError("LIVE_FUTURES_LEVERAGE must be between 1 and 125")
+
+        if self.live_futures_min_liquidation_buffer_pct is not None and (
+            self.live_futures_min_liquidation_buffer_pct <= Decimal("0")
+            or self.live_futures_min_liquidation_buffer_pct >= Decimal("1")
+        ):
+            raise ValueError(
+                "LIVE_FUTURES_MIN_LIQUIDATION_BUFFER_PCT must be between 0 and 1 when provided"
+            )
 
         limit_consec_loss = self.live_consecutive_loss_auto_halt_threshold
         if limit_consec_loss is not None and limit_consec_loss <= 0:

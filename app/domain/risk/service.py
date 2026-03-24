@@ -3,6 +3,8 @@ from decimal import ROUND_DOWN, Decimal
 from app.domain.order_rules import OrderRuleViolation, validate_and_snap_quantity
 from app.domain.risk.models import PortfolioState, RiskDecision, RiskLimits, TradeContext
 
+MAINTENANCE_MARGIN_RATE = Decimal("0.004")
+
 
 class RiskService:
     def __init__(self, limits: RiskLimits) -> None:
@@ -194,6 +196,25 @@ class RiskService:
                 reason="live position quantity exceeds configured limit",
                 is_hard_violation=True,
             )
+
+        if (
+            is_entry
+            and portfolio.execution_mode == "live"
+            and portfolio.trading_mode == "FUTURES"
+            and self._limits.live_futures_margin_mode == "ISOLATED"
+            and self._limits.live_futures_min_liquidation_buffer_pct is not None
+        ):
+            liquidation_buffer_pct = (
+                Decimal("1") / Decimal(self._limits.live_futures_leverage)
+            ) - MAINTENANCE_MARGIN_RATE
+            if liquidation_buffer_pct <= Decimal("0") or (
+                liquidation_buffer_pct < self._limits.live_futures_min_liquidation_buffer_pct
+            ):
+                return RiskDecision(
+                    approved=False,
+                    reason="live futures liquidation buffer below configured minimum",
+                    is_hard_violation=True,
+                )
 
         return RiskDecision(
             approved=True,
