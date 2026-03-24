@@ -1932,3 +1932,24 @@ Main outputs:
 - tests proving the cap blocks only the intended live futures path
 
 Why: The repo now supports operator-managed futures leverage and margin mode, but the isolated liquidation guard only covers one margin mode and does not set any global ceiling on allowable leverage. A bounded max-leverage cap is the next safe step because it constrains both isolated and cross-margin live futures operation without widening into a full leverage policy feature.
+
+### 95. `feature/live-futures-liquidation-visibility`
+
+Status:
+
+- in progress on `feature/live-futures-liquidation-visibility`
+
+Scope:
+
+- expose one operator-readable futures risk visibility block through status and reporting
+- show effective leverage, leverage-cap headroom, and estimated isolated liquidation buffer using the same formulas already enforced in runtime risk policy
+- keep the feature bounded to derived visibility only, not new control writes, exchange-side mark-price polling, or additional futures approval logic
+
+Main outputs:
+
+- `/status` visibility for effective futures leverage posture and leverage-cap headroom
+- derived isolated-margin liquidation buffer and remaining headroom versus the configured minimum
+- reporting UI panel that explains futures margin posture in operator-readable terms
+- tests proving the derived status and reporting surfaces stay aligned with the backend policy
+
+Why: The repo now enforces a futures leverage cap and an isolated liquidation buffer, but operators still have to infer their current margin posture from scattered raw config fields. The next bounded step is to expose that safety posture directly so the same leverage and liquidation story is visible before a rejection happens.

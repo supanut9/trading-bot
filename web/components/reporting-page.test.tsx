@@ -51,6 +51,19 @@ test("renders reporting analytics, recovery data, and export links", async () =>
             live_safety_status: "paper_only",
             live_max_order_notional: null,
             live_max_position_quantity: null,
+            live_futures_risk_visibility: {
+              trading_mode: "FUTURES",
+              margin_mode: "ISOLATED",
+              effective_leverage: 5,
+              max_leverage: 10,
+              leverage_headroom: 5,
+              estimated_liquidation_buffer_pct: "0.196",
+              minimum_liquidation_buffer_pct: "0.050",
+              remaining_liquidation_buffer_pct: "0.146",
+              status: "isolated_buffer_ok",
+              summary:
+                "Isolated futures are using 5x leverage with an estimated liquidation buffer of 0.1960 and 0.1460 remaining versus the configured minimum.",
+            },
             exchange: "binance",
             strategy_name: "ema_crossover",
             symbol: "BTC/USDT",
@@ -200,6 +213,20 @@ test("renders reporting analytics, recovery data, and export links", async () =>
             latest_recovery_event_status: "completed",
             latest_recovery_event_context:
               "order_id=44 client_order_id=live-order-44 order_status=canceled",
+            summary: {
+              posture: "manual_review_required",
+              dominant_recovery_state: "manual_review_required",
+              next_action: "inspect_exchange_state",
+              summary: "Manual review is required before trusting local recovery state.",
+              unresolved_order_count: 1,
+              awaiting_exchange_count: 0,
+              partial_fill_in_flight_count: 0,
+              stale_open_order_count: 0,
+              stale_partial_fill_count: 0,
+              manual_review_required_count: 1,
+              requires_operator_review_count: 1,
+              stale_order_count: 0,
+            },
             filters: {
               order_status: null,
               requires_review: null,
@@ -341,6 +368,10 @@ test("renders reporting analytics, recovery data, and export links", async () =>
   await waitFor(() =>
     expect(screen.getByText("Performance And Recovery Ledger")).toBeInTheDocument(),
   );
+  await waitFor(() =>
+    expect(screen.getByText("Futures Risk Visibility")).toBeInTheDocument(),
+  );
+  expect(screen.getAllByText("isolated buffer ok")).toHaveLength(2);
   expect(screen.getByText("Daily performance")).toBeInTheDocument();
   expect(screen.getByText("Recovery Overview")).toBeInTheDocument();
   expect(screen.getByText("Recovery Queue")).toBeInTheDocument();
