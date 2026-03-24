@@ -137,6 +137,8 @@ class StatusService:
                 if self._settings.live_max_strategy_exposure_notional is not None
                 else None
             ),
+            "live_futures_leverage": self._settings.live_futures_leverage,
+            "live_futures_margin_mode": self._settings.live_futures_margin_mode,
             "exchange": self._settings.exchange_name,
             "strategy_name": effective_operator_config["strategy_name"],
             "symbol": effective_operator_config["symbol"],

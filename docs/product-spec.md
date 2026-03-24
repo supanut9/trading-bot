@@ -67,6 +67,7 @@ Profitability improvements (what separates this bot from better real-world bots)
 8. `feature/xgboost-signal-strategy` — ML-based signal using XGBoost trained on indicator features (completed)
 9. `feature/durable-strategy-identity` — persist strategy identity on orders, trades, and positions before enforcing any per-strategy live-risk governor (completed)
 10. `feature/per-strategy-live-risk-caps` — enforce live per-strategy notional exposure limits using persisted position strategy identity (completed)
+11. `feature/live-futures-execution-controls` — apply configured leverage and margin mode before live futures submissions (in progress)
 
 ## Initial Market And Strategy
 
@@ -173,9 +174,10 @@ Profitability improvements (what separates this bot from better real-world bots)
 - execution mode must be configured explicitly as either paper or live, never both
 - explicit live mode must fail safely when exchange submission or later fill reconciliation cannot confirm runtime state
 - live-capable operation requires PostgreSQL persistence, backup coverage, startup sync, scheduled reconciliation, and tested alerts
+- live futures execution groundwork also requires explicit leverage and margin-mode configuration before submission
 - [x] **Feature: Futures/leverage support**
   - [x] Update config/settings for trading mode (SPOT/FUTURES)
-  - [ ] Implement Binance Futures exchange client
+  - [x] Implement Binance Futures exchange client
   - [x] Update database models for trading mode segregation
   - [x] Integrate trading mode into execution services (paper/live)
   - [x] Persist trading mode in operator configuration UI
@@ -184,7 +186,7 @@ Profitability improvements (what separates this bot from better real-world bots)
 - [x] Separate balance tracking (SPOT vs FUTURES wallets)
 - [ ] Multi-symbol concurrent backtesting
 - [ ] Portfolio-level risk metrics (VAR, Correlation)
-  - [ ] Implement leverage and margin controls in execution service
+  - [ ] Implement leverage-aware liquidation risk in runtime execution policy
   - [ ] Update RiskService to handle leverage-aware liquidation risk
 
 ## Current Paper Execution Baseline

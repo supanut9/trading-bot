@@ -1147,3 +1147,15 @@ The newly stored strategy identity is now durable enough to support a real safet
 ### Consequence
 
 Live risk evaluation now gains one optional per-strategy notional cap without changing the current one-position-per-symbol model. Operators can see the configured cap through status, and any future multi-strategy or per-strategy position-partitioning work remains a separate bounded feature.
+
+### Decision
+
+Treat live futures leverage and margin mode as explicit runtime execution controls that must be configured before a futures order is submitted.
+
+### Reason
+
+The system already supports futures-mode backtesting and can route live orders through the Binance futures client, but that is not a sufficient safety model if exchange-side leverage and margin mode are left implicit. The next bounded step is to configure those exchange-side controls in one place before live futures submission, without yet widening into liquidation-aware risk policy or operator-managed leverage workflows.
+
+### Consequence
+
+Live futures submissions now depend on explicit configured leverage and margin mode, repeated Binance margin-mode configuration is treated idempotently, and the configured futures execution controls are visible through status. Leverage-aware liquidation and margin-risk policy remain separate later features.
