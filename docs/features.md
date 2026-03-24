@@ -1868,7 +1868,7 @@ Why: The repo can already simulate futures leverage in backtests and route futur
 
 Status:
 
-- in progress
+- completed on `main`
 
 Scope:
 

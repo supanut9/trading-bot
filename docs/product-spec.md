@@ -68,7 +68,7 @@ Profitability improvements (what separates this bot from better real-world bots)
 9. `feature/durable-strategy-identity` — persist strategy identity on orders, trades, and positions before enforcing any per-strategy live-risk governor (completed)
 10. `feature/per-strategy-live-risk-caps` — enforce live per-strategy notional exposure limits using persisted position strategy identity (completed)
 11. `feature/live-futures-execution-controls` — apply configured leverage and margin mode before live futures submissions (completed)
-12. `feature/live-futures-liquidation-guards` — reject isolated live futures entries when configured leverage leaves too little liquidation buffer (in progress)
+12. `feature/live-futures-liquidation-guards` — reject isolated live futures entries when configured leverage leaves too little liquidation buffer (completed)
 
 ## Initial Market And Strategy
 
