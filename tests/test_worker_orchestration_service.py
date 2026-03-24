@@ -5,6 +5,9 @@ from unittest.mock import MagicMock, patch
 
 from sqlalchemy import func, select
 
+from app.application.services.live_execution_service import (
+    InsufficientFuturesMarginBalanceError,
+)
 from app.application.services.live_operator_control_service import LiveOperatorControlService
 from app.application.services.market_data_service import CandleInput, MarketDataService
 from app.application.services.market_data_sync_service import MarketDataSyncResult
@@ -467,6 +470,38 @@ def test_rejects_live_buy_when_active_live_order_exists(tmp_path: Path) -> None:
     assert result.status == "duplicate_live_order"
     assert result.detail == "active live order already exists for the same market side"
     assert result.signal_action == "buy"
+
+
+def test_rejects_live_futures_buy_when_execution_reports_insufficient_margin_balance(
+    tmp_path: Path,
+) -> None:
+    service, session, settings = build_service(
+        tmp_path,
+        PAPER_TRADING=False,
+        LIVE_TRADING_ENABLED=True,
+        EXCHANGE_API_KEY="key",
+        EXCHANGE_API_SECRET="secret",
+        TRADING_MODE="FUTURES",
+    )
+    store_closes(session, settings, [10, 10, 10, 10, 10, 9, 9, 9, 20])
+
+    class MarginBlockedExecutionService:
+        def execute(self, _request: PaperExecutionRequest) -> None:
+            raise InsufficientFuturesMarginBalanceError(
+                "available futures wallet balance is below estimated initial margin for USDT"
+            )
+
+    service._execution = MarginBlockedExecutionService()
+
+    with patch(
+        "app.application.services.worker_orchestration_service.QualificationService"
+    ) as mock_svc:
+        mock_svc.return_value.evaluate.return_value = MagicMock(all_passed=True)
+        result = service.run_cycle()
+
+    assert result.status == "insufficient_futures_margin_balance"
+    assert result.risk_reason == "insufficient_futures_margin_balance"
+    assert "available futures wallet balance is below estimated initial margin" in result.detail
 
 
 def test_rejects_live_buy_when_runtime_halt_override_is_enabled(tmp_path: Path) -> None:

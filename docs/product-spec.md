@@ -72,6 +72,11 @@ Profitability improvements (what separates this bot from better real-world bots)
 13. `feature/futures-operator-runtime-controls` — persist futures leverage and margin mode in operator runtime config so live futures defaults can change without restart (completed)
 14. `feature/live-futures-max-leverage-cap` — enforce one maximum allowed leverage ceiling for live futures runtime config and approval (completed)
 15. `feature/live-futures-liquidation-visibility` — expose operator-readable futures leverage and liquidation headroom through status and reporting (completed)
+16. `feature/live-futures-margin-balance-guard` — reject live futures entries when the futures wallet balance is obviously below estimated initial margin (in progress)
+17. `feature/live-futures-margin-balance-visibility` — expose futures wallet funding headroom through status and reporting (planned)
+18. `feature/live-futures-risk-reject-context` — standardize futures-specific rejection reasons across worker, control, and audit flows (planned)
+19. `feature/live-futures-controls-ui` — surface futures safety posture directly in the operator controls UI (planned)
+20. `feature/live-futures-safety-closeout` — reconcile the futures safety batch across docs and operator workflow guidance (planned)
 
 ## Initial Market And Strategy
 

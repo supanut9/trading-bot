@@ -9,6 +9,7 @@ from app.application.services.execution_factory import build_execution_service
 from app.application.services.live_execution_service import (
     DuplicateLiveOrderError,
     InsufficientExpectedProfitError,
+    InsufficientFuturesMarginBalanceError,
 )
 from app.application.services.live_operator_control_service import LiveOperatorControlService
 from app.application.services.market_data_service import MarketDataService
@@ -566,6 +567,23 @@ class WorkerOrchestrationService:
             return WorkerCycleResult(
                 status="insufficient_expected_profit",
                 detail=str(exc),
+                signal_action=signal.action,
+                client_order_id=client_order_id,
+            )
+        except InsufficientFuturesMarginBalanceError as exc:
+            logger.warning(
+                "worker_cycle_rejected reason=insufficient_futures_margin_balance "
+                "exchange=%s symbol=%s signal=%s client_order_id=%s detail=%s",
+                self._settings.exchange_name,
+                symbol,
+                signal.action,
+                client_order_id,
+                exc,
+            )
+            return WorkerCycleResult(
+                status="insufficient_futures_margin_balance",
+                detail=str(exc),
+                risk_reason="insufficient_futures_margin_balance",
                 signal_action=signal.action,
                 client_order_id=client_order_id,
             )

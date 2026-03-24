@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from app.application.services.live_execution_service import (
     DuplicateLiveOrderError,
     InsufficientExpectedProfitError,
+    InsufficientFuturesMarginBalanceError,
     LiveExecutionService,
 )
 from app.application.services.paper_execution_service import (
@@ -53,11 +54,13 @@ class RecordingFuturesClient(RecordingLiveClient):
         status: str = "submitted",
         exchange_order_id: str | None = "abc123",
         margin_mode_error: Exception | None = None,
+        balances: list[tuple[str, Decimal]] | None = None,
     ) -> None:
         super().__init__(status=status, exchange_order_id=exchange_order_id)
         self.margin_mode_calls: list[tuple[str, str]] = []
         self.leverage_calls: list[tuple[str, int]] = []
         self._margin_mode_error = margin_mode_error
+        self._balances = balances or [("USDT", Decimal("1000"))]
 
     def set_margin_mode(self, *, symbol: str, margin_mode: str) -> dict[str, object]:
         self.margin_mode_calls.append((symbol, margin_mode))
@@ -68,6 +71,14 @@ class RecordingFuturesClient(RecordingLiveClient):
     def set_leverage(self, *, symbol: str, leverage: int) -> dict[str, object]:
         self.leverage_calls.append((symbol, leverage))
         return {"symbol": symbol, "leverage": leverage}
+
+    def fetch_account_balances(self):
+        from app.infrastructure.exchanges.base import ExchangeAssetBalance
+
+        return [
+            ExchangeAssetBalance(asset=asset, free=free, locked=Decimal("0"))
+            for asset, free in self._balances
+        ]
 
 
 def build_service(tmp_path: Path) -> tuple[LiveExecutionService, Session]:
@@ -310,6 +321,63 @@ def test_treats_repeated_margin_mode_as_idempotent_for_futures(tmp_path: Path) -
             )
         )
 
+        assert futures_client.margin_mode_calls == [("BTC/USDT", "CROSS")]
+        assert futures_client.leverage_calls == [("BTC/USDT", 7)]
+        assert len(futures_client.calls) == 1
+    finally:
+        session.close()
+
+
+def test_rejects_futures_order_when_wallet_balance_is_below_estimated_initial_margin(
+    tmp_path: Path,
+) -> None:
+    client = RecordingFuturesClient(balances=[("USDT", Decimal("5"))])
+    service, session, futures_client = build_futures_service(tmp_path, client=client)
+    try:
+        with pytest.raises(
+            InsufficientFuturesMarginBalanceError,
+            match="available futures wallet balance is below estimated initial margin",
+        ):
+            service.execute(
+                PaperExecutionRequest(
+                    exchange="binance",
+                    symbol="BTC/USDT",
+                    side="buy",
+                    quantity=Decimal("0.002"),
+                    price=Decimal("50000"),
+                    mode="live",
+                    trading_mode="FUTURES",
+                    client_order_id="live-binance-btc-usdt-futures-low-wallet",
+                )
+            )
+
+        assert futures_client.margin_mode_calls == []
+        assert futures_client.leverage_calls == []
+        assert len(futures_client.calls) == 0
+    finally:
+        session.close()
+
+
+def test_allows_futures_order_when_wallet_balance_covers_estimated_initial_margin(
+    tmp_path: Path,
+) -> None:
+    client = RecordingFuturesClient(balances=[("USDT", Decimal("20"))])
+    service, session, futures_client = build_futures_service(tmp_path, client=client)
+    try:
+        result = service.execute(
+            PaperExecutionRequest(
+                exchange="binance",
+                symbol="BTC/USDT",
+                side="buy",
+                quantity=Decimal("0.002"),
+                price=Decimal("50000"),
+                mode="live",
+                trading_mode="FUTURES",
+                client_order_id="live-binance-btc-usdt-futures-funded",
+            )
+        )
+
+        assert result.order.status == "submitted"
         assert futures_client.margin_mode_calls == [("BTC/USDT", "CROSS")]
         assert futures_client.leverage_calls == [("BTC/USDT", 7)]
         assert len(futures_client.calls) == 1
