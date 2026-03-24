@@ -1914,7 +1914,7 @@ Why: Live futures execution and liquidation guards now exist, but leverage and m
 
 Status:
 
-- in progress on `feature/live-futures-max-leverage-cap`
+- completed on `main`
 
 Scope:
 
